@@ -14,7 +14,24 @@ function addWord(destReg: number, opmode: number, srcMode: number, srcReg: numbe
   return (0b1101 << 12) | (destReg << 9) | (opmode << 6) | (srcMode << 3) | srcReg
 }
 
+function subWord(destReg: number, opmode: number, srcMode: number, srcReg: number) {
+  return (0b1001 << 12) | (destReg << 9) | (opmode << 6) | (srcMode << 3) | srcReg
+}
+
+function cmpWord(destReg: number, opmode: number, srcMode: number, srcReg: number) {
+  return (0b1011 << 12) | (destReg << 9) | (opmode << 6) | (srcMode << 3) | srcReg
+}
+
+function moveqWord(destReg: number, data: number) {
+  return (0b0111 << 12) | (destReg << 9) | (0 << 8) | (data & 0xff)
+}
+
+function bccWord(cc: number, disp8: number) {
+  return (0b0110 << 12) | (cc << 8) | (disp8 & 0xff)
+}
+
 const MOVE_L_IMM_TO_Dn = 0b10 // long
+const OPMODE_LONG = 0b010
 
 describe('MOVE', () => {
   it('MOVE.L #imm,D0 loads an immediate into a data register', () => {
@@ -163,6 +180,141 @@ describe('ADD', () => {
     step(cpu, memory, opcodeTable)
 
     expect(cpu.registers[Register.D0]).toBe(55)
+  })
+})
+
+describe('SUB', () => {
+  it('SUB.L D1,D0 subtracts D1 from D0', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.D0, 300, 'long')
+    writeRegister(cpu, Register.D1, 200, 'long')
+    memory.write16(0x2000, subWord(0, OPMODE_LONG, 0b000, 1)) // SUB.L D1,D0
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.registers[Register.D0]).toBe(100)
+    expect(cpu.status.Z).toBe(false)
+    expect(cpu.status.C).toBe(false)
+  })
+
+  it('sets the borrow/extend flags when the subtrahend is larger', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.D0, 0, 'long')
+    writeRegister(cpu, Register.D1, 1, 'long')
+    memory.write16(0x2000, subWord(0, OPMODE_LONG, 0b000, 1)) // SUB.L D1,D0
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.registers[Register.D0]).toBe(0xffffffff)
+    expect(cpu.status.C).toBe(true)
+    expect(cpu.status.X).toBe(true)
+    expect(cpu.status.N).toBe(true)
+  })
+})
+
+describe('CMP', () => {
+  it('sets Z when the operands are equal, without modifying the register', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.D0, 42, 'long')
+    writeRegister(cpu, Register.D1, 42, 'long')
+    memory.write16(0x2000, cmpWord(0, OPMODE_LONG, 0b000, 1)) // CMP.L D1,D0
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.registers[Register.D0]).toBe(42)
+    expect(cpu.status.Z).toBe(true)
+  })
+
+  it('does not touch the X flag (unlike SUB)', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    cpu.status.X = true
+    writeRegister(cpu, Register.D0, 0, 'long')
+    writeRegister(cpu, Register.D1, 1, 'long')
+    memory.write16(0x2000, cmpWord(0, OPMODE_LONG, 0b000, 1)) // CMP.L D1,D0
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.status.C).toBe(true)
+    expect(cpu.status.X).toBe(true) // left as it was, not set from carry
+  })
+})
+
+describe('MOVEQ', () => {
+  it('loads a small positive value', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    memory.write16(0x2000, moveqWord(0, 42)) // MOVEQ #42,D0
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.registers[Register.D0]).toBe(42)
+    expect(cpu.status.N).toBe(false)
+  })
+
+  it('sign-extends a negative 8-bit value to 32 bits', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    memory.write16(0x2000, moveqWord(1, 0xff)) // MOVEQ #-1,D1
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.registers[Register.D1]).toBe(0xffffffff)
+    expect(cpu.status.N).toBe(true)
+  })
+})
+
+describe('Bcc', () => {
+  it('BRA always branches, using an 8-bit displacement', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    memory.write16(0x2000, bccWord(0b0000, 4)) // BRA +4
+
+    step(cpu, memory, opcodeTable)
+
+    // base is cpu.pc right after the opcode word (0x2002) + displacement
+    expect(cpu.pc).toBe(0x2006)
+  })
+
+  it('BEQ branches only when Z is set', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    memory.write16(0x2000, bccWord(0b0111, 10)) // BEQ +10
+    cpu.status.Z = false
+
+    step(cpu, memory, opcodeTable)
+    expect(cpu.pc).toBe(0x2002) // not taken
+
+    cpu.pc = 0x2000
+    cpu.status.Z = true
+    step(cpu, memory, opcodeTable)
+    expect(cpu.pc).toBe(0x200c) // taken
+  })
+
+  it('supports a 16-bit displacement when the byte field is 0', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    memory.write16(0x2000, bccWord(0b0000, 0)) // BRA, word form
+    memory.write16(0x2002, 0xfff0) // -16
+
+    step(cpu, memory, opcodeTable)
+
+    // base is 0x2002 (right after the opcode word, before the extension word)
+    expect(cpu.pc).toBe(0x2002 - 16)
+  })
+
+  it('a negative 8-bit displacement branches backward', () => {
+    const cpu = createCPU(0x2010)
+    const memory = new SystemMemory()
+    memory.write16(0x2010, bccWord(0b0000, 0xfc)) // BRA -4
+
+    step(cpu, memory, opcodeTable)
+
+    // base is 0x2012 (right after the opcode word) - 4 = 0x200e
+    expect(cpu.pc).toBe(0x200e)
   })
 })
 

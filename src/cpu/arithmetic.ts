@@ -51,3 +51,29 @@ export function addWithFlags(a: number, b: number, size: Size): { result: number
     flags: { N: rSign, Z: result === 0, V: overflow, C: carry, X: carry },
   }
 }
+
+// Binary subtraction (a - b) with real 68000 flag semantics. Shared by SUB
+// (which stores the result) and CMP (which only sets flags — callers that
+// don't want X touched, per real 68000 CMP behavior, just ignore it).
+export function subWithFlags(a: number, b: number, size: Size): { result: number; flags: ArithmeticFlags } {
+  const mask = sizeMask(size)
+  const signBit = signBitFor(size)
+
+  const ua = toUnsigned(a, size)
+  const ub = toUnsigned(b, size)
+  const diff = ua - ub
+  const result = diff & mask
+
+  const aSign = (ua & signBit) !== 0
+  const bSign = (ub & signBit) !== 0
+  const rSign = (result & signBit) !== 0
+
+  const borrow = ua < ub
+  const overflow = aSign !== bSign && rSign !== aSign
+
+  return {
+    result,
+    // SUB sets X the same as C (real 68000 behavior); CMP leaves X alone.
+    flags: { N: rSign, Z: result === 0, V: overflow, C: borrow, X: borrow },
+  }
+}
