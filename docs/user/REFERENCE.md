@@ -144,8 +144,8 @@ A first handful of real instructions is wired in, grouped below the way Motorola
 | `EXT` | `EXT.size Dn` | word, long | 4 | N, Z (V and C always cleared) | Sign-extends `Dn`: `.W` extends the low byte into the low word (high word untouched); `.L` extends the low word into the full long. |
 | `MULU` | `MULU.W src,Dn` | word (source) | 70 | N, Z, V (0), C (0) | Unsigned multiply: `Dn = src × Dn.W`, full 32-bit result in `Dn`. |
 | `MULS` | `MULS.W src,Dn` | word (source) | 71 | N, Z, V (0), C (0) | Signed multiply: `Dn = src × Dn.W`, full 32-bit result in `Dn`. |
-| `DIVU` | `DIVU.W src,Dn` | word (source) | 138 (10 on overflow) | N, Z, V, C (0) | Unsigned divide: `Dn` (32-bit) ÷ `src` (16-bit) → quotient in `Dn`'s low word, remainder in the high word. If the quotient doesn't fit in 16 bits, `V` is set and `Dn` is left unmodified. Dividing by zero throws (no exception vectors yet). |
-| `DIVS` | `DIVS.W src,Dn` | word (source) | 158 (10 on overflow) | N, Z, V, C (0) | Signed divide, same layout as `DIVU`. Truncates toward zero; the remainder takes the dividend's sign. |
+| `DIVU` | `DIVU.W src,Dn` | word (source) | 138 (10 on overflow, 38 on zero divide) | N, Z, V, C (0) | Unsigned divide: `Dn` (32-bit) ÷ `src` (16-bit) → quotient in `Dn`'s low word, remainder in the high word. If the quotient doesn't fit in 16 bits, `V` is set and `Dn` is left unmodified. Dividing by zero raises the [Zero Divide exception](#exceptions) instead. |
+| `DIVS` | `DIVS.W src,Dn` | word (source) | 158 (10 on overflow, 38 on zero divide) | N, Z, V, C (0) | Signed divide, same layout as `DIVU`. Truncates toward zero; the remainder takes the dividend's sign. |
 
 ### Logical
 
@@ -315,6 +315,34 @@ Three TRAP vectors are wired in:
 | `#6` | `TRAP #6` | 4 | Writes D0 (frequency), D1 (duration), D2 (volume), D3 (waveform) into the [sound registers](#sound-wired-up-silent-for-now) and sets the trigger byte. |
 
 The rest — printing text, reading/writing pixels, clearing the screen — is documented here as each one is implemented.
+
+## Exceptions
+
+Different from a `TRAP #n` a program calls on purpose: an exception is
+something the CPU raises *on its own* when an instruction hits a fault it
+can't just set a flag for. Only one exists so far:
+
+| Vector | Address | Raised by | Description |
+|---|---|---|---|
+| Zero Divide | `$40` | `DIVU`/`DIVS` with a zero divisor | Jumps to the handler address stored at `$40`. |
+
+Your program installs a handler by writing its address into the vector
+*before* the fault can happen:
+
+```
+MOVEA.L #$40,A0           ; the Zero Divide vector
+MOVE.L  #HANDLER,(A0)     ; install the handler
+...
+DIVU.W  D1,D0             ; if D1 is 0, jumps to HANDLER instead
+```
+
+Real 68000 hardware pushes the status register and PC onto a *supervisor*
+stack on any exception; this emulator has no supervisor-mode/status
+register concept, so only PC is pushed — onto `A7`, exactly like `JSR`.
+So a handler ends with `RTS`, not the real `RTE`, to resume right after
+the faulting instruction. If no handler was installed when the fault
+happens, the emulator throws a clear error instead of jumping to address
+`$0` the way real (misconfigured) hardware would.
 
 ## Performance Notes
 

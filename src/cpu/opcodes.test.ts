@@ -12,6 +12,7 @@ import {
   SOUND_WAVEFORM,
   SOUND_TRIGGER,
   SOUND_WAVEFORM_TRIANGLE,
+  ZERO_DIVIDE_VECTOR,
 } from '../memory'
 import { createCPU, step, writeRegister } from './index'
 import { opcodeTable } from './opcodes'
@@ -420,14 +421,31 @@ describe('DIVU', () => {
     expect(cpu.status.V).toBe(true)
   })
 
-  it('throws on division by zero', () => {
+  it('raises the Zero Divide exception, jumping to the installed handler', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    memory.write32(ZERO_DIVIDE_VECTOR, 0x3000) // handler address
+    writeRegister(cpu, Register.D0, 100, 'long')
+    memory.write16(0x2000, mulDivWord(0b1000, 0, false, 0b111, 0b100)) // DIVU #0,D0
+    memory.write16(0x2002, 0)
+    memory.write16(0x3000, RTS_WORD)
+    const spBefore = cpu.registers[Register.A7]
+
+    step(cpu, memory, opcodeTable) // DIVU -> raises, pc = 0x3000
+    step(cpu, memory, opcodeTable) // RTS -> pops back to right after DIVU
+
+    expect(cpu.pc).toBe(0x2004)
+    expect(cpu.registers[Register.A7]).toBe(spBefore)
+  })
+
+  it('throws when dividing by zero with no handler installed', () => {
     const cpu = createCPU(0x2000)
     const memory = new SystemMemory()
     writeRegister(cpu, Register.D0, 100, 'long')
     memory.write16(0x2000, mulDivWord(0b1000, 0, false, 0b111, 0b100))
     memory.write16(0x2002, 0)
 
-    expect(() => step(cpu, memory, opcodeTable)).toThrow(/by zero/)
+    expect(() => step(cpu, memory, opcodeTable)).toThrow(/no handler installed/)
   })
 })
 
@@ -458,6 +476,19 @@ describe('DIVS', () => {
 
     expect(cpu.registers[Register.D0]).toBe(100000) // untouched
     expect(cpu.status.V).toBe(true)
+  })
+
+  it('raises the same Zero Divide exception as DIVU', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    memory.write32(ZERO_DIVIDE_VECTOR, 0x3000)
+    writeRegister(cpu, Register.D0, -100, 'long')
+    memory.write16(0x2000, mulDivWord(0b1000, 0, true, 0b111, 0b100)) // DIVS #0,D0
+    memory.write16(0x2002, 0)
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.pc).toBe(0x3000)
   })
 })
 

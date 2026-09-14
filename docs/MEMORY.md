@@ -23,13 +23,21 @@ exactly, and the Controller Input and Sound registers sit right after it.
 Reserved for interrupt vectors and system-level data:
 
 ```
-$00000-$0003F    64 bytes   Interrupt/TRAP vector table
-$00040-$01FFF    8 KB-64B   Reserved for future use
+$00000-$0003F    64 bytes   TRAP vector table (16 vectors x 4 bytes)
+$00040-$00043     4 bytes   CPU exception vector table (1 vector so far)
+$00044-$01FFF    8 KB-68B   Reserved for future use
 ```
 
 ### TRAP Vector Table
 
-Each TRAP has a 4-byte vector:
+`TRAP #n`'s vector number is a 4-bit field in the opcode itself
+(`$4E40`-`$4E4F`), so `n` only ever ranges `0`-`15` — there's no `TRAP
+#16` or higher to reserve space for. **This table describes the vector
+layout conceptually; the current implementation dispatches each `TRAP #n`
+directly (a small lookup by number in `src/cpu/opcodes.ts`'s
+`trapHandlers`) rather than actually reading a handler address out of
+memory at these offsets.** So writing your own address into, say, `$14`
+does not change what `TRAP #5` does today.
 
 ```
 Offset   TRAP #   Address
@@ -41,8 +49,49 @@ $0C      3        Write pixel
 $10      4        Clear screen
 $14      5        Read controller state
 $18      6        Play tone
-$1C-$7F  7-31     (reserved for future)
+$1C-$3F  7-15     (reserved for future)
 ```
+
+### CPU Exception Vector Table
+
+Unlike the TRAP table above, this one is real: it's how the CPU signals a
+fault it hits on its own (as opposed to a program explicitly calling
+`TRAP #n`) — starting with `DIVU`/`DIVS` dividing by zero. Each vector is
+a 4-byte slot your program fills in with a handler routine's address
+*before* the fault can happen; the CPU reads it back and jumps there when
+it does.
+
+```
+Offset   Exception      Raised by
+──────────────────────────────────────
+$40      Zero Divide    DIVU / DIVS with a zero divisor
+```
+
+Real 68000 hardware pushes the status register and PC onto a *supervisor*
+stack on any exception, then jumps through the vector. This emulator has
+no supervisor-mode/status-register concept at all, so raising an
+exception only pushes PC — onto the one stack there is, A7 — exactly like
+`JSR`. That means a handler routine should end with `RTS`, not the real
+68000's `RTE`, to return to right after the instruction that faulted:
+
+```asm
+MOVEA.L #$40,A0           ; the Zero Divide vector
+MOVE.L  #HANDLER,(A0)     ; install the handler
+...
+DIVU.W  D1,D0             ; if D1 is 0, jumps to HANDLER instead
+; execution resumes here after HANDLER's RTS
+
+HANDLER:
+; handle the fault, e.g. TRAP #0 to just halt
+RTS
+```
+
+*(`HANDLER:` is illustrative — there's no assembler yet, so its address has to be hand-encoded, same as every other label on this page.)*
+
+If a program never writes a handler address into a vector and the fault
+happens anyway, the emulator throws a JS error naming the missing vector
+rather than jumping to address `$0` (which real hardware would actually
+do, typically crashing into whatever garbage code happens to be there).
 
 ## User RAM ($02000-$3FFFF)
 

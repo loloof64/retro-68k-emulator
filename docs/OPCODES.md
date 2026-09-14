@@ -167,12 +167,13 @@ zero, and the remainder takes the sign of the dividend (matching real
 If the quotient doesn't fit in 16 bits (unsigned 0-65535 for `DIVU`,
 signed -32768..32767 for `DIVS`), `V` is set and `Dn` is left completely
 unmodified — the only case where a DIV instruction doesn't write its
-destination. Real hardware traps to an exception vector on division by
-zero; there's no exception system here yet, so this emulator throws
-instead.
+destination. Dividing by zero raises the Zero Divide exception — see
+[CPU Exception Vector Table](./MEMORY.md#cpu-exception-vector-table) —
+which jumps to a handler routine your program installs, rather than
+setting a flag.
 
 **Sizes**: W (source)
-**Cycles**: 138 (DIVU), 158 (DIVS), 10 (quotient overflow, either)
+**Cycles**: 138 (DIVU), 158 (DIVS), 10 (quotient overflow, either), 38 (zero divide)
 **Flags**: N, Z, V, C
 
 **Examples**:

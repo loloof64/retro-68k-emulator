@@ -3,7 +3,15 @@ import type { OpcodeEntry } from './index'
 import { readRegister, updateFlags, writeRegister } from './index'
 import { decodeEA, type Size } from './addressing'
 import { addWithFlags, subWithFlags } from './arithmetic'
-import { INPUT_START, SOUND_DURATION, SOUND_FREQUENCY, SOUND_TRIGGER, SOUND_VOLUME, SOUND_WAVEFORM } from '../memory'
+import {
+  INPUT_START,
+  SOUND_DURATION,
+  SOUND_FREQUENCY,
+  SOUND_TRIGGER,
+  SOUND_VOLUME,
+  SOUND_WAVEFORM,
+  ZERO_DIVIDE_VECTOR,
+} from '../memory'
 
 function opcodeWordOf(args: unknown[]): number {
   return args[0] as number
@@ -424,6 +432,32 @@ function decodeMulDiv(cpu: CPUState, memory: Memory, opcodeWord: number) {
   return { destReg, src }
 }
 
+// --- CPU-raised exceptions (as opposed to explicit TRAP #n calls) -------
+//
+// Real 68000: an exception pushes the status register and PC onto the
+// *supervisor* stack, then jumps through a vector in low memory. This
+// emulator has no SR/supervisor-mode concept, so — like JSR — only PC is
+// pushed, onto the one stack there is (A7). A handler routine is expected
+// to end with RTS (there's no RTE) to match. See ZERO_DIVIDE_VECTOR in
+// src/memory/index.ts for the vector table layout; only Zero Divide raises
+// one so far.
+
+function raiseException(cpu: CPUState, memory: Memory, vectorAddress: number, name: string): void {
+  const handlerAddress = memory.read32(vectorAddress)
+  if (handlerAddress === 0) {
+    throw new Error(
+      `${name} exception: no handler installed at vector $${vectorAddress.toString(16)} ` +
+        '(write a handler routine\'s address there before this can happen)'
+    )
+  }
+
+  const sp = readRegister(cpu, Register.A7, 'long') - 4
+  memory.write32(sp, cpu.pc)
+  writeRegister(cpu, Register.A7, sp, 'long')
+
+  cpu.pc = handlerAddress
+}
+
 const MULU: OpcodeDefinition = {
   mnemonic: 'MULU',
   encoding: '1100ddd011mmmrrr',
@@ -468,9 +502,8 @@ const MULS: OpcodeDefinition = {
 //
 // Dn (32-bit dividend) / <ea> (16-bit divisor) -> quotient in Dn's low
 // word, remainder in Dn's high word. Real 68000 traps to an exception
-// vector on division by zero and leaves Dn untouched (just V set, C
-// cleared) when the quotient overflows 16 bits — there's no exception
-// system here yet, so divide-by-zero throws instead of trapping.
+// vector on division by zero, and leaves Dn untouched (just V set, C
+// cleared) when the quotient overflows 16 bits.
 
 const DIVU: OpcodeDefinition = {
   mnemonic: 'DIVU',
@@ -481,7 +514,8 @@ const DIVU: OpcodeDefinition = {
 
     const divisor = src.read() & 0xffff
     if (divisor === 0) {
-      throw new Error('DIVU by zero (divide-by-zero exception not implemented)')
+      raiseException(cpu, memory, ZERO_DIVIDE_VECTOR, 'Zero Divide')
+      return 38
     }
 
     const dividend = readRegister(cpu, destReg, 'long')
@@ -512,7 +546,8 @@ const DIVS: OpcodeDefinition = {
 
     const divisor = toSigned16(src.read() & 0xffff)
     if (divisor === 0) {
-      throw new Error('DIVS by zero (divide-by-zero exception not implemented)')
+      raiseException(cpu, memory, ZERO_DIVIDE_VECTOR, 'Zero Divide')
+      return 38
     }
 
     const dividend = readRegister(cpu, destReg, 'long') | 0 // reinterpret as signed

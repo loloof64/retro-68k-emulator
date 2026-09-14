@@ -32,6 +32,16 @@ export const INPUT_BUTTON_RIGHT = 1 << 7
 export const INPUT_BUTTON_START = 1 << 8
 export const INPUT_BUTTON_SELECT = 1 << 9
 
+// CPU exception vectors: like the TRAP vector table documented in
+// docs/MEMORY.md (bytes $00-$3F), but for faults the CPU itself raises
+// rather than an explicit TRAP #n call — starting with Zero Divide
+// (DIVU/DIVS by zero). Each is a 4-byte slot a running program fills in
+// with a handler routine's address; left at 0 (memory's default), the
+// raising instruction fails with a clear error instead of jumping to
+// address 0. Sits right after the TRAP table's reserved 64 bytes.
+export const EXCEPTION_VECTORS_START = SYSTEM_START + 0x40
+export const ZERO_DIVIDE_VECTOR = EXCEPTION_VECTORS_START + 0 // DIVU/DIVS by zero
+
 // Sound port: layout reserved, not wired to any audio output yet (see
 // docs/MEMORY.md). Modeled on a simple single-voice tone generator — like
 // a PC speaker or the TI-89's piezo buzzer — rather than a PCM sample
