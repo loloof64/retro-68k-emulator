@@ -122,7 +122,7 @@ A first handful of real instructions is wired in, grouped below the way Motorola
 
 *(Real 68000 hardware charges different cycle counts per addressing mode, and `Bcc` costs less when the branch isn't taken — the emulator uses one flat number per instruction for now; that'll get more accurate as addressing-mode-specific timing is added.)*
 
-#### Data Movement
+### Data Movement
 
 | Mnemonic | Syntax | Sizes | Cycles | Flags affected | Description |
 |---|---|---|---|---|---|
@@ -130,7 +130,7 @@ A first handful of real instructions is wired in, grouped below the way Motorola
 | `MOVEQ` | `MOVEQ #data,Dn` | long | 4 | N, Z (V and C always cleared) | Loads a small immediate (-128 to 127) into a data register. Faster/shorter than `MOVE.L #imm,Dn`. |
 | `SWAP` | `SWAP Dn` | long | 4 | N, Z (V and C always cleared) | Swaps the high and low 16-bit halves of `Dn`. |
 
-#### Arithmetic
+### Arithmetic
 
 | Mnemonic | Syntax | Sizes | Cycles | Flags affected | Description |
 |---|---|---|---|---|---|
@@ -142,7 +142,7 @@ A first handful of real instructions is wired in, grouped below the way Motorola
 | `TST` | `TST.size dst` | byte, word, long | 4 | N, Z (V and C always cleared) | Sets flags from `dst`, like `CMP.size #0,dst` — doesn't modify it. |
 | `EXT` | `EXT.size Dn` | word, long | 4 | N, Z (V and C always cleared) | Sign-extends `Dn`: `.W` extends the low byte into the low word (high word untouched); `.L` extends the low word into the full long. |
 
-#### Logical
+### Logical
 
 | Mnemonic | Syntax | Sizes | Cycles | Flags affected | Description |
 |---|---|---|---|---|---|
@@ -151,13 +151,13 @@ A first handful of real instructions is wired in, grouped below the way Motorola
 | `XOR` | `XOR.size Dn,dst` | byte, word, long | 4 | N, Z (V and C always cleared) | Bitwise XORs a data register into `dst` — the one bitwise op where the *source* is always `Dn` and `dst` can be memory. |
 | `NOT` | `NOT.size dst` | byte, word, long | 4 | N, Z (V and C always cleared) | Bitwise inverts `dst` in place (one's complement: `dst = ~dst`). |
 
-#### Bit Manipulation
+### Bit Manipulation
 
 | Mnemonic | Syntax | Sizes | Cycles | Flags affected | Description |
 |---|---|---|---|---|---|
 | `BTST` | `BTST #n,dst` | long (register), byte (memory) | 4 (register), 8 (memory) | Z only | Tests bit `n` of `dst` (Z=1 when clear). Doesn't modify `dst` — the standard way to poll one button out of the [gamepad bitmask](#reading-the-gamepad). |
 
-#### Program Control
+### Program Control
 
 | Mnemonic | Syntax | Sizes | Cycles | Flags affected | Description |
 |---|---|---|---|---|---|
@@ -167,7 +167,7 @@ A first handful of real instructions is wired in, grouped below the way Motorola
 | `BSR` | `BSR target` | word | 18 | none | Like `JSR`, but PC-relative — pushes the return address, then always branches to `target`. |
 | `RTS` | `RTS` | word | 16 | none | Pops a return address pushed by `JSR`/`BSR` and jumps there. |
 
-#### System
+### System
 
 | Mnemonic | Syntax | Sizes | Cycles | Flags affected | Description |
 |---|---|---|---|---|---|

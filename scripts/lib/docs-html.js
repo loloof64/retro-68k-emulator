@@ -259,6 +259,11 @@ export function generateHtmlDocument({
       margin: 1em 0;
     }
 
+    tr {
+      break-inside: avoid;
+      page-break-inside: avoid;
+    }
+
     th, td {
       border: 1px solid #ddd;
       padding: 0.5em;
