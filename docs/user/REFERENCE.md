@@ -142,6 +142,10 @@ A first handful of real instructions is wired in, grouped below the way Motorola
 | `NEG` | `NEG.size dst` | byte, word, long | 4 | N, Z, V, C, X | Negates `dst` in place (two's complement: `dst = 0 - dst`). |
 | `TST` | `TST.size dst` | byte, word, long | 4 | N, Z (V and C always cleared) | Sets flags from `dst`, like `CMP.size #0,dst` — doesn't modify it. |
 | `EXT` | `EXT.size Dn` | word, long | 4 | N, Z (V and C always cleared) | Sign-extends `Dn`: `.W` extends the low byte into the low word (high word untouched); `.L` extends the low word into the full long. |
+| `MULU` | `MULU.W src,Dn` | word (source) | 70 | N, Z, V (0), C (0) | Unsigned multiply: `Dn = src × Dn.W`, full 32-bit result in `Dn`. |
+| `MULS` | `MULS.W src,Dn` | word (source) | 71 | N, Z, V (0), C (0) | Signed multiply: `Dn = src × Dn.W`, full 32-bit result in `Dn`. |
+| `DIVU` | `DIVU.W src,Dn` | word (source) | 138 (10 on overflow) | N, Z, V, C (0) | Unsigned divide: `Dn` (32-bit) ÷ `src` (16-bit) → quotient in `Dn`'s low word, remainder in the high word. If the quotient doesn't fit in 16 bits, `V` is set and `Dn` is left unmodified. Dividing by zero throws (no exception vectors yet). |
+| `DIVS` | `DIVS.W src,Dn` | word (source) | 158 (10 on overflow) | N, Z, V, C (0) | Signed divide, same layout as `DIVU`. Truncates toward zero; the remainder takes the dividend's sign. |
 
 ### Logical
 
@@ -203,7 +207,7 @@ See [TRAP System Calls](#trap-system-calls) below for `TRAP`.
 
 **C** — [CLR](#arithmetic) · [CMP](#arithmetic)
 
-**D** — [DBRA](#program-control)
+**D** — [DBRA](#program-control) · [DIVS](#arithmetic) · [DIVU](#arithmetic)
 
 **E** — [EXT](#arithmetic)
 
@@ -211,7 +215,7 @@ See [TRAP System Calls](#trap-system-calls) below for `TRAP`.
 
 **L** — [LSL](#shift-and-rotate) · [LSR](#shift-and-rotate)
 
-**M** — [MOVE](#data-movement) · [MOVEA](#data-movement) · [MOVEQ](#data-movement)
+**M** — [MOVE](#data-movement) · [MOVEA](#data-movement) · [MOVEQ](#data-movement) · [MULS](#arithmetic) · [MULU](#arithmetic)
 
 **N** — [NEG](#arithmetic) · [NOP](#system) · [NOT](#logical)
 
@@ -298,7 +302,7 @@ ADD.L   D0,D0              ; D0 += D0
 RTS                        ; back to the caller
 ```
 
-The rest of the ~80-instruction set (multiplication, division, absolute/indexed addressing, ...) lands in upcoming sessions — each one gets its own entry here as it becomes real.
+The rest of the ~80-instruction set (absolute/indexed addressing, the full conditional `DBcc` family, ...) lands in upcoming sessions — each one gets its own entry here as it becomes real.
 
 ## TRAP System Calls
 

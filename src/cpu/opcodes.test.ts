@@ -68,6 +68,13 @@ function orWord(destReg: number, opmode: number, srcMode: number, srcReg: number
   return (0b1000 << 12) | (destReg << 9) | (opmode << 6) | (srcMode << 3) | srcReg
 }
 
+// MUL (top nibble 0b1100) / DIV (top nibble 0b1000): bits 7-6 = 11 (fixed,
+// the reserved opmode ADD/SUB/AND/OR/XOR/CMP never use), bit 8 picks
+// unsigned (0: MULU/DIVU) vs signed (1: MULS/DIVS).
+function mulDivWord(topNibble: 0b1100 | 0b1000, destReg: number, signed: boolean, srcMode: number, srcReg: number) {
+  return (topNibble << 12) | (destReg << 9) | ((signed ? 1 : 0) << 8) | (0b11 << 6) | (srcMode << 3) | srcReg
+}
+
 // XOR (EOR): opposite direction from AND/OR/ADD/SUB - srcReg is the Dn
 // source, destMode/destReg is the <ea> destination.
 function xorWord(srcReg: number, opmode: number, destMode: number, destReg: number) {
@@ -349,6 +356,108 @@ describe('CMP', () => {
 
     expect(cpu.status.C).toBe(true)
     expect(cpu.status.X).toBe(true) // left as it was, not set from carry
+  })
+})
+
+describe('MULU', () => {
+  it('multiplies two unsigned 16-bit values into a 32-bit result', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.D0, 1000, 'word')
+    memory.write16(0x2000, mulDivWord(0b1100, 0, false, 0b111, 0b100)) // MULU #imm,D0
+    memory.write16(0x2002, 2000)
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.registers[Register.D0]).toBe(2000000)
+    expect(cpu.status.N).toBe(false)
+    expect(cpu.status.Z).toBe(false)
+    expect(cpu.status.V).toBe(false)
+    expect(cpu.status.C).toBe(false)
+  })
+})
+
+describe('MULS', () => {
+  it('multiplies two signed 16-bit values, sign-extending the result', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.D0, -5, 'word')
+    memory.write16(0x2000, mulDivWord(0b1100, 0, true, 0b111, 0b100)) // MULS #imm,D0
+    memory.write16(0x2002, 3)
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.registers[Register.D0]).toBe(0xffffffff - 15 + 1) // -15 as unsigned 32-bit
+    expect(cpu.status.N).toBe(true)
+  })
+})
+
+describe('DIVU', () => {
+  it('divides, storing quotient in the low word and remainder in the high word', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.D0, 100, 'long')
+    memory.write16(0x2000, mulDivWord(0b1000, 0, false, 0b111, 0b100)) // DIVU #imm,D0
+    memory.write16(0x2002, 3)
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.registers[Register.D0] & 0xffff).toBe(33) // quotient
+    expect((cpu.registers[Register.D0] >>> 16) & 0xffff).toBe(1) // remainder
+    expect(cpu.status.V).toBe(false)
+  })
+
+  it('sets V and leaves the destination unchanged when the quotient overflows a word', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.D0, 0x00020000, 'long') // quotient would be 131072 (> 0xffff)
+    memory.write16(0x2000, mulDivWord(0b1000, 0, false, 0b111, 0b100))
+    memory.write16(0x2002, 1)
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.registers[Register.D0]).toBe(0x00020000) // untouched
+    expect(cpu.status.V).toBe(true)
+  })
+
+  it('throws on division by zero', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.D0, 100, 'long')
+    memory.write16(0x2000, mulDivWord(0b1000, 0, false, 0b111, 0b100))
+    memory.write16(0x2002, 0)
+
+    expect(() => step(cpu, memory, opcodeTable)).toThrow(/by zero/)
+  })
+})
+
+describe('DIVS', () => {
+  it('truncates toward zero, remainder following the dividend sign', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.D0, -100, 'long')
+    memory.write16(0x2000, mulDivWord(0b1000, 0, true, 0b111, 0b100)) // DIVS #imm,D0
+    memory.write16(0x2002, 3)
+
+    step(cpu, memory, opcodeTable)
+
+    // -100 / 3 truncates to -33, remainder -1 (68000: -100 = 3*-33 + -1)
+    expect(cpu.registers[Register.D0] & 0xffff).toBe(0x10000 - 33)
+    expect((cpu.registers[Register.D0] >>> 16) & 0xffff).toBe(0xffff) // -1
+    expect(cpu.status.N).toBe(true) // quotient is negative
+  })
+
+  it('sets V and leaves the destination unchanged when the quotient overflows a signed word', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.D0, 100000, 'long') // quotient would be 100000 (> 0x7fff)
+    memory.write16(0x2000, mulDivWord(0b1000, 0, true, 0b111, 0b100))
+    memory.write16(0x2002, 1)
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.registers[Register.D0]).toBe(100000) // untouched
+    expect(cpu.status.V).toBe(true)
   })
 })
 

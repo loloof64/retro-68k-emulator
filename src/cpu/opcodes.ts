@@ -405,6 +405,135 @@ const BTST: OpcodeDefinition = {
   },
 }
 
+// --- MULU/MULS <ea>,Dn ($C0C0/$C1C0) - word x word -> long -------------
+//
+// Bits 7-6 = 11 is a reserved opmode in the ADD/SUB/CMP/AND/OR/XOR family
+// (which only uses 00/01/10 for byte/word/long) — real 68000 repurposes it
+// for MUL. Those other opcodes' table entries use a coarser mask that
+// wildcards bits 7-6, so MUL/DIV need to be checked first (earlier in
+// opcodeTable) or they'd be misrouted to AND/OR's handlers instead.
+//
+// Only <ea> is read from memory; the other operand is always Dn.W, which
+// this also *writes* the full 32-bit product back into.
+
+function decodeMulDiv(cpu: CPUState, memory: Memory, opcodeWord: number) {
+  const destReg = (Register.D0 + ((opcodeWord >> 9) & 0b111)) as Register
+  const mode = (opcodeWord >> 3) & 0b111
+  const reg = opcodeWord & 0b111
+  const src = decodeEA(cpu, memory, mode, reg, 'word')
+  return { destReg, src }
+}
+
+const MULU: OpcodeDefinition = {
+  mnemonic: 'MULU',
+  encoding: '1100ddd011mmmrrr',
+  size: 'word',
+  handler: (cpu: CPUState, memory: Memory, args: unknown[]) => {
+    const { destReg, src } = decodeMulDiv(cpu, memory, opcodeWordOf(args))
+
+    const srcValue = src.read() & 0xffff
+    const destValue = readRegister(cpu, destReg, 'word') & 0xffff
+    const result = (srcValue * destValue) >>> 0 // max $FFFE0001, fits in 32 bits unsigned
+
+    writeRegister(cpu, destReg, result, 'long')
+    updateFlags(cpu, result, 'long')
+    cpu.status.V = false
+    cpu.status.C = false
+
+    return 70
+  },
+}
+
+const MULS: OpcodeDefinition = {
+  mnemonic: 'MULS',
+  encoding: '1100ddd111mmmrrr',
+  size: 'word',
+  handler: (cpu: CPUState, memory: Memory, args: unknown[]) => {
+    const { destReg, src } = decodeMulDiv(cpu, memory, opcodeWordOf(args))
+
+    const srcValue = toSigned16(src.read() & 0xffff)
+    const destValue = toSigned16(readRegister(cpu, destReg, 'word'))
+    const result = srcValue * destValue // max magnitude 2^30, well within safe-integer range
+
+    writeRegister(cpu, destReg, result, 'long')
+    updateFlags(cpu, result, 'long')
+    cpu.status.V = false
+    cpu.status.C = false
+
+    return 71
+  },
+}
+
+// --- DIVU/DIVS <ea>,Dn ($80C0/$81C0) - long / word -> word:word --------
+//
+// Dn (32-bit dividend) / <ea> (16-bit divisor) -> quotient in Dn's low
+// word, remainder in Dn's high word. Real 68000 traps to an exception
+// vector on division by zero and leaves Dn untouched (just V set, C
+// cleared) when the quotient overflows 16 bits — there's no exception
+// system here yet, so divide-by-zero throws instead of trapping.
+
+const DIVU: OpcodeDefinition = {
+  mnemonic: 'DIVU',
+  encoding: '1000ddd011mmmrrr',
+  size: 'word',
+  handler: (cpu: CPUState, memory: Memory, args: unknown[]) => {
+    const { destReg, src } = decodeMulDiv(cpu, memory, opcodeWordOf(args))
+
+    const divisor = src.read() & 0xffff
+    if (divisor === 0) {
+      throw new Error('DIVU by zero (divide-by-zero exception not implemented)')
+    }
+
+    const dividend = readRegister(cpu, destReg, 'long')
+    const quotient = Math.floor(dividend / divisor)
+    const remainder = dividend % divisor
+
+    if (quotient > 0xffff) {
+      cpu.status.V = true
+      cpu.status.C = false
+      return 10
+    }
+
+    writeRegister(cpu, destReg, ((remainder & 0xffff) << 16) | (quotient & 0xffff), 'long')
+    updateFlags(cpu, quotient, 'word')
+    cpu.status.V = false
+    cpu.status.C = false
+
+    return 138
+  },
+}
+
+const DIVS: OpcodeDefinition = {
+  mnemonic: 'DIVS',
+  encoding: '1000ddd111mmmrrr',
+  size: 'word',
+  handler: (cpu: CPUState, memory: Memory, args: unknown[]) => {
+    const { destReg, src } = decodeMulDiv(cpu, memory, opcodeWordOf(args))
+
+    const divisor = toSigned16(src.read() & 0xffff)
+    if (divisor === 0) {
+      throw new Error('DIVS by zero (divide-by-zero exception not implemented)')
+    }
+
+    const dividend = readRegister(cpu, destReg, 'long') | 0 // reinterpret as signed
+    const quotient = Math.trunc(dividend / divisor)
+    const remainder = dividend % divisor // JS % already follows the dividend's sign, like real DIVS
+
+    if (quotient > 0x7fff || quotient < -0x8000) {
+      cpu.status.V = true
+      cpu.status.C = false
+      return 10
+    }
+
+    writeRegister(cpu, destReg, ((remainder & 0xffff) << 16) | (quotient & 0xffff), 'long')
+    updateFlags(cpu, quotient, 'word')
+    cpu.status.V = false
+    cpu.status.C = false
+
+    return 158
+  },
+}
+
 // --- AND <ea>,Dn (opmode bits 8-6 = 0xx: EA & Dn -> Dn) -----------------
 
 const AND: OpcodeDefinition = {
@@ -914,6 +1043,10 @@ export const opcodeTable: readonly OpcodeEntry[] = [
   { mask: 0xf100, pattern: 0x9000, definition: SUB },
   { mask: 0xf100, pattern: 0xb000, definition: CMP },
   { mask: 0xf100, pattern: 0xb100, definition: XOR },
+  { mask: 0xf1c0, pattern: 0xc0c0, definition: MULU },
+  { mask: 0xf1c0, pattern: 0xc1c0, definition: MULS },
+  { mask: 0xf1c0, pattern: 0x80c0, definition: DIVU },
+  { mask: 0xf1c0, pattern: 0x81c0, definition: DIVS },
   { mask: 0xf100, pattern: 0xc000, definition: AND },
   { mask: 0xf100, pattern: 0x8000, definition: OR },
   { mask: 0xf100, pattern: 0x7000, definition: MOVEQ },

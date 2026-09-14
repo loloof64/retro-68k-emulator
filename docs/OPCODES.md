@@ -159,10 +159,20 @@ DIVU src,Dn   ; Unsigned divide
 DIVS src,Dn   ; Signed divide
 ```
 
-Divides Dn by source. Result in Dn (quotient:remainder).
+Divides Dn (32-bit) by src (16-bit). Result in Dn: quotient in the low
+word, remainder in the high word. `DIVS` truncates the quotient toward
+zero, and the remainder takes the sign of the dividend (matching real
+68000 truncating division, not floored division).
+
+If the quotient doesn't fit in 16 bits (unsigned 0-65535 for `DIVU`,
+signed -32768..32767 for `DIVS`), `V` is set and `Dn` is left completely
+unmodified — the only case where a DIV instruction doesn't write its
+destination. Real hardware traps to an exception vector on division by
+zero; there's no exception system here yet, so this emulator throws
+instead.
 
 **Sizes**: W (source)
-**Cycles**: 138 (DIVU), 158 (DIVS)
+**Cycles**: 138 (DIVU), 158 (DIVS), 10 (quotient overflow, either)
 **Flags**: N, Z, V, C
 
 **Examples**:
