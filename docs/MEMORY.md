@@ -11,11 +11,12 @@ $00000-$01FFF         8 KB      System Area (vectors, TRAP handlers)
 $02000-$3FFFF        248 KB     User RAM (program code & data)
 $40000-$7E7FF       ~244 KB     Framebuffer (320×200 pixels, 32bpp)
 $7E800-$7E803          4 B      Controller Input (button state)
+$7E804-$7E80B          8 B      Sound (tone generator — layout only, not wired to audio yet)
 ```
 
 320×200 pixels at 32 bits per pixel needs 250,000 bytes, not the 128KB a
 flat `$40000-$5FFFF` range would give — the framebuffer is sized to fit
-exactly, and the Controller Input register sits right after it.
+exactly, and the Controller Input and Sound registers sit right after it.
 
 ## System Area ($00000-$01FFF)
 
@@ -216,6 +217,38 @@ Like the rest of memory, writes to this region aren't blocked by the
 emulator (see [Memory Protection](#memory-protection) below) — but a
 program that writes here only overwrites the value until the next UI
 update, so there's no reason to.
+
+## Sound ($7E804-$7E80B)
+
+**Layout only — not wired to any audio output yet.** The address space is
+reserved and readable/writable like any other memory, but nothing plays a
+sound in response to it today; this documents the register layout the
+eventual audio backend will implement against.
+
+The design deliberately isn't a PCM sample buffer: 8 bytes (or even the
+full ~250 KB the framebuffer gets) couldn't hold more than a few seconds
+of digital audio, and it wouldn't fit the retro-console feel of the rest
+of the emulator. Instead it's modeled as a single-voice tone generator —
+the same idea as a PC speaker, or the piezo buzzer in a TI-89 — driven by
+frequency, duration, volume, and waveform, the way period-accurate sound
+chips like the SN76489 (Sega Master System / Genesis) work.
+
+```
+Offset  Field       Size  Purpose
+──────────────────────────────────────────────────
++0      Frequency   word  Hz; 0 = silence
++2      Duration    word  milliseconds
++4      Volume      byte  0-255
++5      Waveform    byte  0=square 1=sine 2=triangle 3=sawtooth 4=noise
++6      Trigger     byte  write nonzero to play (exact protocol TBD)
++7      (reserved)  byte  padding, keeps the region 8 bytes wide
+```
+
+A future TRAP (or a direct memory-mapped write, like the framebuffer)
+would let a program write these fields and trigger playback; the actual
+synthesis would happen on the host side via the Web Audio API, the same
+way pixel writes are rendered by the UI rather than the CPU core. That
+part needs its own design pass before it's implemented.
 
 ## Memory Access Instructions
 

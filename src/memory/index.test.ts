@@ -7,6 +7,13 @@ import {
   INPUT_START,
   INPUT_BUTTON_A,
   INPUT_BUTTON_UP,
+  SOUND_START,
+  SOUND_FREQUENCY,
+  SOUND_DURATION,
+  SOUND_VOLUME,
+  SOUND_WAVEFORM,
+  SOUND_TRIGGER,
+  SOUND_END,
 } from './index'
 
 describe('SystemMemory', () => {
@@ -94,6 +101,28 @@ describe('SystemMemory', () => {
 
     it('is included in the addressable memory space', () => {
       expect(INPUT_START).toBeLessThan(MEMORY_SIZE)
+    })
+  })
+
+  describe('sound port (layout only, not wired to audio yet)', () => {
+    it('lays out each field at a distinct, non-overlapping address', () => {
+      const mem = new SystemMemory()
+      mem.write16(SOUND_FREQUENCY, 440)
+      mem.write16(SOUND_DURATION, 250)
+      mem.write8(SOUND_VOLUME, 200)
+      mem.write8(SOUND_WAVEFORM, 0)
+      mem.write8(SOUND_TRIGGER, 1)
+
+      expect(mem.read16(SOUND_FREQUENCY)).toBe(440)
+      expect(mem.read16(SOUND_DURATION)).toBe(250)
+      expect(mem.read8(SOUND_VOLUME)).toBe(200)
+      expect(mem.read8(SOUND_WAVEFORM)).toBe(0)
+      expect(mem.read8(SOUND_TRIGGER)).toBe(1)
+    })
+
+    it('starts right after the controller input port and stays in bounds', () => {
+      expect(SOUND_START).toBe(INPUT_START + 4)
+      expect(SOUND_END).toBeLessThan(MEMORY_SIZE)
     })
   })
 })

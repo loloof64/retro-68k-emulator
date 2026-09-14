@@ -53,9 +53,10 @@ START:
 
 - **Registers**: D0-D7 (data), A0-A7 (address)
 - **Flags**: N, Z, V, C, X
-- **Memory**: ~506KB addressable (system + user RAM, framebuffer, controller input — see [docs/MEMORY.md](./docs/MEMORY.md))
+- **Memory**: ~506KB addressable (system + user RAM, framebuffer, controller input, sound — see [docs/MEMORY.md](./docs/MEMORY.md))
 - **Framebuffer**: 320×200 pixels (0x40000)
 - **Controller input**: gamepad button bitmask (0x7E800)
+- **Sound**: tone generator registers reserved (0x7E804), not wired to audio output yet
 
 ### Supported Opcodes
 

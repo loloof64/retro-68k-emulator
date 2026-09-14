@@ -32,9 +32,30 @@ export const INPUT_BUTTON_RIGHT = 1 << 7
 export const INPUT_BUTTON_START = 1 << 8
 export const INPUT_BUTTON_SELECT = 1 << 9
 
+// Sound port: layout reserved, not wired to any audio output yet (see
+// docs/MEMORY.md). Modeled on a simple single-voice tone generator — like
+// a PC speaker or the TI-89's piezo buzzer — rather than a PCM sample
+// buffer, which a budget this size (a handful of bytes, same class as
+// Controller Input) couldn't hold more than a few seconds of anyway.
+export const SOUND_START = INPUT_END + 1
+export const SOUND_FREQUENCY = SOUND_START + 0 // word: Hz, 0 = silence
+export const SOUND_DURATION = SOUND_START + 2 // word: milliseconds
+export const SOUND_VOLUME = SOUND_START + 4 // byte: 0-255
+export const SOUND_WAVEFORM = SOUND_START + 5 // byte: SOUND_WAVEFORM_*
+export const SOUND_TRIGGER = SOUND_START + 6 // byte: write nonzero to play
+// SOUND_START + 7 is reserved padding, to keep the region 8 bytes wide.
+export const SOUND_SIZE = 8
+export const SOUND_END = SOUND_START + SOUND_SIZE - 1
+
+export const SOUND_WAVEFORM_SQUARE = 0
+export const SOUND_WAVEFORM_SINE = 1
+export const SOUND_WAVEFORM_TRIANGLE = 2
+export const SOUND_WAVEFORM_SAWTOOTH = 3
+export const SOUND_WAVEFORM_NOISE = 4
+
 // The docs state the framebuffer region is 64-128KB, but 320x200 @ 32bpp
 // actually needs ~250KB. Total space is rounded up to fit it exactly.
-export const MEMORY_SIZE = INPUT_END + 1
+export const MEMORY_SIZE = SOUND_END + 1
 
 export class SystemMemory implements Memory {
   private bytes: Uint8Array

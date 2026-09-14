@@ -22,6 +22,7 @@ This document describes the internal architecture of the Retro 68K Emulator.
 │   - RAM (256KB)                     │
 │   - Framebuffer (320x200)           │
 │   - Controller Input                │
+│   - Sound (layout reserved)         │
 │   - TRAP handlers                   │
 └─────────────────────────────────────┘
 ```
@@ -41,7 +42,9 @@ $40000 ├─────────────────┤
 $7E800 ├─────────────────┤
        │  Controller     │  4 B      (Button state bitmask)
        │  Input          │
-$7E804 └─────────────────┘
+$7E804 ├─────────────────┤
+       │  Sound          │  8 B      (Tone generator — layout only, not wired yet)
+$7E80C └─────────────────┘
 ```
 
 ## Register File

@@ -51,6 +51,7 @@ The emulator's memory system is implemented and working. Every address below is 
 | User RAM | `$02000`–`$3FFFF` | ~248 KB | Your program's code, data, and stack |
 | Framebuffer | `$40000`–`$7E7FF` | 250 KB | The 320×200 screen, 4 bytes (RGBA) per pixel |
 | Controller Input | `$7E800`–`$7E803` | 4 B | Gamepad button state, as a bitmask (see below) |
+| Sound | `$7E804`–`$7E80B` | 8 B | Tone generator registers — address space reserved, not producing sound yet |
 
 To find the address of pixel `(x, y)`:
 
@@ -78,6 +79,14 @@ TRAP    #5                ; D0 = controller state
 BTST    #0,D0              ; test bit 0 (button A)
 BEQ     A_NOT_PRESSED      ; Z=1 -> button A isn't held
 ```
+
+### Sound (Reserved, Silent For Now)
+
+`$7E804`–`$7E80B` is laid out for a single-voice tone generator —
+frequency, duration, volume, waveform — the same idea as a PC speaker or
+the TI-89's buzzer, not a sample player. Right now it's just memory: reads
+and writes work, but nothing plays a sound yet. It'll get its own section
+here once an audio backend is wired up to it.
 
 ## Instruction Set (Opcodes)
 

@@ -11,6 +11,7 @@ This project is under active development. The table below reflects what's genuin
 | Component | Status |
 |---|---|
 | Memory system (addressable space + framebuffer + controller input) | ✅ Done |
+| Sound (tone generator registers) | 🚧 Memory layout reserved, not producing sound yet — see [Reference](./REFERENCE.md) |
 | CPU core (registers, flags, instruction execution) | ✅ Done |
 | Assembler (turns `.asm` source into runnable bytecode) | ⏳ Planned |
 | 68000 instruction set (~80 opcodes) | 🚧 12 of ~80 (`NOP`, `MOVE`, `MOVEQ`, `ADD`, `SUB`, `CMP`, `Bcc`/`BRA`, `BTST`, `AND`, `OR`, `XOR`, `NOT`) — see [Reference](./REFERENCE.md) |
@@ -29,6 +30,7 @@ If you just want to try the app today, it's not ready for that yet — check the
 - A TRAP-based system-call layer, for things like printing text or drawing to the screen from your own assembly code
 - A simulated 320×200 color LCD (32-bit RGBA), mapped directly into memory
 - An on-screen retro gamepad (A/B/X/Y, D-pad, Start/Select), superseded by a real gamepad when one is connected
+- Simple retro-style sound effects (a tone generator, not sampled audio), the way period 8/16-bit consoles did it
 - A step-by-step debugger: watch registers and memory change instruction by instruction
 - A syntax-highlighted assembly editor, built into the app — no external tools needed
 - Native installers for Windows, macOS, and Linux, so it runs like any other desktop app
