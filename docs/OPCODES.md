@@ -51,7 +51,13 @@ MOVE.L  (A0),D1        ; D1 = Memory[A0]
 MOVEA src,An
 ```
 
-Special MOVE for address registers. No flags updated.
+Special MOVE for address registers. No flags updated. On real 68000
+hardware (and in this emulator) `MOVEA` isn't a distinct opcode — a `MOVE`
+whose destination is an address register *is* `MOVEA`, exactly the same
+bit pattern; only the mnemonic an assembler prints differs. So `MOVE.L
+#$1000,A0` and `MOVEA.L #$1000,A0` assemble to the same instruction, and
+both correctly leave the flags untouched. Byte size to an address register
+is a reserved encoding and raises an error.
 
 **Sizes**: W, L
 **Cycles**: 4
@@ -468,7 +474,13 @@ BGE     GTE_100        ; Branch if D0 >= 100
 DBRA Dn,label
 ```
 
-Decrement Dn, branch if not -1.
+Decrements the low 16 bits of `Dn` (the high word is untouched) and
+branches to `label` unless the result is `-1`. Only `DBRA` is
+implemented — not the full `DBcc` family (`DBEQ`, `DBNE`, ...), which
+would need the same kind of condition-code table `Bcc` uses, over the
+`Scc`/`DBcc` truth table rather than the branch one. Unlike `Bcc`, the
+branch displacement is always a 16-bit extension word — there's no 8-bit
+inline form.
 
 **Cycles**: 10 (branch), 12 (no branch)
 

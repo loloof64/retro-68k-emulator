@@ -42,6 +42,10 @@ function bccWord(cc: number, disp8: number) {
   return (0b0110 << 12) | (cc << 8) | (disp8 & 0xff)
 }
 
+function dbraWord(reg: number) {
+  return 0x51c8 | reg
+}
+
 function jsrWord(mode: number, reg: number) {
   return 0x4e80 | (mode << 3) | reg
 }
@@ -133,6 +137,33 @@ describe('MOVE', () => {
     step(cpu, memory, opcodeTable)
 
     expect(cpu.registers[Register.A0]).toBe(0x40000)
+  })
+
+  it('MOVEA (An destination) never touches the flags, unlike a plain MOVE', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    cpu.status.N = true
+    cpu.status.Z = true
+    cpu.status.V = true
+    cpu.status.C = true
+    memory.write16(0x2000, moveWord(MOVE_L_IMM_TO_Dn, 0b001, 0, 0b111, 0b100)) // MOVE.L #0,A0
+    memory.write32(0x2002, 0x00000000) // a value that would set Z if this were a plain MOVE
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.registers[Register.A0]).toBe(0)
+    expect(cpu.status.N).toBe(true)
+    expect(cpu.status.Z).toBe(true)
+    expect(cpu.status.V).toBe(true)
+    expect(cpu.status.C).toBe(true)
+  })
+
+  it('MOVE.B to an address register is rejected as a reserved encoding', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    memory.write16(0x2000, moveWord(0b01, 0b001, 0, 0b000, 0)) // MOVE.B D0,A0
+
+    expect(() => step(cpu, memory, opcodeTable)).toThrow(/reserved encoding/)
   })
 
   it('MOVE.L #imm,(A0) writes through an address register indirect', () => {
@@ -801,6 +832,47 @@ describe('Bcc', () => {
 
     // base is 0x2012 (right after the opcode word) - 4 = 0x200e
     expect(cpu.pc).toBe(0x200e)
+  })
+})
+
+describe('DBRA', () => {
+  it('decrements and branches while the counter has not reached -1', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.D0, 3, 'word')
+    memory.write16(0x2000, dbraWord(0)) // DBRA D0,<disp>
+    memory.write16(0x2002, 0xfffc) // -4: loop back to 0x2000
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.registers[Register.D0] & 0xffff).toBe(2)
+    // base is 0x2002 (right after the opcode word) - 4 = 0x1ffe
+    expect(cpu.pc).toBe(0x1ffe)
+  })
+
+  it('falls through without branching once the counter reaches -1', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.D0, 0, 'word') // decrements to -1 (0xffff)
+    memory.write16(0x2000, dbraWord(0))
+    memory.write16(0x2002, 0xfff0) // would branch backward if taken
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.registers[Register.D0] & 0xffff).toBe(0xffff)
+    expect(cpu.pc).toBe(0x2004) // past the extension word, no branch
+  })
+
+  it('only touches the low word of Dn, leaving the high word untouched', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.D0, 0x12340005, 'long')
+    memory.write16(0x2000, dbraWord(0))
+    memory.write16(0x2002, 0)
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.registers[Register.D0]).toBe(0x12340004)
   })
 })
 

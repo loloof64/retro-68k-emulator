@@ -44,6 +44,13 @@ function decodeMoveSize(bits: number): Size {
   throw new Error(`Invalid MOVE size bits: ${bits.toString(2)}`)
 }
 
+// MOVEA isn't a separate opcode encoding on real 68000 hardware — a MOVE
+// whose destination mode is "An direct" *is* MOVEA, word-for-word the same
+// bit pattern. The only behavioral difference is that it never touches the
+// flags (and byte-sized MOVEA is a reserved/invalid encoding). So instead
+// of a second table entry, MOVE just special-cases an An destination here.
+const MOVEA_DEST_MODE = 0b001
+
 const MOVE: OpcodeDefinition = {
   mnemonic: 'MOVE',
   encoding: '00SSdddDDDsssRRR',
@@ -56,6 +63,11 @@ const MOVE: OpcodeDefinition = {
     const srcMode = (opcodeWord >> 3) & 0b111
     const srcReg = opcodeWord & 0b111
 
+    const isMovea = destMode === MOVEA_DEST_MODE
+    if (isMovea && size === 'byte') {
+      throw new Error('MOVE.B to an address register is a reserved encoding (MOVEA only supports word/long)')
+    }
+
     // Source decoded before destination: extension words (e.g. #imm) follow
     // the opcode word in that same order in memory.
     const src = decodeEA(cpu, memory, srcMode, srcReg, size)
@@ -64,10 +76,13 @@ const MOVE: OpcodeDefinition = {
     const value = src.read()
     dest.write(value)
 
-    // Real 68000 MOVE: N/Z from the result, V and C always cleared, X unaffected.
-    updateFlags(cpu, value, size)
-    cpu.status.V = false
-    cpu.status.C = false
+    // Real 68000 MOVE: N/Z from the result, V and C always cleared, X
+    // unaffected. MOVEA (An destination) affects no flags at all.
+    if (!isMovea) {
+      updateFlags(cpu, value, size)
+      cpu.status.V = false
+      cpu.status.C = false
+    }
 
     return 4
   },
@@ -235,6 +250,39 @@ const Bcc: OpcodeDefinition = {
     }
 
     return 10
+  },
+}
+
+// --- DBRA Dn,<disp> ($51C8-$51CF) - decrement and branch unless -1 ------
+//
+// Only DBRA (the "always decrement" DBcc, condition code F) is implemented
+// — not the full DBcc family (DBEQ, DBNE, ...), which would need the same
+// condition-code table as Bcc but over a different truth table (Scc/DBcc
+// conditions, not branch conditions). Unlike Bcc, DBcc's displacement is
+// always a 16-bit extension word — there's no 8-bit inline form.
+
+const DBRA: OpcodeDefinition = {
+  mnemonic: 'DBRA',
+  encoding: '0101000111001rrr',
+  size: 'variable',
+  handler: (cpu: CPUState, memory: Memory, args: unknown[]) => {
+    const opcodeWord = opcodeWordOf(args)
+    const reg = (Register.D0 + (opcodeWord & 0b111)) as Register
+
+    // Same "relative to the address of the extension word" base as Bcc.
+    const base = cpu.pc
+    const displacement = toSigned16(memory.read16(cpu.pc))
+    cpu.pc += 2
+
+    const decremented = (readRegister(cpu, reg, 'word') - 1) & 0xffff
+    writeRegister(cpu, reg, decremented, 'word')
+
+    if (decremented !== 0xffff) {
+      cpu.pc = base + displacement
+      return 10
+    }
+
+    return 12
   },
 }
 
@@ -871,5 +919,6 @@ export const opcodeTable: readonly OpcodeEntry[] = [
   { mask: 0xf100, pattern: 0x7000, definition: MOVEQ },
   { mask: 0xff00, pattern: 0x6100, definition: BSR },
   { mask: 0xf000, pattern: 0x6000, definition: Bcc },
+  { mask: 0xfff8, pattern: 0x51c8, definition: DBRA },
   { mask: 0xc000, pattern: 0x0000, definition: MOVE },
 ]

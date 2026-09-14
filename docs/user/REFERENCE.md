@@ -39,7 +39,7 @@ An addressing mode is how an instruction says where an operand lives — a regis
 | Pre-decrement | `-(An)` | `MOVE.L D0,-(A0)` | `An` is decremented by the operand's size first, then used as the address |
 | Immediate | `#value` | `MOVE.L #100,D0` | A constant baked into the instruction (source only — can't be a destination) |
 
-Not implemented yet: absolute addresses (`$40000`) and indexed addressing (`$1000(A0)`). That's why every example on this page loads an address into an address register first (e.g. `MOVE.L #$40000,A0`) instead of writing `$40000` directly as an operand.
+Not implemented yet: absolute addresses (`$40000`) and indexed addressing (`$1000(A0)`). That's why every example on this page loads an address into an address register first (e.g. `MOVEA.L #$40000,A0`) instead of writing `$40000` directly as an operand.
 
 ## Memory Map
 
@@ -127,6 +127,7 @@ A first handful of real instructions is wired in, grouped below the way Motorola
 | Mnemonic | Syntax | Sizes | Cycles | Flags affected | Description |
 |---|---|---|---|---|---|
 | `MOVE` | `MOVE.size src,dst` | byte, word, long | 4 | N, Z (V and C always cleared) | Copies a value from `src` to `dst`. |
+| `MOVEA` | `MOVEA.size src,An` | word, long | 4 | none | Loads an address register. Not a separate opcode — a `MOVE` whose destination is `An` *is* `MOVEA`, bit-for-bit, which is exactly why it skips the flags a plain `MOVE` would set. |
 | `MOVEQ` | `MOVEQ #data,Dn` | long | 4 | N, Z (V and C always cleared) | Loads a small immediate (-128 to 127) into a data register. Faster/shorter than `MOVE.L #imm,Dn`. |
 | `SWAP` | `SWAP Dn` | long | 4 | N, Z (V and C always cleared) | Swaps the high and low 16-bit halves of `Dn`. |
 
@@ -184,6 +185,7 @@ isn't implemented.
 | `JSR` | `JSR (An)` | word | 16 | none | Pushes the return address onto the stack, then jumps to the address held in `An`. Only `(An)` indirect is supported so far — absolute/indexed/PC-relative targets aren't implemented yet. |
 | `BSR` | `BSR target` | word | 18 | none | Like `JSR`, but PC-relative — pushes the return address, then always branches to `target`. |
 | `RTS` | `RTS` | word | 16 | none | Pops a return address pushed by `JSR`/`BSR` and jumps there. |
+| `DBRA` | `DBRA Dn,target` | word | 10 (branch), 12 (no branch) | none | Decrements the low 16 bits of `Dn` and jumps to `target` unless the result is `-1`. Only this "always decrement" form is implemented, not the full conditional `DBcc` family. |
 
 ### System
 
@@ -201,13 +203,15 @@ See [TRAP System Calls](#trap-system-calls) below for `TRAP`.
 
 **C** — [CLR](#arithmetic) · [CMP](#arithmetic)
 
+**D** — [DBRA](#program-control)
+
 **E** — [EXT](#arithmetic)
 
 **J** — [JSR](#program-control)
 
 **L** — [LSL](#shift-and-rotate) · [LSR](#shift-and-rotate)
 
-**M** — [MOVE](#data-movement) · [MOVEQ](#data-movement)
+**M** — [MOVE](#data-movement) · [MOVEA](#data-movement) · [MOVEQ](#data-movement)
 
 **N** — [NEG](#arithmetic) · [NOP](#system) · [NOT](#logical)
 
@@ -262,7 +266,7 @@ See [Addressing Modes](#addressing-modes) above for what `src`/`dst` can be — 
 MOVE.L  #100,D0
 MOVE.L  #200,D1
 ADD.L   D1,D0            ; D0 = 300
-MOVE.L  #$40000,A0       ; framebuffer base
+MOVEA.L #$40000,A0       ; framebuffer base
 MOVE.L  #$FFFFFF,(A0)    ; first pixel = white
 TRAP    #0                ; exit
 ```
@@ -284,7 +288,7 @@ TRAP    #0                 ; exit
 **Example** — calling a subroutine with `JSR`/`RTS` (again, `DOUBLE:` is illustrative — hand-encode the actual address today):
 
 ```
-MOVE.L  #DOUBLE,A0        ; A0 = address of the subroutine
+MOVEA.L #DOUBLE,A0        ; A0 = address of the subroutine
 MOVEQ   #21,D0
 JSR     (A0)               ; D0 *= 2, then returns here
 TRAP    #0                 ; exit
