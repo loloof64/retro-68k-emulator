@@ -32,7 +32,7 @@ Building requires a full dev setup. Installing the built app does not — see [I
 - `webkit2gtk`, `libgtk-3-dev`, and a few build essentials. On Debian/Ubuntu:
   ```bash
   sudo apt update
-  sudo apt install libwebkit2gtk-4.0-dev build-essential curl wget \
+  sudo apt install libwebkit2gtk-4.1-dev build-essential curl wget \
     file libssl-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev
   ```
 
