@@ -157,6 +157,24 @@ A first handful of real instructions is wired in, grouped below the way Motorola
 |---|---|---|---|---|---|
 | `BTST` | `BTST #n,dst` | long (register), byte (memory) | 4 (register), 8 (memory) | Z only | Tests bit `n` of `dst` (Z=1 when clear). Doesn't modify `dst` — the standard way to poll one button out of the [gamepad bitmask](#reading-the-gamepad). |
 
+### Shift and Rotate
+
+Register-only for now: `Dn` shifted/rotated in place by either an
+immediate count (`#n`, 1-8, with `#0` meaning 8) or a dynamic count taken
+from another data register (mod 64). The `<ea>` memory-operand shift form
+isn't implemented.
+
+| Mnemonic | Syntax | Sizes | Cycles | Flags affected | Description |
+|---|---|---|---|---|---|
+| `ASL` | `ASL #n,Dn` / `ASL Dx,Dn` | byte, word, long | 6 + 2×count | N, Z, V, C, X | Arithmetic shift left. Sets V if the sign bit changes value at any point during the shift. |
+| `ASR` | `ASR #n,Dn` / `ASR Dx,Dn` | byte, word, long | 6 + 2×count | N, Z, V (0), C, X | Arithmetic shift right — copies the original sign bit back in at each step. |
+| `LSL` | `LSL #n,Dn` / `LSL Dx,Dn` | byte, word, long | 6 + 2×count | N, Z, V (0), C, X | Logical shift left, filling with `0`. |
+| `LSR` | `LSR #n,Dn` / `LSR Dx,Dn` | byte, word, long | 6 + 2×count | N, Z, V (0), C, X | Logical shift right, filling with `0`. |
+| `ROL` | `ROL #n,Dn` / `ROL Dx,Dn` | byte, word, long | 6 + 2×count | N, Z, V (0), C | Rotates left — the bit rotated out of the top wraps back into bit 0. `X` is never touched. |
+| `ROR` | `ROR #n,Dn` / `ROR Dx,Dn` | byte, word, long | 6 + 2×count | N, Z, V (0), C | Rotates right — the bit rotated out of bit 0 wraps back into the top. `X` is never touched. |
+
+*(A dynamic count of `0` — only possible with the `Dx,Dn` form — does nothing: `C` comes out cleared, but `X` is left exactly as it was.)*
+
 ### Program Control
 
 | Mnemonic | Syntax | Sizes | Cycles | Flags affected | Description |
@@ -177,7 +195,7 @@ See [TRAP System Calls](#trap-system-calls) below for `TRAP`.
 
 ### Alphabetical Index
 
-**A** — [ADD](#arithmetic) · [AND](#logical)
+**A** — [ADD](#arithmetic) · [AND](#logical) · [ASL](#shift-and-rotate) · [ASR](#shift-and-rotate)
 
 **B** — [Bcc](#program-control) · [BRA](#program-control) · [BSR](#program-control) · [BTST](#bit-manipulation)
 
@@ -187,13 +205,15 @@ See [TRAP System Calls](#trap-system-calls) below for `TRAP`.
 
 **J** — [JSR](#program-control)
 
+**L** — [LSL](#shift-and-rotate) · [LSR](#shift-and-rotate)
+
 **M** — [MOVE](#data-movement) · [MOVEQ](#data-movement)
 
 **N** — [NEG](#arithmetic) · [NOP](#system) · [NOT](#logical)
 
 **O** — [OR](#logical)
 
-**R** — [RTS](#program-control)
+**R** — [ROL](#shift-and-rotate) · [ROR](#shift-and-rotate) · [RTS](#program-control)
 
 **S** — [SUB](#arithmetic) · [SWAP](#data-movement)
 
@@ -274,7 +294,7 @@ ADD.L   D0,D0              ; D0 += D0
 RTS                        ; back to the caller
 ```
 
-The rest of the ~80-instruction set (multiplication, division, shifts/rotates, subroutine calls, ...) lands in upcoming sessions — each one gets its own entry here as it becomes real.
+The rest of the ~80-instruction set (multiplication, division, absolute/indexed addressing, ...) lands in upcoming sessions — each one gets its own entry here as it becomes real.
 
 ## TRAP System Calls
 

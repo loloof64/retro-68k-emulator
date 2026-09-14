@@ -350,14 +350,20 @@ BEQ     A_NOT_PRESSED      ; Z=1 -> bit was clear
 
 ### ASL/ASR - Arithmetic Shift
 ```
-ASL #n,Dn     ; Shift left by n bits
+ASL #n,Dn     ; Shift left by n bits (1-8; 0 encodes 8)
 ASR #n,Dn     ; Shift right by n bits
+ASL Dx,Dn     ; Shift left by the count in Dx, mod 64
+ASR Dx,Dn     ; Shift right by the count in Dx, mod 64
 ```
 
-Arithmetic shifts preserve sign bit.
+Arithmetic shifts preserve sign bit: `ASR` copies the original sign back in
+at each step, `ASL` sets V if the sign bit changes value at any point
+during the shift. Only the register form is implemented — the `<ea>`
+memory-operand form (always a single-bit shift) isn't.
 
 **Cycles**: 6 + 2*n
-**Flags**: N, Z, V, C, X
+**Flags**: N, Z, V, C, X (a dynamic count of 0 clears C but leaves X
+untouched — no shift happened)
 
 **Examples**:
 ```asm
@@ -367,14 +373,18 @@ ASR #2,D1              ; D1 >>= 2 (divide by 4, signed)
 
 ### LSL/LSR - Logical Shift
 ```
-LSL #n,Dn     ; Shift left by n bits
+LSL #n,Dn     ; Shift left by n bits (1-8; 0 encodes 8)
 LSR #n,Dn     ; Shift right by n bits
+LSL Dx,Dn     ; Shift left by the count in Dx, mod 64
+LSR Dx,Dn     ; Shift right by the count in Dx, mod 64
 ```
 
-Logical shifts don't preserve sign.
+Logical shifts don't preserve sign — both directions fill with `0`. Only
+the register form is implemented, same as `ASL`/`ASR`.
 
 **Cycles**: 6 + 2*n
-**Flags**: N, Z, V (always 0), C, X
+**Flags**: N, Z, V (always 0), C, X (a dynamic count of 0 clears C but
+leaves X untouched)
 
 **Examples**:
 ```asm
@@ -384,14 +394,18 @@ LSR #1,D1              ; D1 >>= 1 (unsigned divide by 2)
 
 ### ROL/ROR - Rotate
 ```
-ROL #n,Dn     ; Rotate left
+ROL #n,Dn     ; Rotate left (1-8; 0 encodes 8)
 ROR #n,Dn     ; Rotate right
+ROL Dx,Dn     ; Rotate left by the count in Dx, mod 64
+ROR Dx,Dn     ; Rotate right by the count in Dx, mod 64
 ```
 
-Rotates bits in a circular manner.
+Rotates bits in a circular manner — the bit that rotates out one end comes
+back in the other. Only the register form is implemented. Unlike the
+shifts above, `X` is never affected by a rotate on real 68000 hardware.
 
 **Cycles**: 6 + 2*n
-**Flags**: N, Z, V (0), C
+**Flags**: N, Z, V (0), C (X untouched)
 
 **Examples**:
 ```asm

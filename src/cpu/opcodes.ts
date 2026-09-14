@@ -587,6 +587,220 @@ const TST: OpcodeDefinition = {
   },
 }
 
+// --- ASL/ASR/LSL/LSR/ROL/ROR ($E000-$E1FF) - register shifts/rotates ----
+//
+// Only the register form is implemented (shift/rotate a Dn in place by an
+// immediate 1-8 count or a dynamic count from another Dn, mod 64) — the
+// $E0C0-family memory-operand form (always a single-bit shift on an <ea>)
+// isn't decoded here. ROXL/ROXR (rotate-through-extend, type bits 10) also
+// aren't implemented; only ASx/LSx/ROx (type bits 00/01/11).
+
+function maskFor(size: Size): number {
+  return size === 'byte' ? 0xff : size === 'word' ? 0xffff : 0xffffffff
+}
+
+function signBitFor(size: Size): number {
+  return size === 'byte' ? 0x80 : size === 'word' ? 0x8000 : 0x80000000
+}
+
+// count/register field (bits 11-9) is either a Dn holding the shift count
+// (mod 64) or, in "quick" form, the count itself (1-7, with 0 meaning 8).
+function decodeShiftRotate(cpu: CPUState, opcodeWord: number) {
+  const countOrReg = (opcodeWord >> 9) & 0b111
+  const size = decodeByteWordLongSize((opcodeWord >> 6) & 0b11)
+  const isRegisterCount = ((opcodeWord >> 5) & 0b1) === 1
+  const reg = (Register.D0 + (opcodeWord & 0b111)) as Register
+
+  const count = isRegisterCount
+    ? readRegister(cpu, (Register.D0 + countOrReg) as Register, 'long') % 64
+    : countOrReg === 0
+      ? 8
+      : countOrReg
+
+  return { reg, count, size }
+}
+
+// Real 68000: with a dynamic (register-sourced) count of 0, no shift/rotate
+// happens at all — C (and V) come out cleared, but X is left untouched.
+// That falls out for free from looping `count` times below (0 iterations
+// leaves `carry`/`overflow` at their initial `false`); only X's "leave it
+// alone when count is 0" needs an explicit check in each handler.
+
+function shiftLeft(value: number, count: number, size: Size, trackOverflow: boolean) {
+  const mask = maskFor(size)
+  const signBit = signBitFor(size)
+  let v = value & mask
+  let carry = false
+  let overflow = false
+  for (let i = 0; i < count; i++) {
+    const signBefore = (v & signBit) !== 0
+    v = (v << 1) & mask
+    carry = signBefore
+    if (trackOverflow && signBefore !== ((v & signBit) !== 0)) overflow = true
+  }
+  return { result: v, carry, overflow }
+}
+
+function shiftRight(value: number, count: number, size: Size) {
+  const mask = maskFor(size)
+  let v = value & mask
+  let carry = false
+  for (let i = 0; i < count; i++) {
+    carry = (v & 1) !== 0
+    v = v >>> 1
+  }
+  return { result: v, carry }
+}
+
+// Sign-extending right shift: the same original sign bit is copied back in
+// at every step (a negative value's sign never flips mid-shift for ASR).
+function arithmeticShiftRight(value: number, count: number, size: Size) {
+  const mask = maskFor(size)
+  const signBit = signBitFor(size)
+  let v = value & mask
+  const signSet = (v & signBit) !== 0
+  let carry = false
+  for (let i = 0; i < count; i++) {
+    carry = (v & 1) !== 0
+    v = v >>> 1
+    if (signSet) v |= signBit
+  }
+  return { result: v, carry }
+}
+
+function rotateLeft(value: number, count: number, size: Size) {
+  const mask = maskFor(size)
+  const signBit = signBitFor(size)
+  let v = value & mask
+  let carry = false
+  for (let i = 0; i < count; i++) {
+    const bitOut = (v & signBit) !== 0
+    v = ((v << 1) & mask) | (bitOut ? 1 : 0)
+    carry = bitOut
+  }
+  return { result: v, carry }
+}
+
+function rotateRight(value: number, count: number, size: Size) {
+  const mask = maskFor(size)
+  const signBit = signBitFor(size)
+  let v = value & mask
+  let carry = false
+  for (let i = 0; i < count; i++) {
+    const bitOut = (v & 1) !== 0
+    v = (v >>> 1) | (bitOut ? signBit : 0)
+    carry = bitOut
+  }
+  return { result: v, carry }
+}
+
+const ASL: OpcodeDefinition = {
+  mnemonic: 'ASL',
+  encoding: '1110ccc1ssi00rrr',
+  size: 'variable',
+  handler: (cpu: CPUState, _memory: Memory, args: unknown[]) => {
+    const { reg, count, size } = decodeShiftRotate(cpu, opcodeWordOf(args))
+    const { result, carry, overflow } = shiftLeft(readRegister(cpu, reg, size), count, size, true)
+
+    writeRegister(cpu, reg, result, size)
+    updateFlags(cpu, result, size)
+    cpu.status.V = overflow
+    cpu.status.C = carry
+    if (count > 0) cpu.status.X = carry
+
+    return 6 + 2 * count
+  },
+}
+
+const ASR: OpcodeDefinition = {
+  mnemonic: 'ASR',
+  encoding: '1110ccc0ssi00rrr',
+  size: 'variable',
+  handler: (cpu: CPUState, _memory: Memory, args: unknown[]) => {
+    const { reg, count, size } = decodeShiftRotate(cpu, opcodeWordOf(args))
+    const { result, carry } = arithmeticShiftRight(readRegister(cpu, reg, size), count, size)
+
+    writeRegister(cpu, reg, result, size)
+    updateFlags(cpu, result, size)
+    cpu.status.V = false
+    cpu.status.C = carry
+    if (count > 0) cpu.status.X = carry
+
+    return 6 + 2 * count
+  },
+}
+
+const LSL: OpcodeDefinition = {
+  mnemonic: 'LSL',
+  encoding: '1110ccc1ssi01rrr',
+  size: 'variable',
+  handler: (cpu: CPUState, _memory: Memory, args: unknown[]) => {
+    const { reg, count, size } = decodeShiftRotate(cpu, opcodeWordOf(args))
+    const { result, carry } = shiftLeft(readRegister(cpu, reg, size), count, size, false)
+
+    writeRegister(cpu, reg, result, size)
+    updateFlags(cpu, result, size)
+    cpu.status.V = false
+    cpu.status.C = carry
+    if (count > 0) cpu.status.X = carry
+
+    return 6 + 2 * count
+  },
+}
+
+const LSR: OpcodeDefinition = {
+  mnemonic: 'LSR',
+  encoding: '1110ccc0ssi01rrr',
+  size: 'variable',
+  handler: (cpu: CPUState, _memory: Memory, args: unknown[]) => {
+    const { reg, count, size } = decodeShiftRotate(cpu, opcodeWordOf(args))
+    const { result, carry } = shiftRight(readRegister(cpu, reg, size), count, size)
+
+    writeRegister(cpu, reg, result, size)
+    updateFlags(cpu, result, size)
+    cpu.status.V = false
+    cpu.status.C = carry
+    if (count > 0) cpu.status.X = carry
+
+    return 6 + 2 * count
+  },
+}
+
+const ROL: OpcodeDefinition = {
+  mnemonic: 'ROL',
+  encoding: '1110ccc1ssi11rrr',
+  size: 'variable',
+  handler: (cpu: CPUState, _memory: Memory, args: unknown[]) => {
+    const { reg, count, size } = decodeShiftRotate(cpu, opcodeWordOf(args))
+    const { result, carry } = rotateLeft(readRegister(cpu, reg, size), count, size)
+
+    writeRegister(cpu, reg, result, size)
+    updateFlags(cpu, result, size)
+    cpu.status.V = false
+    cpu.status.C = carry
+    // Real 68000: ROL/ROR never touch X, unlike the shift instructions.
+
+    return 6 + 2 * count
+  },
+}
+
+const ROR: OpcodeDefinition = {
+  mnemonic: 'ROR',
+  encoding: '1110ccc0ssi11rrr',
+  size: 'variable',
+  handler: (cpu: CPUState, _memory: Memory, args: unknown[]) => {
+    const { reg, count, size } = decodeShiftRotate(cpu, opcodeWordOf(args))
+    const { result, carry } = rotateRight(readRegister(cpu, reg, size), count, size)
+
+    writeRegister(cpu, reg, result, size)
+    updateFlags(cpu, result, size)
+    cpu.status.V = false
+    cpu.status.C = carry
+
+    return 6 + 2 * count
+  },
+}
+
 // --- TRAP #n ($4E40-$4E4F) ----------------------------------------------
 
 export type TrapHandler = (cpu: CPUState, memory: Memory, vector: number) => void
@@ -642,6 +856,12 @@ export const opcodeTable: readonly OpcodeEntry[] = [
   { mask: 0xffb8, pattern: 0x4880, definition: EXT },
   { mask: 0xffff, pattern: 0x4e75, definition: RTS },
   { mask: 0xffc0, pattern: 0x4e80, definition: JSR },
+  { mask: 0xf118, pattern: 0xe100, definition: ASL },
+  { mask: 0xf118, pattern: 0xe000, definition: ASR },
+  { mask: 0xf118, pattern: 0xe108, definition: LSL },
+  { mask: 0xf118, pattern: 0xe008, definition: LSR },
+  { mask: 0xf118, pattern: 0xe118, definition: ROL },
+  { mask: 0xf118, pattern: 0xe018, definition: ROR },
   { mask: 0xf100, pattern: 0xd000, definition: ADD },
   { mask: 0xf100, pattern: 0x9000, definition: SUB },
   { mask: 0xf100, pattern: 0xb000, definition: CMP },

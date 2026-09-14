@@ -94,6 +94,20 @@ function tstWord(size: 0b00 | 0b01 | 0b10, mode: number, reg: number) {
   return (0b0100101000000000) | (size << 6) | (mode << 3) | reg
 }
 
+// dr: 1=left 0=right. tt: 0b00=ASx 0b01=LSx 0b11=ROx. isRegisterCount:
+// false -> countOrReg is the immediate count (1-7, 0 means 8); true ->
+// countOrReg is the Dn holding the dynamic count.
+function shiftWord(
+  dr: 0 | 1,
+  tt: 0b00 | 0b01 | 0b11,
+  isRegisterCount: boolean,
+  countOrReg: number,
+  size: 0b00 | 0b01 | 0b10,
+  reg: number
+) {
+  return (0b1110 << 12) | (countOrReg << 9) | (dr << 8) | (size << 6) | ((isRegisterCount ? 1 : 0) << 5) | (tt << 3) | reg
+}
+
 const MOVE_L_IMM_TO_Dn = 0b10 // long
 const OPMODE_LONG = 0b010
 
@@ -582,6 +596,136 @@ describe('TST', () => {
     expect(cpu.status.Z).toBe(true)
     expect(cpu.status.V).toBe(false)
     expect(cpu.status.C).toBe(false)
+  })
+})
+
+describe('ASL', () => {
+  it('shifts left, setting C/X to the bit shifted out and V on sign change', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.D0, 0x40, 'byte') // 0100_0000
+    memory.write16(0x2000, shiftWord(1, 0b00, false, 1, 0b00, 0)) // ASL.B #1,D0
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.registers[Register.D0] & 0xff).toBe(0x80) // 1000_0000
+    expect(cpu.status.N).toBe(true)
+    expect(cpu.status.C).toBe(false) // bit shifted out was 0
+    expect(cpu.status.X).toBe(false)
+    expect(cpu.status.V).toBe(true) // sign flipped 0 -> 1 mid-shift
+  })
+
+  it('an immediate count of 0 means 8', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.D0, 0xff, 'byte')
+    memory.write16(0x2000, shiftWord(1, 0b00, false, 0, 0b00, 0)) // ASL.B #8,D0
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.registers[Register.D0] & 0xff).toBe(0) // shifted all 8 bits out
+    expect(cpu.status.Z).toBe(true)
+  })
+})
+
+describe('ASR', () => {
+  it('sign-extends on the way right, C/X from the bit shifted out', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.D0, 0x81, 'byte') // 1000_0001
+    memory.write16(0x2000, shiftWord(0, 0b00, false, 1, 0b00, 0)) // ASR.B #1,D0
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.registers[Register.D0] & 0xff).toBe(0xc0) // 1100_0000 (sign preserved)
+    expect(cpu.status.C).toBe(true) // bit 0 (1) shifted out
+    expect(cpu.status.X).toBe(true)
+    expect(cpu.status.V).toBe(false)
+  })
+})
+
+describe('LSL', () => {
+  it('shifts left filling with 0, V always clear', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.D0, 0x81, 'byte') // 1000_0001
+    memory.write16(0x2000, shiftWord(1, 0b01, false, 1, 0b00, 0)) // LSL.B #1,D0
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.registers[Register.D0] & 0xff).toBe(0x02)
+    expect(cpu.status.C).toBe(true) // bit 7 (1) shifted out
+    expect(cpu.status.V).toBe(false)
+  })
+})
+
+describe('LSR', () => {
+  it('shifts right filling with 0', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.D0, 0x03, 'byte')
+    memory.write16(0x2000, shiftWord(0, 0b01, false, 1, 0b00, 0)) // LSR.B #1,D0
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.registers[Register.D0] & 0xff).toBe(0x01)
+    expect(cpu.status.C).toBe(true)
+  })
+
+  it('supports a dynamic count from a data register', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.D0, 0x80, 'byte')
+    writeRegister(cpu, Register.D1, 3, 'long') // shift count
+    memory.write16(0x2000, shiftWord(0, 0b01, true, 1, 0b00, 0)) // LSR.B D1,D0
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.registers[Register.D0] & 0xff).toBe(0x10) // 0x80 >> 3
+  })
+
+  it('a dynamic count of 0 clears C but leaves X untouched', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.D0, 0xff, 'byte')
+    writeRegister(cpu, Register.D1, 0, 'long') // shift count = 0
+    cpu.status.C = true
+    cpu.status.X = true
+    memory.write16(0x2000, shiftWord(0, 0b01, true, 1, 0b00, 0)) // LSR.B D1,D0
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.registers[Register.D0] & 0xff).toBe(0xff) // unchanged
+    expect(cpu.status.C).toBe(false)
+    expect(cpu.status.X).toBe(true) // unaffected, per real 68000 behavior
+  })
+})
+
+describe('ROL', () => {
+  it('rotates left, wrapping the bit shifted out into bit 0', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.D0, 0x81, 'byte') // 1000_0001
+    memory.write16(0x2000, shiftWord(1, 0b11, false, 1, 0b00, 0)) // ROL.B #1,D0
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.registers[Register.D0] & 0xff).toBe(0x03) // 0000_0011
+    expect(cpu.status.C).toBe(true)
+  })
+})
+
+describe('ROR', () => {
+  it('rotates right, wrapping the bit shifted out into the top bit', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.D0, 0x01, 'byte')
+    memory.write16(0x2000, shiftWord(0, 0b11, false, 1, 0b00, 0)) // ROR.B #1,D0
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.registers[Register.D0] & 0xff).toBe(0x80)
+    expect(cpu.status.C).toBe(true)
   })
 })
 
