@@ -70,7 +70,9 @@ export interface OpcodeDefinition {
   mnemonic: string;
   encoding: string; // bit pattern
   size: 'byte' | 'word' | 'long' | 'variable';
-  handler: (cpu: CPUState, args: any[]) => number; // returns cycles
+  // Takes memory too (not just cpu/args): almost every addressing mode needs
+  // it to read operands/extension words, and to leave cpu.pc past them.
+  handler: (cpu: CPUState, memory: Memory, args: any[]) => number; // returns cycles
 }
 
 // Memory interface
