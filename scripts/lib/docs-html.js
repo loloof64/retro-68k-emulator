@@ -63,6 +63,29 @@ function convertTables(html) {
   })
 }
 
+// Groups consecutive `- `/`* ` or `1. ` lines into real <ul>/<ol> blocks.
+// The docs only ever use `-` and numbered lists (never `*`), and previously
+// only a single, non-repeating `* ` pattern was handled — so every list in
+// every doc was falling through to the paragraph pass as raw "- text" lines.
+function convertLists(html) {
+  const toItems = (block, markerRe) =>
+    block
+      .trim()
+      .split(/\r?\n/)
+      .map((line) => `<li>${line.replace(markerRe, '')}</li>`)
+      .join('')
+
+  html = html.replace(/^(?:\d+\. .*(?:\r?\n|$))+/gm, (block) => {
+    return `<ol>${toItems(block, /^\d+\.\s+/)}</ol>\n`
+  })
+
+  html = html.replace(/^(?:[*-] .*(?:\r?\n|$))+/gm, (block) => {
+    return `<ul>${toItems(block, /^[*-]\s+/)}</ul>\n`
+  })
+
+  return html
+}
+
 function markdownToHtml(markdown) {
   let html = markdown
 
@@ -84,6 +107,7 @@ function markdownToHtml(markdown) {
   html = html.replace(/`([^`]+)`/g, (_, code) => stashCode(`<code>${code}</code>`))
 
   html = convertTables(html)
+  html = convertLists(html)
 
   // Section-level h1's already get their id from the enclosing .section div
   // (documentStructure below), so only sub-headings need slugged ids here —
@@ -95,9 +119,6 @@ function markdownToHtml(markdown) {
   html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
   html = html.replace(/\*(.*?)\*/g, '<em>$1</em>')
   html = html.replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2">$1</a>')
-
-  html = html.replace(/^\* (.*?)$/gm, '<li>$1</li>')
-  html = html.replace(/(<li>.*?<\/li>)/s, '<ul>$1</ul>')
 
   html = html.replace(/\n\n/g, '</p><p>')
   html = `<p>${html}</p>`
@@ -199,7 +220,7 @@ export function generateHtmlDocument({
       color: inherit;
     }
 
-    ul {
+    ul, ol {
       margin-left: 2em;
       margin-top: 0.5em;
       margin-bottom: 0.5em;
