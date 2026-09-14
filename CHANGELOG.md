@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-09-14
+
+### Fixed
+- The 0.1.1 release build was failing on every platform:
+  - macOS/Windows: `src-tauri/icons/` had no actual icon files — `tauri.conf.json` referenced `32x32.png`, `icon.ico`, `icon.icns`, etc., but only a placeholder README existed. Added a source icon and generated the full set via `tauri icon`.
+  - Linux: `libsoup-3.0` wasn't found. The workflow installed `libwebkit2gtk-4.0-dev` (pulls `libsoup2`); switched to `libwebkit2gtk-4.1-dev`, which Tauri v2 actually needs (also fixed in `docs/INSTALLATION.md`).
+- Generated PDFs were being silently deleted by `npm run build` — Vite empties `dist/` on every build, and the PDFs were written there too. All PDF scripts now write to `dist-docs/` instead.
+- Clarified/corrected the signed vs. unsigned `Bcc` condition codes in both docs — `BHI`/`BLS` were undocumented, and `BLT`/`BGE` were described as plain N-flag tests instead of the real N≠V/N=V conditions.
+
 ## [0.1.1] - 2026-09-14
 
 ### Added
