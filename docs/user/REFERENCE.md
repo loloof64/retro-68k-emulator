@@ -38,8 +38,10 @@ An addressing mode is how an instruction says where an operand lives — a regis
 | Post-increment | `(An)+` | `MOVE.L (A0)+,D0` | Like indirect, then `An` is bumped by the operand's size |
 | Pre-decrement | `-(An)` | `MOVE.L D0,-(A0)` | `An` is decremented by the operand's size first, then used as the address |
 | Immediate | `#value` | `MOVE.L #100,D0` | A constant baked into the instruction (source only — can't be a destination) |
+| Absolute short | `xxx.W` | `MOVE.L $100.W,D0` | A 16-bit address, sign-extended — reaches `$0000`-`$7FFF` (or, on real hardware, the top of memory too; this emulator's address space doesn't extend that far) |
+| Absolute long | `xxx.L` | `MOVE.L $40000.L,D0` | A full 32-bit address, written directly into the instruction |
 
-Not implemented yet: absolute addresses (`$40000`) and indexed addressing (`$1000(A0)`). That's why every example on this page loads an address into an address register first (e.g. `MOVEA.L #$40000,A0`) instead of writing `$40000` directly as an operand.
+Not implemented yet: indexed addressing (`$1000(A0,D0)`) and PC-relative modes. Absolute addressing works either as shown above or, for an address you'll reuse, by loading it into an address register first with `MOVEA` (e.g. `MOVEA.L #$40000,A0` then `(A0)`) — most examples on this page still use the `MOVEA` style since it's what the addressing modes actually looked like before absolute addressing landed, but either works today.
 
 ## Memory Map
 
@@ -262,17 +264,16 @@ After a `CMP`, there are *two separate* families of "is it bigger/smaller" branc
 | `BVC` | `V=0` | Overflow Clear |
 | `BVS` | `V=1` | Overflow Set |
 
-See [Addressing Modes](#addressing-modes) above for what `src`/`dst` can be — the examples below load addresses into an address register first since absolute addresses aren't supported yet.
+See [Addressing Modes](#addressing-modes) above for what `src`/`dst` can be.
 
-**Example** — add two numbers and write a white pixel:
+**Example** — add two numbers and write a white pixel, using a direct absolute address:
 
 ```
 MOVE.L  #100,D0
 MOVE.L  #200,D1
-ADD.L   D1,D0            ; D0 = 300
-MOVEA.L #$40000,A0       ; framebuffer base
-MOVE.L  #$FFFFFF,(A0)    ; first pixel = white
-TRAP    #0                ; exit
+ADD.L   D1,D0                ; D0 = 300
+MOVE.L  #$FFFFFF,$40000.L    ; first pixel = white
+TRAP    #0                    ; exit
 ```
 
 **Example** — a countdown loop using `MOVEQ`, `SUB`, `CMP`, and `Bcc`:
@@ -302,7 +303,7 @@ ADD.L   D0,D0              ; D0 += D0
 RTS                        ; back to the caller
 ```
 
-The rest of the ~80-instruction set (absolute/indexed addressing, the full conditional `DBcc` family, ...) lands in upcoming sessions — each one gets its own entry here as it becomes real.
+The rest of the ~80-instruction set (indexed/PC-relative addressing, the full conditional `DBcc` family, ...) lands in upcoming sessions — each one gets its own entry here as it becomes real.
 
 ## TRAP System Calls
 

@@ -254,6 +254,56 @@ describe('MOVE', () => {
     expect(cpu.registers[Register.A0]).toBe(0x2100)
     expect(memory.read32(0x2100)).toBe(0xdeadbeef)
   })
+
+  it('(xxx).W reads via a sign-extended 16-bit absolute address', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    memory.write32(0x100, 0x11223344)
+    memory.write16(0x2000, moveWord(MOVE_L_IMM_TO_Dn, 0b000, 0, 0b111, 0b000)) // MOVE.L $100.W,D0
+    memory.write16(0x2002, 0x0100)
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.registers[Register.D0]).toBe(0x11223344)
+    expect(cpu.pc).toBe(0x2004)
+  })
+
+  it('(xxx).W writes to an absolute short address', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.D0, 0xdeadbeef, 'long')
+    memory.write16(0x2000, moveWord(MOVE_L_IMM_TO_Dn, 0b111, 0b000, 0b000, 0)) // MOVE.L D0,$100.W
+    memory.write16(0x2002, 0x0100)
+
+    step(cpu, memory, opcodeTable)
+
+    expect(memory.read32(0x100)).toBe(0xdeadbeef)
+  })
+
+  it('(xxx).L reads via a full 32-bit absolute address', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    memory.write32(0x40000, 0xffffffff) // e.g. a framebuffer pixel
+    memory.write16(0x2000, moveWord(MOVE_L_IMM_TO_Dn, 0b000, 0, 0b111, 0b001)) // MOVE.L $40000.L,D0
+    memory.write32(0x2002, 0x00040000)
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.registers[Register.D0]).toBe(0xffffffff)
+    expect(cpu.pc).toBe(0x2006)
+  })
+
+  it('(xxx).L writes to a full 32-bit absolute address', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.D0, 0x00ff00ff, 'long')
+    memory.write16(0x2000, moveWord(MOVE_L_IMM_TO_Dn, 0b111, 0b001, 0b000, 0)) // MOVE.L D0,$40000.L
+    memory.write32(0x2002, 0x00040000)
+
+    step(cpu, memory, opcodeTable)
+
+    expect(memory.read32(0x40000)).toBe(0x00ff00ff)
+  })
 })
 
 describe('ADD', () => {

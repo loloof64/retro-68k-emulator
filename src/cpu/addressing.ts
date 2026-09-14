@@ -32,8 +32,8 @@ function stepFor(size: Size, reg: number): number {
 // so callers just decode source then destination, in that order, and PC
 // ends up past everything by the time the instruction is done.
 //
-// Supported so far: Dn, An, (An), (An)+, -(An), and #imm (source only).
-// Absolute/indexed/PC-relative modes aren't implemented yet.
+// Supported so far: Dn, An, (An), (An)+, -(An), #imm (source only), and
+// absolute short/long. Indexed and PC-relative modes aren't implemented yet.
 export function decodeEA(cpu: CPUState, memory: Memory, mode: number, reg: number, size: Size): EffectiveAddress {
   switch (mode) {
     case 0b000: {
@@ -73,6 +73,23 @@ export function decodeEA(cpu: CPUState, memory: Memory, mode: number, reg: numbe
     }
 
     case 0b111:
+      if (reg === 0b000) {
+        // Absolute Short: 16-bit extension word, sign-extended to a full
+        // address — reaches only $0000-$7FFF (or, on real hardware, the
+        // very top of the address space via the negative half; this
+        // emulator's memory is far smaller than that, so a negative value
+        // here just means "out of bounds").
+        const raw = memory.read16(cpu.pc)
+        cpu.pc += 2
+        const address = (raw << 16) >> 16
+        return memoryEA(memory, address, size)
+      }
+      if (reg === 0b001) {
+        // Absolute Long: a full 32-bit extension address, unsigned.
+        const address = memory.read32(cpu.pc)
+        cpu.pc += 4
+        return memoryEA(memory, address, size)
+      }
       if (reg === 0b100) {
         // #imm — byte immediates are still stored as a full word, low byte used.
         const raw = size === 'long' ? memory.read32(cpu.pc) : memory.read16(cpu.pc)

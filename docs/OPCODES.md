@@ -23,8 +23,9 @@ Where:
 | Indirect | `(An)` | `MOVE.L (A0),D0` | Memory at address in An |
 | Post-Inc | `(An)+` | `MOVE.L (A0)+,D0` | Load then increment An |
 | Pre-Dec | `-(An)` | `MOVE.L -(A0),D0` | Decrement An then load |
-| Address | `$addr` | `MOVE.L D0,$1000` | Direct memory address |
-| Indexed | `$addr(An)` | `MOVE.L $1000(A0),D0` | Address + register offset |
+| Absolute Short | `xxx.W` | `MOVE.L $100.W,D0` | 16-bit address, sign-extended (reaches `$0000`-`$7FFF`) |
+| Absolute Long | `xxx.L` | `MOVE.L D0,$40000.L` | Full 32-bit address, direct |
+| Indexed | `$addr(An,Xn)` | `MOVE.L $1000(A0,D0),D0` | Address + register offset — **not implemented yet** |
 
 ## Data Movement
 
@@ -515,9 +516,11 @@ JSR label
 
 Push PC onto stack and jump to label.
 
-**Addressing**: only `(An)` indirect is supported so far — other control
-modes (absolute, indexed, PC-relative) aren't implemented yet, matching the
-[Addressing Modes](#addressing-modes) coverage in general.
+**Addressing**: only `(An)` indirect is supported so far. `JSR` needs the
+*address itself* (to jump to), not a value read through it, so it doesn't
+reuse the general `decodeEA` used elsewhere — extending it to absolute
+targets is separate follow-up work, not something the addressing-mode
+work elsewhere on this page unlocks automatically.
 **Cycles**: 16
 
 **Example**:
