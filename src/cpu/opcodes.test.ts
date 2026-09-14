@@ -1,6 +1,18 @@
 import { describe, it, expect } from 'vitest'
 import { Register } from '../types/cpu'
-import { SystemMemory, INPUT_START, INPUT_BUTTON_A, INPUT_BUTTON_B, INPUT_BUTTON_UP } from '../memory'
+import {
+  SystemMemory,
+  INPUT_START,
+  INPUT_BUTTON_A,
+  INPUT_BUTTON_B,
+  INPUT_BUTTON_UP,
+  SOUND_FREQUENCY,
+  SOUND_DURATION,
+  SOUND_VOLUME,
+  SOUND_WAVEFORM,
+  SOUND_TRIGGER,
+  SOUND_WAVEFORM_TRIANGLE,
+} from '../memory'
 import { createCPU, step, writeRegister } from './index'
 import { opcodeTable } from './opcodes'
 
@@ -482,6 +494,24 @@ describe('TRAP', () => {
     step(cpu, memory, opcodeTable)
 
     expect(cpu.registers[Register.D0]).toBe(INPUT_BUTTON_A | INPUT_BUTTON_UP)
+  })
+
+  it('TRAP #6 writes D0-D3 into the sound registers and sets the trigger', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.D0, 440, 'word') // frequency
+    writeRegister(cpu, Register.D1, 250, 'word') // duration
+    writeRegister(cpu, Register.D2, 200, 'byte') // volume
+    writeRegister(cpu, Register.D3, SOUND_WAVEFORM_TRIANGLE, 'byte') // waveform
+    memory.write16(0x2000, 0x4e46) // TRAP #6
+
+    step(cpu, memory, opcodeTable)
+
+    expect(memory.read16(SOUND_FREQUENCY)).toBe(440)
+    expect(memory.read16(SOUND_DURATION)).toBe(250)
+    expect(memory.read8(SOUND_VOLUME)).toBe(200)
+    expect(memory.read8(SOUND_WAVEFORM)).toBe(SOUND_WAVEFORM_TRIANGLE)
+    expect(memory.read8(SOUND_TRIGGER)).toBe(1)
   })
 })
 

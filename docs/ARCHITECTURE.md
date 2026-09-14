@@ -22,7 +22,7 @@ This document describes the internal architecture of the Retro 68K Emulator.
 │   - RAM (256KB)                     │
 │   - Framebuffer (320x200)           │
 │   - Controller Input                │
-│   - Sound (layout reserved)         │
+│   - Sound (no audio backend yet)    │
 │   - TRAP handlers                   │
 └─────────────────────────────────────┘
 ```
@@ -133,6 +133,7 @@ Maps to a handler table:
 - **TRAP #3**: Write pixel to framebuffer
 - **TRAP #4**: Clear screen
 - **TRAP #5**: Read controller state into D0
+- **TRAP #6**: Play tone — writes D0-D3 into the sound registers and triggers playback (no audio backend consumes it yet)
 
 ## Component Structure
 

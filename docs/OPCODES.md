@@ -474,6 +474,7 @@ Does nothing, useful for timing/padding.
 | 3 | Write Pixel | Write pixel to framebuffer at (A0) |
 | 4 | Clear Screen | Clear entire LCD screen |
 | 5 | Read Controller State | Load the controller button bitmask into D0 |
+| 6 | Play Tone | Write D0-D3 (frequency, duration, volume, waveform) into the sound registers and trigger playback |
 
 ---
 

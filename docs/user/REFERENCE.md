@@ -51,7 +51,7 @@ The emulator's memory system is implemented and working. Every address below is 
 | User RAM | `$02000`–`$3FFFF` | ~248 KB | Your program's code, data, and stack |
 | Framebuffer | `$40000`–`$7E7FF` | 250 KB | The 320×200 screen, 4 bytes (RGBA) per pixel |
 | Controller Input | `$7E800`–`$7E803` | 4 B | Gamepad button state, as a bitmask (see below) |
-| Sound | `$7E804`–`$7E80B` | 8 B | Tone generator registers — address space reserved, not producing sound yet |
+| Sound | `$7E804`–`$7E80B` | 8 B | Tone generator registers, written by `TRAP #6` — no audio backend consumes them yet (see below) |
 
 To find the address of pixel `(x, y)`:
 
@@ -80,13 +80,34 @@ BTST    #0,D0              ; test bit 0 (button A)
 BEQ     A_NOT_PRESSED      ; Z=1 -> button A isn't held
 ```
 
-### Sound (Reserved, Silent For Now)
+### Sound (Wired Up, Silent For Now)
 
 `$7E804`–`$7E80B` is laid out for a single-voice tone generator —
 frequency, duration, volume, waveform — the same idea as a PC speaker or
-the TI-89's buzzer, not a sample player. Right now it's just memory: reads
-and writes work, but nothing plays a sound yet. It'll get its own section
-here once an audio backend is wired up to it.
+the TI-89's buzzer, not a sample player.
+
+| Offset | Field | Size | Purpose |
+|---|---|---|---|
+| `+0` | Frequency | word | Hz; `0` = silence |
+| `+2` | Duration | word | milliseconds |
+| `+4` | Volume | byte | `0`-`255` |
+| `+5` | Waveform | byte | `0`=square `1`=sine `2`=triangle `3`=sawtooth `4`=noise |
+| `+6` | Trigger | byte | nonzero after `TRAP #6` |
+
+`TRAP #6` writes D0-D3 into those fields in one step and sets the trigger:
+
+```
+MOVE.W  #440,D0            ; frequency (Hz)
+MOVE.W  #250,D1            ; duration (ms)
+MOVE.B  #200,D2            ; volume
+MOVE.B  #0,D3               ; waveform (0 = square)
+TRAP    #6
+```
+
+That part's real and tested — the registers land in memory exactly as
+written. What's still missing is a host audio backend that reads the
+trigger and actually plays a sound through the Web Audio API; until that
+lands, running this is silent.
 
 ## Instruction Set (Opcodes)
 
@@ -174,12 +195,13 @@ The rest of the ~80-instruction set (multiplication, division, shifts/rotates, s
 
 ## TRAP System Calls
 
-Two TRAP vectors are wired in:
+Three TRAP vectors are wired in:
 
 | Vector | Syntax | Cycles | Description |
 |---|---|---|---|
 | `#0` | `TRAP #0` | 4 | Halts the CPU (ends the program). |
 | `#5` | `TRAP #5` | 4 | Loads the controller button bitmask into D0 — a shortcut for reading `$7E800` directly. |
+| `#6` | `TRAP #6` | 4 | Writes D0 (frequency), D1 (duration), D2 (volume), D3 (waveform) into the [sound registers](#sound-wired-up-silent-for-now) and sets the trigger byte. |
 
 The rest — printing text, reading/writing pixels, clearing the screen — is documented here as each one is implemented.
 

@@ -106,6 +106,7 @@ $00000-$01FFF    8 KB      System area
 $02000-$3FFFF    248 KB    User RAM
 $40000-$7E7FF    ~244 KB   Framebuffer (320×200)
 $7E800-$7E803    4 B       Controller input (button state)
+$7E804-$7E80B    8 B       Sound (tone generator, TRAP #6)
 ```
 
 ## TRAP Numbers
@@ -116,6 +117,7 @@ $7E800-$7E803    4 B       Controller input (button state)
 - **TRAP #3**: Write pixel to framebuffer  
 - **TRAP #4**: Clear screen
 - **TRAP #5**: Read controller state into D0
+- **TRAP #6**: Play tone (D0=frequency, D1=duration, D2=volume, D3=waveform)
 
 ## Program Template
 

@@ -1,9 +1,9 @@
 import { Register, type CPUState, type Memory, type OpcodeDefinition, type StatusFlags } from '../types/cpu'
 import type { OpcodeEntry } from './index'
-import { updateFlags, writeRegister } from './index'
+import { readRegister, updateFlags, writeRegister } from './index'
 import { decodeEA, type Size } from './addressing'
 import { addWithFlags, subWithFlags } from './arithmetic'
-import { INPUT_START } from '../memory'
+import { INPUT_START, SOUND_DURATION, SOUND_FREQUENCY, SOUND_TRIGGER, SOUND_VOLUME, SOUND_WAVEFORM } from '../memory'
 
 function opcodeWordOf(args: unknown[]): number {
   return args[0] as number
@@ -400,6 +400,18 @@ export const trapHandlers: Record<number, TrapHandler> = {
   // plain MOVE.L from INPUT_START; see docs/MEMORY.md).
   5: (cpu, memory) => {
     writeRegister(cpu, Register.D0, memory.read32(INPUT_START), 'long')
+  },
+  // TRAP #6: play tone. D0=frequency (Hz, word), D1=duration (ms, word),
+  // D2=volume (0-255, byte), D3=waveform (byte, see SOUND_WAVEFORM_* in
+  // src/memory/index.ts). Writes those into the sound registers and sets
+  // the trigger byte — see docs/MEMORY.md. This only updates memory: no
+  // audio backend consumes the trigger yet, so nothing is heard today.
+  6: (cpu, memory) => {
+    memory.write16(SOUND_FREQUENCY, readRegister(cpu, Register.D0, 'word'))
+    memory.write16(SOUND_DURATION, readRegister(cpu, Register.D1, 'word'))
+    memory.write8(SOUND_VOLUME, readRegister(cpu, Register.D2, 'byte'))
+    memory.write8(SOUND_WAVEFORM, readRegister(cpu, Register.D3, 'byte'))
+    memory.write8(SOUND_TRIGGER, 1)
   },
 }
 

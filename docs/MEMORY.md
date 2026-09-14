@@ -40,7 +40,8 @@ $08      2        Read pixel
 $0C      3        Write pixel
 $10      4        Clear screen
 $14      5        Read controller state
-$18-$7F  6-31     (reserved for future)
+$18      6        Play tone
+$1C-$7F  7-31     (reserved for future)
 ```
 
 ## User RAM ($02000-$3FFFF)
@@ -220,10 +221,13 @@ update, so there's no reason to.
 
 ## Sound ($7E804-$7E80B)
 
-**Layout only — not wired to any audio output yet.** The address space is
-reserved and readable/writable like any other memory, but nothing plays a
-sound in response to it today; this documents the register layout the
-eventual audio backend will implement against.
+**The registers and `TRAP #6` are wired up — actual audio output isn't
+yet.** A program can set frequency/duration/volume/waveform and trigger
+playback, and that state lands correctly in memory (tested), but no host
+backend currently reads the trigger and calls the Web Audio API to make a
+sound. That's the same relationship the framebuffer has to a real
+screen redraw today, or the controller input has to a real gamepad —
+the CPU-side contract is real, the host-side device isn't hooked up yet.
 
 The design deliberately isn't a PCM sample buffer: 8 bytes (or even the
 full ~250 KB the framebuffer gets) couldn't hold more than a few seconds
@@ -240,15 +244,34 @@ Offset  Field       Size  Purpose
 +2      Duration    word  milliseconds
 +4      Volume      byte  0-255
 +5      Waveform    byte  0=square 1=sine 2=triangle 3=sawtooth 4=noise
-+6      Trigger     byte  write nonzero to play (exact protocol TBD)
++6      Trigger     byte  nonzero after TRAP #6; a host backend would clear it once consumed
 +7      (reserved)  byte  padding, keeps the region 8 bytes wide
 ```
 
-A future TRAP (or a direct memory-mapped write, like the framebuffer)
-would let a program write these fields and trigger playback; the actual
-synthesis would happen on the host side via the Web Audio API, the same
-way pixel writes are rendered by the UI rather than the CPU core. That
-part needs its own design pass before it's implemented.
+### Playing a Tone
+
+Either write the fields directly and set the trigger byte yourself, or use
+`TRAP #6`, which does both in one step from D0-D3:
+
+```asm
+; Direct memory-mapped write (post-increment through the fields in order)
+MOVE.L  #$7E804,A0
+MOVE.W  #440,(A0)+         ; frequency = 440 Hz (A4)
+MOVE.W  #250,(A0)+         ; duration = 250 ms
+MOVE.B  #200,(A0)+         ; volume = 200
+MOVE.B  #0,(A0)+           ; waveform = square
+MOVE.B  #1,(A0)            ; trigger
+
+; Equivalent, via TRAP
+MOVE.W  #440,D0            ; frequency
+MOVE.W  #250,D1            ; duration
+MOVE.B  #200,D2            ; volume
+MOVE.B  #0,D3              ; waveform (0 = square)
+TRAP    #6
+```
+
+Both leave the registers set and the trigger byte `1` — nothing audible
+happens yet, since no audio backend is wired to read them (see above).
 
 ## Memory Access Instructions
 

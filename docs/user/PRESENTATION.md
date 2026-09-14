@@ -11,11 +11,11 @@ This project is under active development. The table below reflects what's genuin
 | Component | Status |
 |---|---|
 | Memory system (addressable space + framebuffer + controller input) | ✅ Done |
-| Sound (tone generator registers) | 🚧 Memory layout reserved, not producing sound yet — see [Reference](./REFERENCE.md) |
+| Sound (tone generator registers) | 🚧 Registers + `TRAP #6` wired up, no audio backend yet — see [Reference](./REFERENCE.md) |
 | CPU core (registers, flags, instruction execution) | ✅ Done |
 | Assembler (turns `.asm` source into runnable bytecode) | ⏳ Planned |
 | 68000 instruction set (~80 opcodes) | 🚧 12 of ~80 (`NOP`, `MOVE`, `MOVEQ`, `ADD`, `SUB`, `CMP`, `Bcc`/`BRA`, `BTST`, `AND`, `OR`, `XOR`, `NOT`) — see [Reference](./REFERENCE.md) |
-| TRAP system calls (print text, draw pixels, clear screen, read gamepad) | 🚧 2 of several (`TRAP #0` halt, `TRAP #5` read controller) — see [Reference](./REFERENCE.md) |
+| TRAP system calls (print text, draw pixels, clear screen, read gamepad, play tone) | 🚧 3 of several (`TRAP #0` halt, `TRAP #5` read controller, `TRAP #6` set sound registers) — see [Reference](./REFERENCE.md) |
 | On-screen gamepad UI (A/B/X/Y, D-pad, Start/Select) | ⏳ Planned — memory/opcode/TRAP support for it is done |
 | Editor / Debugger / Screen interface | 🚧 UI shell built, not yet connected to a working emulator |
 | Desktop installers (Windows / macOS / Linux) | 🚧 Packaging configured, first release not shipped yet |

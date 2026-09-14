@@ -56,7 +56,7 @@ START:
 - **Memory**: ~506KB addressable (system + user RAM, framebuffer, controller input, sound — see [docs/MEMORY.md](./docs/MEMORY.md))
 - **Framebuffer**: 320×200 pixels (0x40000)
 - **Controller input**: gamepad button bitmask (0x7E800)
-- **Sound**: tone generator registers reserved (0x7E804), not wired to audio output yet
+- **Sound**: tone generator registers + `TRAP #6` (0x7E804), no audio backend wired up yet
 
 ### Supported Opcodes
 
