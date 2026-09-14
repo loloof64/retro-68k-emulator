@@ -72,6 +72,14 @@ function negWord(size: 0b00 | 0b01 | 0b10, mode: number, reg: number) {
   return (0b0100010000000000) | (size << 6) | (mode << 3) | reg
 }
 
+function swapWord(reg: number) {
+  return 0x4840 | reg
+}
+
+function extWord(toLong: boolean, reg: number) {
+  return (toLong ? 0x48c0 : 0x4880) | reg
+}
+
 function tstWord(size: 0b00 | 0b01 | 0b10, mode: number, reg: number) {
   return (0b0100101000000000) | (size << 6) | (mode << 3) | reg
 }
@@ -431,6 +439,68 @@ describe('CLR', () => {
     step(cpu, memory, opcodeTable)
 
     expect(memory.read8(0x2000 + 4)).toBe(0)
+  })
+})
+
+describe('SWAP', () => {
+  it('swaps the high and low 16-bit halves', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.D0, 0x1234abcd, 'long')
+    memory.write16(0x2000, swapWord(0)) // SWAP D0
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.registers[Register.D0]).toBe(0xabcd1234)
+  })
+
+  it('sets Z when the swapped result is zero', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.D0, 0, 'long')
+    memory.write16(0x2000, swapWord(0)) // SWAP D0
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.status.Z).toBe(true)
+  })
+})
+
+describe('EXT', () => {
+  it('EXT.W sign-extends a negative byte into the low word, high word untouched', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.D0, 0x12340080, 'long') // byte = 0x80 (-128)
+    memory.write16(0x2000, extWord(false, 0)) // EXT.W D0
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.registers[Register.D0]).toBe(0x1234ff80) // high word (0x1234) preserved
+    expect(cpu.status.N).toBe(true)
+  })
+
+  it('EXT.L sign-extends a negative word to the full long', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.D0, 0x0000ff80, 'long')
+    memory.write16(0x2000, extWord(true, 0)) // EXT.L D0
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.registers[Register.D0]).toBe(0xffffff80)
+    expect(cpu.status.N).toBe(true)
+  })
+
+  it('EXT.W of a positive byte clears N and sets Z when zero', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.D0, 0x00000000, 'long')
+    memory.write16(0x2000, extWord(false, 0)) // EXT.W D0
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.status.Z).toBe(true)
+    expect(cpu.status.N).toBe(false)
   })
 })
 

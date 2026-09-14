@@ -410,6 +410,55 @@ const CLR: OpcodeDefinition = {
   },
 }
 
+// --- SWAP Dn ($4840) - swaps the two 16-bit halves of a data register ----
+
+const SWAP: OpcodeDefinition = {
+  mnemonic: 'SWAP',
+  encoding: '0100100001000rrr',
+  size: 'long',
+  handler: (cpu: CPUState, _memory: Memory, args: unknown[]) => {
+    const opcodeWord = opcodeWordOf(args)
+    const reg = (Register.D0 + (opcodeWord & 0b111)) as Register
+    const value = readRegister(cpu, reg, 'long')
+    const swapped = ((value << 16) | (value >>> 16)) >>> 0
+
+    writeRegister(cpu, reg, swapped, 'long')
+    updateFlags(cpu, swapped, 'long')
+    cpu.status.V = false
+    cpu.status.C = false
+
+    return 4
+  },
+}
+
+// --- EXT Dn ($4880 word, $48C0 long) - sign-extend byte->word / word->long
+
+const EXT: OpcodeDefinition = {
+  mnemonic: 'EXT',
+  encoding: '010010001s000rrr',
+  size: 'variable',
+  handler: (cpu: CPUState, _memory: Memory, args: unknown[]) => {
+    const opcodeWord = opcodeWordOf(args)
+    const reg = (Register.D0 + (opcodeWord & 0b111)) as Register
+    const toLong = ((opcodeWord >> 6) & 0b1) === 1
+
+    if (toLong) {
+      const value = toSigned16(readRegister(cpu, reg, 'word'))
+      writeRegister(cpu, reg, value, 'long')
+      updateFlags(cpu, value, 'long')
+    } else {
+      const value = toSigned8(readRegister(cpu, reg, 'byte'))
+      writeRegister(cpu, reg, value, 'word')
+      updateFlags(cpu, value, 'word')
+    }
+
+    cpu.status.V = false
+    cpu.status.C = false
+
+    return 4
+  },
+}
+
 // --- NEG <ea> ($4400) - dst = 0 - dst, full flags (unlike CLR/NOT) -------
 
 const NEG: OpcodeDefinition = {
@@ -509,6 +558,8 @@ export const opcodeTable: readonly OpcodeEntry[] = [
   { mask: 0xff00, pattern: 0x4200, definition: CLR },
   { mask: 0xff00, pattern: 0x4400, definition: NEG },
   { mask: 0xff00, pattern: 0x4a00, definition: TST },
+  { mask: 0xfff8, pattern: 0x4840, definition: SWAP },
+  { mask: 0xffb8, pattern: 0x4880, definition: EXT },
   { mask: 0xf100, pattern: 0xd000, definition: ADD },
   { mask: 0xf100, pattern: 0x9000, definition: SUB },
   { mask: 0xf100, pattern: 0xb000, definition: CMP },
