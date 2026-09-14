@@ -1,12 +1,13 @@
 name: CI
 
-# Runs on every push/PR to catch issues fast, without the cost of a full
-# multi-platform Tauri build (see build.yml for that, triggered by tags).
+# Runs only on tag pushes (a release), same as build.yml — running on every
+# commit to main was firing far too often during active development.
+# Use "Run workflow" from the Actions tab to check a branch on demand.
 on:
   push:
-    branches: [main]
-  pull_request:
-    branches: [main]
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
 
 jobs:
   check:
