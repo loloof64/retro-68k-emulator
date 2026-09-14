@@ -64,6 +64,19 @@ npm run tauri icon
 
 This uses Tauri's placeholder icon so the build pipeline works immediately. See `src-tauri/icons/README.md` to swap in a custom icon later.
 
+## Documentation Toolchain (Optional)
+
+`npm run docs:pdf` bundles all the `docs/*.md` files into a single PDF (`dist/TI89-68000-Documentation.pdf`) with a cover page, table of contents, and real navigable PDF bookmarks generated from the headings.
+
+This requires [WeasyPrint](https://weasyprint.org) — a system package, not an npm one:
+
+```bash
+sudo apt install weasyprint       # Debian/Ubuntu
+# or: brew install weasyprint     # macOS
+```
+
+A plain LaTeX-based pipeline (`texlive-xetex`) was tried first and rejected: it pulls in ~70 packages including a full JRE, for no benefit over WeasyPrint here. `pandoc` alone (`npm run docs:pdf:pandoc`) does **not** produce a PDF without a PDF engine like this installed too — it's kept only as a fallback for converting to other formats.
+
 ## Development Mode
 
 Run the app as a native window with hot-reload, instead of a browser tab:
