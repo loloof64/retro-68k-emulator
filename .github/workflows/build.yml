@@ -9,6 +9,9 @@ on:
       - 'v*.*.*'
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build-tauri:
     strategy:
@@ -61,7 +64,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tagName: ${{ github.ref_name }}
-          releaseName: 'TI-89 68K Emulator v__VERSION__'
+          releaseName: 'TI-89 68K Emulator ${{ github.ref_name }}'
           releaseBody: 'See CHANGELOG.md for details on this release.'
           # Only actually create/publish a GitHub Release when triggered by a tag push.
           # Manual "workflow_dispatch" runs just build and upload artifacts below, for testing.
