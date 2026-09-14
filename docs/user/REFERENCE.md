@@ -118,30 +118,62 @@ lands, running this is silent.
 
 ## Instruction Set (Opcodes)
 
-A first handful of real instructions is wired in. **Cycles** are how many CPU cycles an instruction takes to run — smaller is faster; they're what the emulator's cycle counter adds up as your program executes.
+A first handful of real instructions is wired in, grouped below the way Motorola's own 68000 Programmer's Reference Manual groups them. **Cycles** are how many CPU cycles an instruction takes to run — smaller is faster; they're what the emulator's cycle counter adds up as your program executes.
+
+*(Real 68000 hardware charges different cycle counts per addressing mode, and `Bcc` costs less when the branch isn't taken — the emulator uses one flat number per instruction for now; that'll get more accurate as addressing-mode-specific timing is added.)*
+
+#### Data Movement
 
 | Mnemonic | Syntax | Sizes | Cycles | Flags affected | Description |
 |---|---|---|---|---|---|
-| `NOP` | `NOP` | word | 4 | none | Does nothing. Useful for timing/padding. |
 | `MOVE` | `MOVE.size src,dst` | byte, word, long | 4 | N, Z (V and C always cleared) | Copies a value from `src` to `dst`. |
 | `MOVEQ` | `MOVEQ #data,Dn` | long | 4 | N, Z (V and C always cleared) | Loads a small immediate (-128 to 127) into a data register. Faster/shorter than `MOVE.L #imm,Dn`. |
+| `SWAP` | `SWAP Dn` | long | 4 | N, Z (V and C always cleared) | Swaps the high and low 16-bit halves of `Dn`. |
+
+#### Arithmetic
+
+| Mnemonic | Syntax | Sizes | Cycles | Flags affected | Description |
+|---|---|---|---|---|---|
 | `ADD` | `ADD.size src,Dn` | byte, word, long | 4 | N, Z, V, C, X | Adds `src` to a data register, in place. |
 | `SUB` | `SUB.size src,Dn` | byte, word, long | 4 | N, Z, V, C, X | Subtracts `src` from a data register, in place. |
 | `CMP` | `CMP.size src,Dn` | byte, word, long | 4 | N, Z, V, C | Subtracts `src` from a data register like `SUB`, but only sets flags — the register itself is unchanged. Typically followed by a `Bcc`. |
-| `BRA` | `BRA target` | word | 10 | none | Always jumps to `target`. |
-| `Bcc` | see below | word | 10 | none (reads flags, doesn't set them) | Jumps to `target` only if the named condition on the current flags holds. |
-| `BTST` | `BTST #n,dst` | long (register), byte (memory) | 4 (register), 8 (memory) | Z only | Tests bit `n` of `dst` (Z=1 when clear). Doesn't modify `dst` — the standard way to poll one button out of the [gamepad bitmask](#reading-the-gamepad). |
+| `CLR` | `CLR.size dst` | byte, word, long | 4 | N, Z (V and C always cleared) | Sets `dst` to `0`. |
+| `NEG` | `NEG.size dst` | byte, word, long | 4 | N, Z, V, C, X | Negates `dst` in place (two's complement: `dst = 0 - dst`). |
+| `TST` | `TST.size dst` | byte, word, long | 4 | N, Z (V and C always cleared) | Sets flags from `dst`, like `CMP.size #0,dst` — doesn't modify it. |
+| `EXT` | `EXT.size Dn` | word, long | 4 | N, Z (V and C always cleared) | Sign-extends `Dn`: `.W` extends the low byte into the low word (high word untouched); `.L` extends the low word into the full long. |
+
+#### Logical
+
+| Mnemonic | Syntax | Sizes | Cycles | Flags affected | Description |
+|---|---|---|---|---|---|
 | `AND` | `AND.size src,Dn` | byte, word, long | 4 | N, Z (V and C always cleared) | Bitwise ANDs `src` into a data register, in place. |
 | `OR` | `OR.size src,Dn` | byte, word, long | 4 | N, Z (V and C always cleared) | Bitwise ORs `src` into a data register, in place. |
 | `XOR` | `XOR.size Dn,dst` | byte, word, long | 4 | N, Z (V and C always cleared) | Bitwise XORs a data register into `dst` — the one bitwise op where the *source* is always `Dn` and `dst` can be memory. |
 | `NOT` | `NOT.size dst` | byte, word, long | 4 | N, Z (V and C always cleared) | Bitwise inverts `dst` in place (one's complement: `dst = ~dst`). |
-| `CLR` | `CLR.size dst` | byte, word, long | 4 | N, Z (V and C always cleared) | Sets `dst` to `0`. |
-| `NEG` | `NEG.size dst` | byte, word, long | 4 | N, Z, V, C, X | Negates `dst` in place (two's complement: `dst = 0 - dst`). |
-| `TST` | `TST.size dst` | byte, word, long | 4 | N, Z (V and C always cleared) | Sets flags from `dst`, like `CMP.size #0,dst` — doesn't modify it. |
-| `SWAP` | `SWAP Dn` | long | 4 | N, Z (V and C always cleared) | Swaps the high and low 16-bit halves of `Dn`. |
-| `EXT` | `EXT.size Dn` | word, long | 4 | N, Z (V and C always cleared) | Sign-extends `Dn`: `.W` extends the low byte into the low word (high word untouched); `.L` extends the low word into the full long. |
 
-*(Real 68000 hardware charges different cycle counts per addressing mode, and `Bcc` costs less when the branch isn't taken — the emulator uses one flat number per instruction for now; that'll get more accurate as addressing-mode-specific timing is added.)*
+#### Bit Manipulation
+
+| Mnemonic | Syntax | Sizes | Cycles | Flags affected | Description |
+|---|---|---|---|---|---|
+| `BTST` | `BTST #n,dst` | long (register), byte (memory) | 4 (register), 8 (memory) | Z only | Tests bit `n` of `dst` (Z=1 when clear). Doesn't modify `dst` — the standard way to poll one button out of the [gamepad bitmask](#reading-the-gamepad). |
+
+#### Program Control
+
+| Mnemonic | Syntax | Sizes | Cycles | Flags affected | Description |
+|---|---|---|---|---|---|
+| `BRA` | `BRA target` | word | 10 | none | Always jumps to `target`. |
+| `Bcc` | see below | word | 10 | none (reads flags, doesn't set them) | Jumps to `target` only if the named condition on the current flags holds. |
+| `JSR` | `JSR (An)` | word | 16 | none | Pushes the return address onto the stack, then jumps to the address held in `An`. Only `(An)` indirect is supported so far — absolute/indexed/PC-relative targets aren't implemented yet. |
+| `BSR` | `BSR target` | word | 18 | none | Like `JSR`, but PC-relative — pushes the return address, then always branches to `target`. |
+| `RTS` | `RTS` | word | 16 | none | Pops a return address pushed by `JSR`/`BSR` and jumps there. |
+
+#### System
+
+| Mnemonic | Syntax | Sizes | Cycles | Flags affected | Description |
+|---|---|---|---|---|---|
+| `NOP` | `NOP` | word | 4 | none | Does nothing. Useful for timing/padding. |
+
+See [TRAP System Calls](#trap-system-calls) below for `TRAP`.
 
 ### Which `Bcc` do I want?
 
@@ -202,6 +234,19 @@ TRAP    #0                 ; exit
 ```
 
 *(Labels like `LOOP:` are an assembler feature — there's no assembler yet, so this example is illustrative; today `Bcc`'s target has to be hand-encoded as a byte offset.)*
+
+**Example** — calling a subroutine with `JSR`/`RTS` (again, `DOUBLE:` is illustrative — hand-encode the actual address today):
+
+```
+MOVE.L  #DOUBLE,A0        ; A0 = address of the subroutine
+MOVEQ   #21,D0
+JSR     (A0)               ; D0 *= 2, then returns here
+TRAP    #0                 ; exit
+
+DOUBLE:
+ADD.L   D0,D0              ; D0 += D0
+RTS                        ; back to the caller
+```
 
 The rest of the ~80-instruction set (multiplication, division, shifts/rotates, subroutine calls, ...) lands in upcoming sessions — each one gets its own entry here as it becomes real.
 

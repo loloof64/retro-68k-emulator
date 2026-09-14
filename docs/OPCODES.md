@@ -77,6 +77,21 @@ MOVEQ   #50,D0         ; D0 = 50
 MOVEQ   #-1,D1         ; D1 = -1 (sign-extended)
 ```
 
+### SWAP - Swap Register Halves
+```
+SWAP Dn
+```
+
+Exchanges the high and low 16-bit words of a data register.
+
+**Cycles**: 4
+**Flags**: N, Z, V (0), C (0)
+
+**Examples**:
+```asm
+SWAP    D0              ; D0's high and low words trade places
+```
+
 ## Arithmetic Operations
 
 ### ADD - Add
@@ -166,6 +181,74 @@ Compares destination with source (calculates `dst - src`), updates flags but doe
 CMP.L   D1,D0          ; Compare D0 with D1
 CMP.W   #100,D0        ; Compare D0 with 100
 BEQ     EQUAL          ; Branch if equal
+```
+
+### CLR - Clear
+```
+CLR dst
+```
+
+Sets `dst` to zero.
+
+**Sizes**: B, W, L
+**Cycles**: 4
+**Flags**: N, Z (always set/clear accordingly), V (0), C (0)
+
+**Examples**:
+```asm
+CLR.L   D0             ; D0 = 0
+CLR.W   (A0)           ; Memory word at A0 = 0
+```
+
+### NEG - Negate
+```
+NEG dst
+```
+
+Two's-complement negation: `dst = 0 - dst`.
+
+**Sizes**: B, W, L
+**Cycles**: 4
+**Flags**: N, Z, V, C, X
+
+**Examples**:
+```asm
+NEG.L   D0             ; D0 = -D0
+```
+
+### TST - Test
+```
+TST dst
+```
+
+Sets flags from `dst`, like `CMP #0,dst`, without storing anything.
+
+**Sizes**: B, W, L
+**Cycles**: 4
+**Flags**: N, Z, V (0), C (0)
+
+**Examples**:
+```asm
+TST.L   D0             ; set flags from D0
+BEQ     IS_ZERO
+```
+
+### EXT - Sign Extend
+```
+EXT.W Dn    ; byte -> word
+EXT.L Dn    ; word -> long
+```
+
+Sign-extends the low part of a data register into the next size up. `EXT.W` leaves the register's high word untouched, matching real 68000 behavior.
+
+**Sizes**: W, L
+**Cycles**: 4
+**Flags**: N, Z, V (0), C (0)
+
+**Examples**:
+```asm
+EXT.W   D0              ; D0's low byte -> low word (sign-extended)
+EXT.L   D0              ; D0's low word -> full long (sign-extended)
 ```
 
 ## Logical Operations
@@ -392,6 +475,9 @@ JSR label
 
 Push PC onto stack and jump to label.
 
+**Addressing**: only `(An)` indirect is supported so far — other control
+modes (absolute, indexed, PC-relative) aren't implemented yet, matching the
+[Addressing Modes](#addressing-modes) coverage in general.
 **Cycles**: 16
 
 **Example**:
@@ -455,8 +541,8 @@ Does nothing, useful for timing/padding.
 
 | Category | Instructions |
 |----------|--------------|
-| Data Movement | MOVE, MOVEA, MOVEQ |
-| Arithmetic | ADD, SUB, MUL, DIV, CMP |
+| Data Movement | MOVE, MOVEA, MOVEQ, SWAP |
+| Arithmetic | ADD, SUB, MUL, DIV, CMP, CLR, NEG, TST, EXT |
 | Logical | AND, OR, XOR, NOT |
 | Bit | BTST |
 | Shift/Rotate | ASL, ASR, LSL, LSR, ROL, ROR |

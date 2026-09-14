@@ -42,6 +42,16 @@ function bccWord(cc: number, disp8: number) {
   return (0b0110 << 12) | (cc << 8) | (disp8 & 0xff)
 }
 
+function jsrWord(mode: number, reg: number) {
+  return 0x4e80 | (mode << 3) | reg
+}
+
+function bsrWord(disp8: number) {
+  return 0x6100 | (disp8 & 0xff)
+}
+
+const RTS_WORD = 0x4e75
+
 function btstWord(mode: number, reg: number) {
   return (0b0000100000 << 6) | (mode << 3) | reg
 }
@@ -647,6 +657,72 @@ describe('Bcc', () => {
 
     // base is 0x2012 (right after the opcode word) - 4 = 0x200e
     expect(cpu.pc).toBe(0x200e)
+  })
+})
+
+describe('JSR/BSR/RTS', () => {
+  it('JSR (An) pushes the return address and jumps to the register', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.A0, 0x3000, 'long')
+    memory.write16(0x2000, jsrWord(0b010, 0)) // JSR (A0)
+    const spBefore = cpu.registers[Register.A7]
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.pc).toBe(0x3000)
+    expect(cpu.registers[Register.A7]).toBe(spBefore - 4)
+    expect(memory.read32(spBefore - 4)).toBe(0x2002) // return address, right after the opcode word
+  })
+
+  it('JSR rejects an addressing mode other than (An)', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    memory.write16(0x2000, jsrWord(0b000, 0)) // JSR Dn - not a valid control mode
+
+    expect(() => step(cpu, memory, opcodeTable)).toThrow(/JSR only supports \(An\)/)
+  })
+
+  it('BSR pushes the return address and branches, using an 8-bit displacement', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    memory.write16(0x2000, bsrWord(4)) // BSR +4
+    const spBefore = cpu.registers[Register.A7]
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.pc).toBe(0x2006)
+    expect(cpu.registers[Register.A7]).toBe(spBefore - 4)
+    expect(memory.read32(spBefore - 4)).toBe(0x2002) // return address, right after the opcode word
+  })
+
+  it('BSR supports a 16-bit displacement when the byte field is 0', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    memory.write16(0x2000, bsrWord(0)) // BSR, word form
+    memory.write16(0x2002, 0xfff0) // -16
+
+    step(cpu, memory, opcodeTable)
+
+    // base is 0x2002 (right after the opcode word, before the extension word)
+    expect(cpu.pc).toBe(0x2002 - 16)
+    // return address is past the extension word, at 0x2004
+    expect(memory.read32(cpu.registers[Register.A7])).toBe(0x2004)
+  })
+
+  it('RTS pops the return address pushed by JSR and resumes there', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.A0, 0x3000, 'long')
+    memory.write16(0x2000, jsrWord(0b010, 0)) // JSR (A0)
+    memory.write16(0x3000, RTS_WORD)
+    const spBefore = cpu.registers[Register.A7]
+
+    step(cpu, memory, opcodeTable) // JSR -> pc = 0x3000
+    step(cpu, memory, opcodeTable) // RTS -> pc = 0x2002
+
+    expect(cpu.pc).toBe(0x2002)
+    expect(cpu.registers[Register.A7]).toBe(spBefore)
   })
 })
 

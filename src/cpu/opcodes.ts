@@ -205,7 +205,7 @@ function branchConditionTrue(cc: number, status: StatusFlags): boolean {
     case 0b1111:
       return status.Z || status.N !== status.V // BLE
     default:
-      throw new Error(`Unsupported branch condition: ${cc.toString(2)} (BSR not implemented)`)
+      throw new Error(`Unsupported branch condition: ${cc.toString(2)}`)
   }
 }
 
@@ -235,6 +235,86 @@ const Bcc: OpcodeDefinition = {
     }
 
     return 10
+  },
+}
+
+// --- JSR/BSR/RTS - subroutine control ------------------------------------
+//
+// All three push/pop a return address on A7, which decodeEA's -(An)/(An)+
+// modes already keep long-aligned for A7 (see addressing.ts's stepFor), so
+// a plain readRegister/writeRegister pair around a memory.write32/read32 is
+// enough — no need to route through decodeEA for the stack slot itself.
+
+// --- JSR <ea> ($4E80) - only (An) indirect supported so far, like decodeEA
+// itself (absolute/indexed/PC-relative modes aren't implemented yet).
+
+const JSR: OpcodeDefinition = {
+  mnemonic: 'JSR',
+  encoding: '0100111010mmmrrr',
+  size: 'long',
+  handler: (cpu: CPUState, memory: Memory, args: unknown[]) => {
+    const opcodeWord = opcodeWordOf(args)
+    const mode = (opcodeWord >> 3) & 0b111
+    const reg = opcodeWord & 0b111
+
+    if (mode !== 0b010) {
+      throw new Error(`JSR only supports (An) addressing so far, got mode ${mode.toString(2)}`)
+    }
+
+    const target = readRegister(cpu, (Register.A0 + reg) as Register, 'long')
+
+    const sp = readRegister(cpu, Register.A7, 'long') - 4
+    memory.write32(sp, cpu.pc)
+    writeRegister(cpu, Register.A7, sp, 'long')
+
+    cpu.pc = target
+
+    return 16
+  },
+}
+
+// --- BSR <disp> ($6100) - like Bcc's BRA, but pushes the return address --
+
+const BSR: OpcodeDefinition = {
+  mnemonic: 'BSR',
+  encoding: '01100001dddddddd',
+  size: 'variable',
+  handler: (cpu: CPUState, memory: Memory, args: unknown[]) => {
+    const opcodeWord = opcodeWordOf(args)
+    const disp8 = opcodeWord & 0xff
+
+    // Same "relative to the opcode word's address + 2" base as Bcc.
+    const base = cpu.pc
+    let displacement: number
+    if (disp8 === 0x00) {
+      displacement = toSigned16(memory.read16(cpu.pc))
+      cpu.pc += 2
+    } else {
+      displacement = toSigned8(disp8)
+    }
+
+    const sp = readRegister(cpu, Register.A7, 'long') - 4
+    memory.write32(sp, cpu.pc)
+    writeRegister(cpu, Register.A7, sp, 'long')
+
+    cpu.pc = base + displacement
+
+    return 18
+  },
+}
+
+// --- RTS ($4E75) - pop the return address pushed by JSR/BSR --------------
+
+const RTS: OpcodeDefinition = {
+  mnemonic: 'RTS',
+  encoding: '0100111001110101',
+  size: 'long',
+  handler: (cpu: CPUState, memory: Memory) => {
+    const sp = readRegister(cpu, Register.A7, 'long')
+    cpu.pc = memory.read32(sp)
+    writeRegister(cpu, Register.A7, sp + 4, 'long')
+
+    return 16
   },
 }
 
@@ -560,6 +640,8 @@ export const opcodeTable: readonly OpcodeEntry[] = [
   { mask: 0xff00, pattern: 0x4a00, definition: TST },
   { mask: 0xfff8, pattern: 0x4840, definition: SWAP },
   { mask: 0xffb8, pattern: 0x4880, definition: EXT },
+  { mask: 0xffff, pattern: 0x4e75, definition: RTS },
+  { mask: 0xffc0, pattern: 0x4e80, definition: JSR },
   { mask: 0xf100, pattern: 0xd000, definition: ADD },
   { mask: 0xf100, pattern: 0x9000, definition: SUB },
   { mask: 0xf100, pattern: 0xb000, definition: CMP },
@@ -567,6 +649,7 @@ export const opcodeTable: readonly OpcodeEntry[] = [
   { mask: 0xf100, pattern: 0xc000, definition: AND },
   { mask: 0xf100, pattern: 0x8000, definition: OR },
   { mask: 0xf100, pattern: 0x7000, definition: MOVEQ },
+  { mask: 0xff00, pattern: 0x6100, definition: BSR },
   { mask: 0xf000, pattern: 0x6000, definition: Bcc },
   { mask: 0xc000, pattern: 0x0000, definition: MOVE },
 ]
