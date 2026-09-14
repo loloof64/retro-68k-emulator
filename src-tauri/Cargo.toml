@@ -1,6 +1,6 @@
 [package]
 name = "ti89-68k-emulator"
-version = "0.1.2"
+version = "0.1.3"
 description = "TI-89 inspired 68000 CPU emulator with web UI"
 authors = ["you"]
 license = "MIT"
