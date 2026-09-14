@@ -6,7 +6,7 @@ import path from 'path'
  * Kept separate so the puppeteer and weasyprint generators don't diverge.
  */
 
-export const documentStructure = [
+export const developerDocumentStructure = [
   { title: 'Introduction', file: 'README.md', id: 'intro' },
   { title: 'Getting Started', file: 'GETTING_STARTED.md', id: 'getting-started' },
   { title: 'Architecture', file: 'ARCHITECTURE.md', id: 'architecture' },
@@ -56,13 +56,20 @@ function markdownToHtml(markdown) {
   return html
 }
 
-export function generateHtmlDocument(docsDir) {
+export function generateHtmlDocument({
+  docsDir,
+  documentStructure = developerDocumentStructure,
+  pageTitle = 'TI-89 68000 Emulator - Documentation',
+  coverTitle = 'TI-89 68000 Emulator',
+  coverSubtitle = 'Complete Documentation',
+  footerLine = 'TI-89 68000 Emulator Documentation',
+}) {
   let html = `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>TI-89 68000 Emulator - Documentation</title>
+  <title>${pageTitle}</title>
   <style>
     * {
       margin: 0;
@@ -242,10 +249,10 @@ export function generateHtmlDocument(docsDir) {
   <!-- Cover Page -->
   <div style="text-align: center; padding: 4em 0;">
     <h1 style="font-size: 3em; margin: 1em 0; border: none; padding: 0;">
-      TI-89 68000 Emulator
+      ${coverTitle}
     </h1>
     <h2 style="font-size: 1.5em; color: #666; margin: 0.5em 0;">
-      Complete Documentation
+      ${coverSubtitle}
     </h2>
     <p style="margin-top: 3em; color: #999;">
       Generated: ${new Date().toISOString().split('T')[0]}
@@ -289,7 +296,7 @@ export function generateHtmlDocument(docsDir) {
 
   html += `
   <footer>
-    <p>TI-89 68000 Emulator Documentation</p>
+    <p>${footerLine}</p>
     <p>© 2026 - All Rights Reserved</p>
   </footer>
 

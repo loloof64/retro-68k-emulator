@@ -1,0 +1,40 @@
+# What Is the TI-89 68000 Emulator?
+
+The TI-89 68000 Emulator is a free desktop app for learning Motorola 68000 assembly language, inspired by the classic TI-89 graphing calculator. Write 68000 assembly, run it, and watch the CPU registers, flags, and a simulated 320×200 LCD screen react in real time — no physical calculator or real hardware required.
+
+It's aimed at students, hobbyists, and anyone curious about how a CPU actually executes instructions, one step at a time.
+
+## Project Status
+
+This project is under active development. The table below reflects what's genuinely working today, not the final goal — it will be updated after every development session.
+
+| Component | Status |
+|---|---|
+| Memory system (64KB addressable space + framebuffer) | ✅ Done |
+| CPU core (registers, flags, instruction execution) | 🚧 In progress |
+| Assembler (turns `.asm` source into runnable bytecode) | ⏳ Planned |
+| 68000 instruction set (~80 opcodes) | ⏳ Planned |
+| TRAP system calls (print text, draw pixels, clear screen) | ⏳ Planned |
+| Editor / Debugger / Screen interface | 🚧 UI shell built, not yet connected to a working emulator |
+| Desktop installers (Windows / macOS / Linux) | 🚧 Packaging configured, first release not shipped yet |
+
+If you just want to try the app today, it's not ready for that yet — check the [Downloads](./DOWNLOAD.md) page, which will be updated the moment a first usable version is published.
+
+## Planned Features
+
+- Support for the ~80 68000 opcodes most relevant to learning assembly
+- Full register set: `D0`–`D7` (data), `A0`–`A7` (address, with `A7` as the stack pointer)
+- Status flags: Negative, Zero, Overflow, Carry, Extend
+- A TRAP-based system-call layer, for things like printing text or drawing to the screen from your own assembly code
+- A simulated 320×200 monochrome LCD, mapped directly into memory
+- A step-by-step debugger: watch registers and memory change instruction by instruction
+- A syntax-highlighted assembly editor, built into the app — no external tools needed
+- Native installers for Windows, macOS, and Linux, so it runs like any other desktop app
+
+## Why This Project?
+
+Most ways to learn assembly language either require real, aging hardware or a fairly unfriendly command-line toolchain. This project's goal is a self-contained, visual, approachable way to write and run 68000 assembly, see exactly what each instruction does to the CPU, and build real intuition for how a computer executes code at the lowest level.
+
+---
+
+Next: [Downloads](./DOWNLOAD.md) · [Opcode & TRAP Reference](./REFERENCE.md)

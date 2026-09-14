@@ -41,7 +41,7 @@ async function main() {
 
     // Generate HTML
     console.log('📝 Generating HTML...')
-    const html = generateHtmlDocument(docsDir)
+    const html = generateHtmlDocument({ docsDir })
 
     // Save temporary HTML
     const tempHtmlPath = path.join(outputDir, 'temp-doc.html')

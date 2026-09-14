@@ -17,6 +17,7 @@
     "docs:pdf": "node scripts/generate-pdf-weasyprint.js",
     "docs:pdf:puppeteer": "node scripts/generate-pdf-puppeteer.js",
     "docs:pdf:weasyprint": "node scripts/generate-pdf-weasyprint.js",
+    "docs:pdf:user": "node scripts/generate-pdf-user-guide.js",
     "docs:pdf:pandoc": "pandoc docs/*.md -o dist/TI89-68000-Documentation.pdf --toc --toc-depth=2 -V colorlinks",
     "docs:watch": "nodemon -e md -w docs -x 'npm run docs:pdf'",
     "tauri": "tauri",
