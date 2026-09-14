@@ -28,10 +28,62 @@ function slugify(text) {
     .replace(/\s+/g, '-')
 }
 
+// Converts GFM-style pipe tables (header row + |---|---| separator + body
+// rows) to real <table> markup — without this they fall through to the
+// paragraph pass and render as one run-on line of "| a | b |" text.
+function convertTables(html) {
+  const tableRe = /^\|(.+)\|[ \t]*\r?\n\|([ \t:|-]+)\|[ \t]*\r?\n((?:\|.*\|[ \t]*\r?\n?)+)/gm
+
+  const splitRow = (line) => line.split('|').map((cell) => cell.trim())
+
+  return html.replace(tableRe, (_match, headerLine, sepLine, bodyBlock) => {
+    const headers = splitRow(headerLine)
+    const aligns = splitRow(sepLine).map((cell) => {
+      const left = cell.startsWith(':')
+      const right = cell.endsWith(':')
+      if (left && right) return 'center'
+      if (right) return 'right'
+      if (left) return 'left'
+      return null
+    })
+
+    const rows = bodyBlock
+      .trim()
+      .split(/\r?\n/)
+      .map((line) => splitRow(line.replace(/^\|/, '').replace(/\|$/, '')))
+
+    const cellStyle = (i) => (aligns[i] ? ` style="text-align:${aligns[i]}"` : '')
+
+    const thead = headers.map((h, i) => `<th${cellStyle(i)}>${h}</th>`).join('')
+    const tbody = rows
+      .map((cells) => `<tr>${cells.map((c, i) => `<td${cellStyle(i)}>${c}</td>`).join('')}</tr>`)
+      .join('')
+
+    return `<table><thead><tr>${thead}</tr></thead><tbody>${tbody}</tbody></table>\n`
+  })
+}
+
 function markdownToHtml(markdown) {
   let html = markdown
 
   html = html.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+
+  // Pull code out before anything else touches the text: a lone `*` inside
+  // an asm example (e.g. `y * 320`) would otherwise be parsed as an <em>
+  // marker by the emphasis pass below and silently eaten. Restored verbatim
+  // at the very end, after the paragraph pass, so embedded blank lines in a
+  // fenced block don't get split into separate <p> tags either.
+  const codeSnippets = []
+  const stashCode = (htmlSnippet) => {
+    codeSnippets.push(htmlSnippet)
+    return '@@CODE' + (codeSnippets.length - 1) + '@@'
+  }
+  html = html.replace(/```(.*?)\r?\n([\s\S]*?)```/g, (_, lang, code) =>
+    stashCode(`<pre><code class="${lang}">${code}</code></pre>`)
+  )
+  html = html.replace(/`([^`]+)`/g, (_, code) => stashCode(`<code>${code}</code>`))
+
+  html = convertTables(html)
 
   // Section-level h1's already get their id from the enclosing .section div
   // (documentStructure below), so only sub-headings need slugged ids here —
@@ -44,14 +96,13 @@ function markdownToHtml(markdown) {
   html = html.replace(/\*(.*?)\*/g, '<em>$1</em>')
   html = html.replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2">$1</a>')
 
-  html = html.replace(/```(.*?)\n([\s\S]*?)```/g, '<pre><code class="$1">$2</code></pre>')
-  html = html.replace(/`(.*?)`/g, '<code>$1</code>')
-
   html = html.replace(/^\* (.*?)$/gm, '<li>$1</li>')
   html = html.replace(/(<li>.*?<\/li>)/s, '<ul>$1</ul>')
 
   html = html.replace(/\n\n/g, '</p><p>')
   html = `<p>${html}</p>`
+
+  html = html.replace(/@@CODE(\d+)@@/g, (_, i) => codeSnippets[Number(i)])
 
   return html
 }
