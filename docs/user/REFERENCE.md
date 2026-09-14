@@ -2,6 +2,45 @@
 
 This page is filled in progressively, as each part of the emulator becomes real — it documents what you can actually *do* today, not the final wish list (see [Presentation](./PRESENTATION.md) for the full roadmap).
 
+## Registers
+
+The CPU core (registers, status flags, and the fetch-decode-execute loop) is implemented and working.
+
+| Register | Size | Purpose |
+|---|---|---|
+| `D0`–`D7` | 32-bit | Data registers — general-purpose, for values and arithmetic |
+| `A0`–`A7` | 32-bit | Address registers — hold memory addresses. `A7` doubles as the Stack Pointer (SP) |
+| `PC` | 32-bit | Program Counter — address of the next instruction to fetch |
+
+On reset, every register is `0` except `A7`, which starts at `$03FFF` (the top of the default stack, which grows downward).
+
+### Status Flags
+
+| Flag | Name | Meaning |
+|---|---|---|
+| `N` | Negative | Set when the result's sign bit is `1` |
+| `Z` | Zero | Set when the result is `0` |
+| `V` | Overflow | Set on signed overflow |
+| `C` | Carry | Set on unsigned carry/borrow |
+| `X` | Extend | Mirrors `C` for most operations; used in multi-precision arithmetic |
+
+Which flags a given instruction touches is listed per-instruction below.
+
+## Addressing Modes
+
+An addressing mode is how an instruction says where an operand lives — a register, a memory address, or a constant baked right into the instruction. These are the modes wired in today:
+
+| Mode | Syntax | Example | Description |
+|---|---|---|---|
+| Data register | `Dn` | `MOVE.L D0,D1` | The value in a data register |
+| Address register | `An` | `MOVE.L A0,A1` | The value in an address register |
+| Register indirect | `(An)` | `MOVE.L (A0),D0` | The value in memory at the address held in `An` |
+| Post-increment | `(An)+` | `MOVE.L (A0)+,D0` | Like indirect, then `An` is bumped by the operand's size |
+| Pre-decrement | `-(An)` | `MOVE.L D0,-(A0)` | `An` is decremented by the operand's size first, then used as the address |
+| Immediate | `#value` | `MOVE.L #100,D0` | A constant baked into the instruction (source only — can't be a destination) |
+
+Not implemented yet: absolute addresses (`$40000`) and indexed addressing (`$1000(A0)`). That's why every example on this page loads an address into an address register first (e.g. `MOVE.L #$40000,A0`) instead of writing `$40000` directly as an operand.
+
 ## Memory Map
 
 The emulator's memory system is implemented and working. Every address below is real, addressable memory:
@@ -42,19 +81,21 @@ BEQ     A_NOT_PRESSED      ; Z=1 -> button A isn't held
 
 ## Instruction Set (Opcodes)
 
-The CPU core (registers, status flags, and the fetch-decode-execute loop) is up and running, with a first handful of real instructions wired in:
+A first handful of real instructions is wired in. **Cycles** are how many CPU cycles an instruction takes to run — smaller is faster; they're what the emulator's cycle counter adds up as your program executes.
 
-| Mnemonic | Syntax | Sizes | Flags affected | Description |
-|---|---|---|---|---|
-| `NOP` | `NOP` | word | none | Does nothing for 4 cycles. Useful for timing/padding. |
-| `MOVE` | `MOVE.size src,dst` | byte, word, long | N, Z (V and C always cleared) | Copies a value from `src` to `dst`. |
-| `MOVEQ` | `MOVEQ #data,Dn` | long | N, Z (V and C always cleared) | Loads a small immediate (-128 to 127) into a data register. Faster/shorter than `MOVE.L #imm,Dn`. |
-| `ADD` | `ADD.size src,Dn` | byte, word, long | N, Z, V, C, X | Adds `src` to a data register, in place. |
-| `SUB` | `SUB.size src,Dn` | byte, word, long | N, Z, V, C, X | Subtracts `src` from a data register, in place. |
-| `CMP` | `CMP.size src,Dn` | byte, word, long | N, Z, V, C | Subtracts `src` from a data register like `SUB`, but only sets flags — the register itself is unchanged. Typically followed by a `Bcc`. |
-| `BRA` | `BRA target` | word | none | Always jumps to `target`. |
-| `Bcc` | see below | word | none (reads flags, doesn't set them) | Jumps to `target` only if the named condition on the current flags holds. |
-| `BTST` | `BTST #n,dst` | long (register), byte (memory) | Z only | Tests bit `n` of `dst` (Z=1 when clear). Doesn't modify `dst` — the standard way to poll one button out of the [gamepad bitmask](#reading-the-gamepad). |
+| Mnemonic | Syntax | Sizes | Cycles | Flags affected | Description |
+|---|---|---|---|---|---|
+| `NOP` | `NOP` | word | 4 | none | Does nothing. Useful for timing/padding. |
+| `MOVE` | `MOVE.size src,dst` | byte, word, long | 4 | N, Z (V and C always cleared) | Copies a value from `src` to `dst`. |
+| `MOVEQ` | `MOVEQ #data,Dn` | long | 4 | N, Z (V and C always cleared) | Loads a small immediate (-128 to 127) into a data register. Faster/shorter than `MOVE.L #imm,Dn`. |
+| `ADD` | `ADD.size src,Dn` | byte, word, long | 4 | N, Z, V, C, X | Adds `src` to a data register, in place. |
+| `SUB` | `SUB.size src,Dn` | byte, word, long | 4 | N, Z, V, C, X | Subtracts `src` from a data register, in place. |
+| `CMP` | `CMP.size src,Dn` | byte, word, long | 4 | N, Z, V, C | Subtracts `src` from a data register like `SUB`, but only sets flags — the register itself is unchanged. Typically followed by a `Bcc`. |
+| `BRA` | `BRA target` | word | 10 | none | Always jumps to `target`. |
+| `Bcc` | see below | word | 10 | none (reads flags, doesn't set them) | Jumps to `target` only if the named condition on the current flags holds. |
+| `BTST` | `BTST #n,dst` | long (register), byte (memory) | 4 (register), 8 (memory) | Z only | Tests bit `n` of `dst` (Z=1 when clear). Doesn't modify `dst` — the standard way to poll one button out of the [gamepad bitmask](#reading-the-gamepad). |
+
+*(Real 68000 hardware charges different cycle counts per addressing mode, and `Bcc` costs less when the branch isn't taken — the emulator uses one flat number per instruction for now; that'll get more accurate as addressing-mode-specific timing is added.)*
 
 ### Which `Bcc` do I want?
 
@@ -89,7 +130,7 @@ After a `CMP`, there are *two separate* families of "is it bigger/smaller" branc
 | `BVC` | `V=0` | Overflow Clear |
 | `BVS` | `V=1` | Overflow Set |
 
-Supported addressing modes for `src`/`dst` so far: a data register (`D0`-`D7`), an address register (`A0`-`A7`), an immediate value (`#123`, source only), and, through an address register, `(A0)`, `(A0)+`, and `-(A0)`. Absolute addresses (`$40000`) and indexed modes aren't supported yet — that's why the examples below load addresses into an address register first, the same way the [memory map](#memory-map) example does.
+See [Addressing Modes](#addressing-modes) above for what `src`/`dst` can be — the examples below load addresses into an address register first since absolute addresses aren't supported yet.
 
 **Example** — add two numbers and write a white pixel:
 
@@ -122,12 +163,19 @@ The rest of the ~80-instruction set (multiplication, division, logical ops, subr
 
 Two TRAP vectors are wired in:
 
-| Vector | Syntax | Description |
-|---|---|---|
-| `#0` | `TRAP #0` | Halts the CPU (ends the program). |
-| `#5` | `TRAP #5` | Loads the controller button bitmask into D0 — a shortcut for reading `$7E800` directly. |
+| Vector | Syntax | Cycles | Description |
+|---|---|---|---|
+| `#0` | `TRAP #0` | 4 | Halts the CPU (ends the program). |
+| `#5` | `TRAP #5` | 4 | Loads the controller button bitmask into D0 — a shortcut for reading `$7E800` directly. |
 
 The rest — printing text, reading/writing pixels, clearing the screen — is documented here as each one is implemented.
+
+## Performance Notes
+
+- **Simple interpretation, no recompilation**: each instruction is fetched, decoded, and executed one at a time — there's no JIT, no bytecode caching. That keeps the implementation easy to follow, which matters more here than raw speed for hand-written assembly programs at this scale.
+- **Cycle costs are currently flat per instruction** (see the tables above), not the real 68000's addressing-mode-dependent timing — today's cycle counter is a rough guide for comparing programs, not a cycle-accurate simulation of real hardware.
+- **Memory access is O(1)** everywhere: no caching, no virtual memory — the whole address space (RAM, framebuffer, controller input) is backed by one flat block of memory, so reading or writing any address costs the same.
+- **No memory protection**: a running program can read or write any address, including the system area or another region's space — nothing stops a bug from corrupting its own code or data.
 
 ---
 
