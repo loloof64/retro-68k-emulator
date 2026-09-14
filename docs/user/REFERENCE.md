@@ -94,6 +94,10 @@ A first handful of real instructions is wired in. **Cycles** are how many CPU cy
 | `BRA` | `BRA target` | word | 10 | none | Always jumps to `target`. |
 | `Bcc` | see below | word | 10 | none (reads flags, doesn't set them) | Jumps to `target` only if the named condition on the current flags holds. |
 | `BTST` | `BTST #n,dst` | long (register), byte (memory) | 4 (register), 8 (memory) | Z only | Tests bit `n` of `dst` (Z=1 when clear). Doesn't modify `dst` — the standard way to poll one button out of the [gamepad bitmask](#reading-the-gamepad). |
+| `AND` | `AND.size src,Dn` | byte, word, long | 4 | N, Z (V and C always cleared) | Bitwise ANDs `src` into a data register, in place. |
+| `OR` | `OR.size src,Dn` | byte, word, long | 4 | N, Z (V and C always cleared) | Bitwise ORs `src` into a data register, in place. |
+| `XOR` | `XOR.size Dn,dst` | byte, word, long | 4 | N, Z (V and C always cleared) | Bitwise XORs a data register into `dst` — the one bitwise op where the *source* is always `Dn` and `dst` can be memory. |
+| `NOT` | `NOT.size dst` | byte, word, long | 4 | N, Z (V and C always cleared) | Bitwise inverts `dst` in place (one's complement: `dst = ~dst`). |
 
 *(Real 68000 hardware charges different cycle counts per addressing mode, and `Bcc` costs less when the branch isn't taken — the emulator uses one flat number per instruction for now; that'll get more accurate as addressing-mode-specific timing is added.)*
 
@@ -157,7 +161,7 @@ TRAP    #0                 ; exit
 
 *(Labels like `LOOP:` are an assembler feature — there's no assembler yet, so this example is illustrative; today `Bcc`'s target has to be hand-encoded as a byte offset.)*
 
-The rest of the ~80-instruction set (multiplication, division, logical ops, subroutine calls, ...) lands in upcoming sessions — each one gets its own entry here as it becomes real.
+The rest of the ~80-instruction set (multiplication, division, shifts/rotates, subroutine calls, ...) lands in upcoming sessions — each one gets its own entry here as it becomes real.
 
 ## TRAP System Calls
 

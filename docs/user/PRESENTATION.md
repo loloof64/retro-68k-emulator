@@ -13,7 +13,7 @@ This project is under active development. The table below reflects what's genuin
 | Memory system (addressable space + framebuffer + controller input) | ✅ Done |
 | CPU core (registers, flags, instruction execution) | ✅ Done |
 | Assembler (turns `.asm` source into runnable bytecode) | ⏳ Planned |
-| 68000 instruction set (~80 opcodes) | 🚧 8 of ~80 (`NOP`, `MOVE`, `MOVEQ`, `ADD`, `SUB`, `CMP`, `Bcc`/`BRA`, `BTST`) — see [Reference](./REFERENCE.md) |
+| 68000 instruction set (~80 opcodes) | 🚧 12 of ~80 (`NOP`, `MOVE`, `MOVEQ`, `ADD`, `SUB`, `CMP`, `Bcc`/`BRA`, `BTST`, `AND`, `OR`, `XOR`, `NOT`) — see [Reference](./REFERENCE.md) |
 | TRAP system calls (print text, draw pixels, clear screen, read gamepad) | 🚧 2 of several (`TRAP #0` halt, `TRAP #5` read controller) — see [Reference](./REFERENCE.md) |
 | On-screen gamepad UI (A/B/X/Y, D-pad, Start/Select) | ⏳ Planned — memory/opcode/TRAP support for it is done |
 | Editor / Debugger / Screen interface | 🚧 UI shell built, not yet connected to a working emulator |

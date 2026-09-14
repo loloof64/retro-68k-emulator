@@ -277,6 +277,116 @@ const BTST: OpcodeDefinition = {
   },
 }
 
+// --- AND <ea>,Dn (opmode bits 8-6 = 0xx: EA & Dn -> Dn) -----------------
+
+const AND: OpcodeDefinition = {
+  mnemonic: 'AND',
+  encoding: '1100rrr0ssmmmRRR',
+  size: 'variable',
+  handler: (cpu: CPUState, memory: Memory, args: unknown[]) => {
+    const { src, dest, size } = decodeEaAndDest(cpu, memory, opcodeWordOf(args))
+
+    const result = dest.read() & src.read()
+    dest.write(result)
+
+    updateFlags(cpu, result, size)
+    cpu.status.V = false
+    cpu.status.C = false
+
+    return 4
+  },
+}
+
+// --- OR <ea>,Dn (opmode bits 8-6 = 0xx: EA | Dn -> Dn) ------------------
+
+const OR: OpcodeDefinition = {
+  mnemonic: 'OR',
+  encoding: '1000rrr0ssmmmRRR',
+  size: 'variable',
+  handler: (cpu: CPUState, memory: Memory, args: unknown[]) => {
+    const { src, dest, size } = decodeEaAndDest(cpu, memory, opcodeWordOf(args))
+
+    const result = dest.read() | src.read()
+    dest.write(result)
+
+    updateFlags(cpu, result, size)
+    cpu.status.V = false
+    cpu.status.C = false
+
+    return 4
+  },
+}
+
+// --- EOR Dn,<ea> (opmode bits 8-6 = 1xx: Dn ^ EA -> EA) ------------------
+//
+// Unlike AND/OR/ADD/SUB, EOR only exists in this one direction: it shares
+// its top nibble with CMP (both $B000), split by opmode's high bit — 0xx is
+// CMP (EA-Dn, discarded), 1xx is EOR (Dn^EA, written back to EA). So the
+// source is always Dn (the Rn field) and the destination is the decoded EA,
+// the mirror image of decodeEaAndDest.
+
+function decodeDnAndEa(cpu: CPUState, memory: Memory, opcodeWord: number) {
+  const srcReg = (opcodeWord >> 9) & 0b111
+  // Opmode here is 1xx (100/101/110); only the low 2 bits pick the size —
+  // same byte/word/long values decodeStandardOpSize already handles.
+  const size = decodeStandardOpSize((opcodeWord >> 6) & 0b011)
+  const destMode = (opcodeWord >> 3) & 0b111
+  const destReg = opcodeWord & 0b111
+
+  const src = decodeEA(cpu, memory, 0b000, srcReg, size)
+  const dest = decodeEA(cpu, memory, destMode, destReg, size)
+  return { src, dest, size }
+}
+
+const XOR: OpcodeDefinition = {
+  mnemonic: 'XOR',
+  encoding: '1011rrr1ssmmmRRR',
+  size: 'variable',
+  handler: (cpu: CPUState, memory: Memory, args: unknown[]) => {
+    const { src, dest, size } = decodeDnAndEa(cpu, memory, opcodeWordOf(args))
+
+    const result = dest.read() ^ src.read()
+    dest.write(result)
+
+    updateFlags(cpu, result, size)
+    cpu.status.V = false
+    cpu.status.C = false
+
+    return 4
+  },
+}
+
+// --- NOT <ea> ($4600) -----------------------------------------------------
+
+function decodeByteWordLongSize(bits: number): Size {
+  if (bits === 0b00) return 'byte'
+  if (bits === 0b01) return 'word'
+  if (bits === 0b10) return 'long'
+  throw new Error(`Unsupported size bits: ${bits.toString(2)}`)
+}
+
+const NOT: OpcodeDefinition = {
+  mnemonic: 'NOT',
+  encoding: '01000110ssmmmrrr',
+  size: 'variable',
+  handler: (cpu: CPUState, memory: Memory, args: unknown[]) => {
+    const opcodeWord = opcodeWordOf(args)
+    const size = decodeByteWordLongSize((opcodeWord >> 6) & 0b11)
+    const mode = (opcodeWord >> 3) & 0b111
+    const reg = opcodeWord & 0b111
+
+    const ea = decodeEA(cpu, memory, mode, reg, size)
+    const result = ~ea.read()
+    ea.write(result)
+
+    updateFlags(cpu, result, size)
+    cpu.status.V = false
+    cpu.status.C = false
+
+    return 4
+  },
+}
+
 // --- TRAP #n ($4E40-$4E4F) ----------------------------------------------
 
 export type TrapHandler = (cpu: CPUState, memory: Memory, vector: number) => void
@@ -312,9 +422,13 @@ export const opcodeTable: readonly OpcodeEntry[] = [
   { mask: 0xffff, pattern: 0x4e71, definition: NOP },
   { mask: 0xfff0, pattern: 0x4e40, definition: TRAP },
   { mask: 0xffc0, pattern: 0x0800, definition: BTST },
+  { mask: 0xff00, pattern: 0x4600, definition: NOT },
   { mask: 0xf100, pattern: 0xd000, definition: ADD },
   { mask: 0xf100, pattern: 0x9000, definition: SUB },
   { mask: 0xf100, pattern: 0xb000, definition: CMP },
+  { mask: 0xf100, pattern: 0xb100, definition: XOR },
+  { mask: 0xf100, pattern: 0xc000, definition: AND },
+  { mask: 0xf100, pattern: 0x8000, definition: OR },
   { mask: 0xf100, pattern: 0x7000, definition: MOVEQ },
   { mask: 0xf000, pattern: 0x6000, definition: Bcc },
   { mask: 0xc000, pattern: 0x0000, definition: MOVE },

@@ -34,6 +34,24 @@ function btstWord(mode: number, reg: number) {
   return (0b0000100000 << 6) | (mode << 3) | reg
 }
 
+function andWord(destReg: number, opmode: number, srcMode: number, srcReg: number) {
+  return (0b1100 << 12) | (destReg << 9) | (opmode << 6) | (srcMode << 3) | srcReg
+}
+
+function orWord(destReg: number, opmode: number, srcMode: number, srcReg: number) {
+  return (0b1000 << 12) | (destReg << 9) | (opmode << 6) | (srcMode << 3) | srcReg
+}
+
+// XOR (EOR): opposite direction from AND/OR/ADD/SUB - srcReg is the Dn
+// source, destMode/destReg is the <ea> destination.
+function xorWord(srcReg: number, opmode: number, destMode: number, destReg: number) {
+  return (0b1011 << 12) | (srcReg << 9) | ((0b100 | opmode) << 6) | (destMode << 3) | destReg
+}
+
+function notWord(size: 0b00 | 0b01 | 0b10, mode: number, reg: number) {
+  return (0b0100011000000000) | (size << 6) | (mode << 3) | reg
+}
+
 const MOVE_L_IMM_TO_Dn = 0b10 // long
 const OPMODE_LONG = 0b010
 
@@ -244,6 +262,120 @@ describe('CMP', () => {
 
     expect(cpu.status.C).toBe(true)
     expect(cpu.status.X).toBe(true) // left as it was, not set from carry
+  })
+})
+
+describe('AND', () => {
+  it('ANDs the source into the destination register', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.D0, 0b1100, 'long')
+    writeRegister(cpu, Register.D1, 0b1010, 'long')
+    memory.write16(0x2000, andWord(0, OPMODE_LONG, 0b000, 1)) // AND.L D1,D0
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.registers[Register.D0]).toBe(0b1000)
+  })
+
+  it('clears V and C, and sets Z/N from the result', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    cpu.status.V = true
+    cpu.status.C = true
+    writeRegister(cpu, Register.D0, 0b0101, 'long')
+    writeRegister(cpu, Register.D1, 0b1010, 'long')
+    memory.write16(0x2000, andWord(0, OPMODE_LONG, 0b000, 1)) // AND.L D1,D0
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.registers[Register.D0]).toBe(0)
+    expect(cpu.status.Z).toBe(true)
+    expect(cpu.status.V).toBe(false)
+    expect(cpu.status.C).toBe(false)
+  })
+})
+
+describe('OR', () => {
+  it('ORs the source into the destination register', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.D0, 0b1100, 'long')
+    writeRegister(cpu, Register.D1, 0b0011, 'long')
+    memory.write16(0x2000, orWord(0, OPMODE_LONG, 0b000, 1)) // OR.L D1,D0
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.registers[Register.D0]).toBe(0b1111)
+  })
+})
+
+describe('XOR', () => {
+  it('XORs Dn into a data register destination', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.D0, 0b1100, 'long') // source (Dn)
+    writeRegister(cpu, Register.D1, 0b1010, 'long') // destination (<ea>)
+    memory.write16(0x2000, xorWord(0, OPMODE_LONG, 0b000, 1)) // XOR.L D0,D1
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.registers[Register.D1]).toBe(0b0110)
+    expect(cpu.registers[Register.D0]).toBe(0b1100) // source untouched
+  })
+
+  it('XORs Dn into a memory destination', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.D0, 0xffffffff, 'long')
+    writeRegister(cpu, Register.A0, 0x2000 + 4, 'long')
+    memory.write32(0x2000 + 4, 0x0000ffff)
+    memory.write16(0x2000, xorWord(0, OPMODE_LONG, 0b010, 0)) // XOR.L D0,(A0)
+
+    step(cpu, memory, opcodeTable)
+
+    expect(memory.read32(0x2000 + 4)).toBe(0xffff0000)
+  })
+})
+
+describe('NOT', () => {
+  it('inverts a data register in place', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.D0, 0x0000ffff, 'long')
+    memory.write16(0x2000, notWord(0b10, 0b000, 0)) // NOT.L D0
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.registers[Register.D0]).toBe(0xffff0000)
+  })
+
+  it('clears V and C, sets Z when the result is zero', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    cpu.status.V = true
+    cpu.status.C = true
+    writeRegister(cpu, Register.D0, 0xffffffff, 'long')
+    memory.write16(0x2000, notWord(0b10, 0b000, 0)) // NOT.L D0
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.registers[Register.D0]).toBe(0)
+    expect(cpu.status.Z).toBe(true)
+    expect(cpu.status.V).toBe(false)
+    expect(cpu.status.C).toBe(false)
+  })
+
+  it('inverts a byte in memory', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.A0, 0x2000 + 4, 'long')
+    memory.write8(0x2000 + 4, 0x0f)
+    memory.write16(0x2000, notWord(0b00, 0b010, 0)) // NOT.B (A0)
+
+    step(cpu, memory, opcodeTable)
+
+    expect(memory.read8(0x2000 + 4)).toBe(0xf0)
   })
 })
 
