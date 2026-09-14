@@ -32,7 +32,7 @@ export function reset(cpu: CPUState, startPC: number = USER_RAM_START): void {
   cpu.cycles = 0
 }
 
-type Size = 'byte' | 'word' | 'long'
+export type Size = 'byte' | 'word' | 'long'
 
 function sizeMask(size: Size): number {
   return size === 'byte' ? 0xff : size === 'word' ? 0xffff : 0xffffffff
@@ -75,16 +75,24 @@ export function updateFlags(cpu: CPUState, result: number, size: Size): void {
   cpu.status.N = (masked & signBit) !== 0
 }
 
-// Fetches the opcode word at PC, looks it up, and executes it. Advances PC
-// past the opcode word before running the handler, so a handler that reads
-// further extension words via `memory` and bumps `cpu.pc` itself ends up
-// leaving PC at the next instruction — no separate "instruction length"
-// bookkeeping needed here.
-export function step(
-  cpu: CPUState,
-  memory: Memory,
-  opcodeTable: ReadonlyMap<number, OpcodeDefinition>
-): number {
+// An opcode "family": every instruction whose word matches `pattern` once
+// masked by `mask` is decoded by the same handler (e.g. all ~2000 MOVE word
+// encodings share one entry). A single fixed-value instruction like NOP is
+// just the degenerate case: mask = 0xffff.
+export interface OpcodeEntry {
+  mask: number
+  pattern: number
+  definition: OpcodeDefinition
+}
+
+// Fetches the opcode word at PC, finds the matching family, and executes
+// it. Advances PC past the opcode word before running the handler, so a
+// handler that reads further extension words via `memory` and bumps
+// `cpu.pc` itself ends up leaving PC at the next instruction — no separate
+// "instruction length" bookkeeping needed here. The raw opcode word is
+// passed as args[0], for handlers that decode their own operand fields
+// from it (register numbers, size bits, addressing modes, ...).
+export function step(cpu: CPUState, memory: Memory, opcodeTable: readonly OpcodeEntry[]): number {
   if (cpu.halted) {
     return 0
   }
@@ -92,12 +100,12 @@ export function step(
   const opcodeWord = memory.read16(cpu.pc)
   cpu.pc += 2
 
-  const definition = opcodeTable.get(opcodeWord)
-  if (!definition) {
+  const entry = opcodeTable.find((e) => (opcodeWord & e.mask) === e.pattern)
+  if (!entry) {
     throw new Error(`Unknown instruction: $${opcodeWord.toString(16).padStart(4, '0')}`)
   }
 
-  const cycles = definition.handler(cpu, memory, [])
+  const cycles = entry.definition.handler(cpu, memory, [opcodeWord])
   cpu.cycles += cycles
   return cycles
 }
