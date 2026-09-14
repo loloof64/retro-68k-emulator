@@ -310,20 +310,26 @@ BRA     LOOP           ; Jump to LOOP
 
 ### Conditional Branches
 
-| Instruction | Condition | Flags |
+`BLT`/`BLE`/`BGT`/`BGE` and `BHI`/`BLS`/`BCC`/`BCS` are two *separate* families for "is it bigger/smaller" — signed vs. unsigned — not synonyms. They can disagree on the same bit pattern: comparing `$FFFFFFFF` to `1`, `BLT` is true (signed: `-1 < 1`) but `BHI` is true too (unsigned: huge `> 1`). Use the signed family for values that can be negative, the unsigned family for plain counts/addresses.
+
+| Instruction | Condition | Flags tested |
 |-------------|-----------|-------|
-| `BEQ` | Equal (Z=1) | Z |
-| `BNE` | Not equal (Z=0) | Z |
-| `BLT` | Less than (N=1) | N |
-| `BLE` | Less or equal | N,Z |
-| `BGT` | Greater than | N,Z |
-| `BGE` | Greater or equal | N |
-| `BCS` | Carry set (C=1) | C |
-| `BCC` | Carry clear (C=0) | C |
-| `BVS` | Overflow set (V=1) | V |
-| `BVC` | Overflow clear (V=0) | V |
-| `BPL` | Plus (N=0) | N |
-| `BMI` | Minus (N=1) | N |
+| `BEQ` | Equal | Z=1 |
+| `BNE` | Not equal | Z=0 |
+| `BGT` | Greater than (signed) | Z=0 and N=V |
+| `BGE` | Greater or equal (signed) | N=V |
+| `BLT` | Less than (signed) | N≠V |
+| `BLE` | Less or equal (signed) | Z=1 or N≠V |
+| `BHI` | Higher (unsigned) | C=0 and Z=0 |
+| `BCC` (a.k.a. `BHS`) | Carry clear / Higher or same (unsigned) | C=0 |
+| `BCS` (a.k.a. `BLO`) | Carry set / Lower (unsigned) | C=1 |
+| `BLS` | Lower or same (unsigned) | C=1 or Z=1 |
+| `BVS` | Overflow set | V=1 |
+| `BVC` | Overflow clear | V=0 |
+| `BPL` | Plus | N=0 |
+| `BMI` | Minus | N=1 |
+
+`N=V` means "N and V have the same value" (both 0 or both 1); `N≠V` means they differ. See `branchConditionTrue` in `src/cpu/opcodes.ts` for the reference implementation.
 
 **Cycles**: 8 (branch not taken), 10 (branch taken)
 
@@ -428,7 +434,7 @@ Does nothing, useful for timing/padding.
 | Arithmetic | ADD, SUB, MUL, DIV, CMP |
 | Logical | AND, OR, XOR, NOT |
 | Shift/Rotate | ASL, ASR, LSL, LSR, ROL, ROR |
-| Branches | BRA, BEQ, BNE, BLT, BLE, BGT, BGE, BCS, BCC, BVS, BVC, BPL, BMI, DBRA |
+| Branches | BRA, BEQ, BNE, BLT, BLE, BGT, BGE, BHI, BLS, BCS, BCC, BVS, BVC, BPL, BMI, DBRA |
 | Subroutines | JSR, BSR, RTS |
 | System | TRAP, NOP |
 

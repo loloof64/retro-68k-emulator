@@ -31,7 +31,40 @@ The CPU core (registers, status flags, and the fetch-decode-execute loop) is up 
 | `SUB` | `SUB.size src,Dn` | byte, word, long | N, Z, V, C, X | Subtracts `src` from a data register, in place. |
 | `CMP` | `CMP.size src,Dn` | byte, word, long | N, Z, V, C | Subtracts `src` from a data register like `SUB`, but only sets flags — the register itself is unchanged. Typically followed by a `Bcc`. |
 | `BRA` | `BRA target` | word | none | Always jumps to `target`. |
-| `Bcc` | `BEQ`/`BNE`/`BLT`/`BGT`/`BGE`/`BLE`/`BHI`/`BLS`/`BCC`/`BCS`/`BPL`/`BMI`/`BVC`/`BVS target` | word | none (reads flags, doesn't set them) | Jumps to `target` only if the named condition on the current flags holds — e.g. `BEQ` after a `CMP` branches if the two values were equal. |
+| `Bcc` | see below | word | none (reads flags, doesn't set them) | Jumps to `target` only if the named condition on the current flags holds. |
+
+### Which `Bcc` do I want?
+
+After a `CMP`, there are *two separate* families of "is it bigger/smaller" branches — one for **signed** numbers (can be negative), one for **unsigned** (always treated as a positive count). Mixing them up is a classic bug: comparing `$FFFFFFFF` to `1`, as signed that's `-1 < 1` (`BLT` is true), but as unsigned `$FFFFFFFF` is a huge number `> 1` (`BHI` is true) — same bits, opposite answer. Pick the family that matches what the value actually represents (a loop counter is usually unsigned; a temperature could be signed).
+
+**Signed comparisons** (`CMP.L #5,D0` then...):
+
+| Mnemonic | Branches when | Meaning |
+|---|---|---|
+| `BGT` | signed `>` | Greater Than |
+| `BGE` | signed `>=` | Greater or Equal |
+| `BLT` | signed `<` | Less Than |
+| `BLE` | signed `<=` | Less or Equal |
+
+**Unsigned comparisons** (same syntax, different meaning of "bigger"):
+
+| Mnemonic | Branches when | Meaning |
+|---|---|---|
+| `BHI` | unsigned `>` | Higher |
+| `BCC` (= `BHS`) | unsigned `>=` | Carry Clear / Higher or Same |
+| `BCS` (= `BLO`) | unsigned `<` | Carry Set / Lower |
+| `BLS` | unsigned `<=` | Lower or Same |
+
+**Equality and raw flag tests** (same either way):
+
+| Mnemonic | Branches when | Meaning |
+|---|---|---|
+| `BEQ` | `Z=1` (equal) | Equal |
+| `BNE` | `Z=0` (not equal) | Not Equal |
+| `BPL` | `N=0` | Plus (result was positive/zero) |
+| `BMI` | `N=1` | Minus (result was negative) |
+| `BVC` | `V=0` | Overflow Clear |
+| `BVS` | `V=1` | Overflow Set |
 
 Supported addressing modes for `src`/`dst` so far: a data register (`D0`-`D7`), an address register (`A0`-`A7`), an immediate value (`#123`, source only), and, through an address register, `(A0)`, `(A0)+`, and `-(A0)`. Absolute addresses (`$40000`) and indexed modes aren't supported yet — that's why the examples below load addresses into an address register first, the same way the [memory map](#memory-map) example does.
 
