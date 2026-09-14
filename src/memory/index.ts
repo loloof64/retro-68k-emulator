@@ -1,0 +1,96 @@
+import type { Memory } from '../types/cpu'
+
+// Memory map (see docs/MEMORY.md / docs/ARCHITECTURE.md)
+export const SYSTEM_START = 0x00000
+export const SYSTEM_END = 0x01fff
+export const USER_RAM_START = 0x02000
+export const USER_RAM_END = 0x3ffff
+export const FRAMEBUFFER_START = 0x40000
+
+export const FRAMEBUFFER_WIDTH = 320
+export const FRAMEBUFFER_HEIGHT = 200
+export const FRAMEBUFFER_BYTES_PER_PIXEL = 4 // 32-bit RGBA (see docs/API.md)
+export const FRAMEBUFFER_SIZE =
+  FRAMEBUFFER_WIDTH * FRAMEBUFFER_HEIGHT * FRAMEBUFFER_BYTES_PER_PIXEL
+export const FRAMEBUFFER_END = FRAMEBUFFER_START + FRAMEBUFFER_SIZE - 1
+
+// The docs state the framebuffer region is 64-128KB, but 320x200 @ 32bpp
+// actually needs ~250KB. Total space is rounded up to fit it exactly.
+export const MEMORY_SIZE = FRAMEBUFFER_END + 1
+
+export class SystemMemory implements Memory {
+  private bytes: Uint8Array
+
+  constructor(size: number = MEMORY_SIZE) {
+    this.bytes = new Uint8Array(size)
+  }
+
+  private checkBounds(address: number, length: number): void {
+    if (!Number.isInteger(address) || address < 0 || address + length > this.bytes.length) {
+      throw new Error(`Memory access out of bounds: $${address.toString(16)}`)
+    }
+  }
+
+  read8(address: number): number {
+    this.checkBounds(address, 1)
+    return this.bytes[address]
+  }
+
+  // 68000 is big-endian: most significant byte first.
+  read16(address: number): number {
+    this.checkBounds(address, 2)
+    return (this.bytes[address] << 8) | this.bytes[address + 1]
+  }
+
+  read32(address: number): number {
+    this.checkBounds(address, 4)
+    return (
+      ((this.bytes[address] << 24) |
+        (this.bytes[address + 1] << 16) |
+        (this.bytes[address + 2] << 8) |
+        this.bytes[address + 3]) >>>
+      0
+    )
+  }
+
+  write8(address: number, value: number): void {
+    this.checkBounds(address, 1)
+    this.bytes[address] = value & 0xff
+  }
+
+  write16(address: number, value: number): void {
+    this.checkBounds(address, 2)
+    this.bytes[address] = (value >>> 8) & 0xff
+    this.bytes[address + 1] = value & 0xff
+  }
+
+  write32(address: number, value: number): void {
+    this.checkBounds(address, 4)
+    this.bytes[address] = (value >>> 24) & 0xff
+    this.bytes[address + 1] = (value >>> 16) & 0xff
+    this.bytes[address + 2] = (value >>> 8) & 0xff
+    this.bytes[address + 3] = value & 0xff
+  }
+
+  reset(): void {
+    this.bytes.fill(0)
+  }
+
+  getPixel(x: number, y: number): number {
+    return this.read32(
+      FRAMEBUFFER_START + (y * FRAMEBUFFER_WIDTH + x) * FRAMEBUFFER_BYTES_PER_PIXEL
+    )
+  }
+
+  setPixel(x: number, y: number, color: number): void {
+    this.write32(
+      FRAMEBUFFER_START + (y * FRAMEBUFFER_WIDTH + x) * FRAMEBUFFER_BYTES_PER_PIXEL,
+      color
+    )
+  }
+
+  // Read-only view of the framebuffer, for the UI to render directly.
+  getFramebuffer(): Uint8Array {
+    return this.bytes.subarray(FRAMEBUFFER_START, FRAMEBUFFER_START + FRAMEBUFFER_SIZE)
+  }
+}
