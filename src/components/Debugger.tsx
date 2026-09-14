@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import { useState } from 'react'
 import './Debugger.css'
 
 interface DebuggerProps {
@@ -81,6 +81,13 @@ export default function Debugger({
       A6: 0,
       A7: 0,
     })
+    setFlags({
+      N: false,
+      Z: false,
+      V: false,
+      C: false,
+      X: false,
+    })
     setPc(0x1000)
     setCycles(0)
     onRunningChange(false)
@@ -92,10 +99,11 @@ export default function Debugger({
         <button
           className={`btn ${isRunning ? 'btn-stop' : 'btn-play'}`}
           onClick={handleRun}
+          disabled={!isRunning && !code.trim()}
         >
           {isRunning ? '⏸ Pause' : '▶ Run'}
         </button>
-        <button className="btn" onClick={handleStep}>
+        <button className="btn" onClick={handleStep} disabled={!code.trim()}>
           ⤵ Step
         </button>
         <button className="btn" onClick={handleReset}>

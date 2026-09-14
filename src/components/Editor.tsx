@@ -1,4 +1,3 @@
-import React from 'react'
 import './Editor.css'
 
 interface EditorProps {

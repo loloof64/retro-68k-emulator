@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import { useState } from 'react'
 import './App.css'
 import Editor from './components/Editor'
 import Debugger from './components/Debugger'
