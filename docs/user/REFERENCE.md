@@ -20,7 +20,13 @@ address = $40000 + (y * 320 + x) * 4
 
 ## Instruction Set (Opcodes)
 
-No instructions are executable yet — there is no CPU core to run them. Once instruction execution starts landing, each opcode will get its own entry here: syntax, what it does, which flags it affects, and a short example.
+The CPU core (registers, status flags, and the fetch-decode-execute loop) is up and running, but only one instruction is wired into it so far:
+
+| Mnemonic | Syntax | Description |
+|---|---|---|
+| `NOP` | `NOP` | Does nothing for one cycle count (4 cycles). Useful for timing/padding. |
+
+The rest of the ~80-instruction set (moves, arithmetic, branches, ...) lands in upcoming sessions — each one gets its own entry here as it becomes real, with syntax, affected flags, and an example.
 
 ## TRAP System Calls
 
