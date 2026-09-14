@@ -26,7 +26,12 @@ The CPU core (registers, status flags, and the fetch-decode-execute loop) is up 
 |---|---|---|---|---|
 | `NOP` | `NOP` | word | none | Does nothing for 4 cycles. Useful for timing/padding. |
 | `MOVE` | `MOVE.size src,dst` | byte, word, long | N, Z (V and C always cleared) | Copies a value from `src` to `dst`. |
+| `MOVEQ` | `MOVEQ #data,Dn` | long | N, Z (V and C always cleared) | Loads a small immediate (-128 to 127) into a data register. Faster/shorter than `MOVE.L #imm,Dn`. |
 | `ADD` | `ADD.size src,Dn` | byte, word, long | N, Z, V, C, X | Adds `src` to a data register, in place. |
+| `SUB` | `SUB.size src,Dn` | byte, word, long | N, Z, V, C, X | Subtracts `src` from a data register, in place. |
+| `CMP` | `CMP.size src,Dn` | byte, word, long | N, Z, V, C | Subtracts `src` from a data register like `SUB`, but only sets flags — the register itself is unchanged. Typically followed by a `Bcc`. |
+| `BRA` | `BRA target` | word | none | Always jumps to `target`. |
+| `Bcc` | `BEQ`/`BNE`/`BLT`/`BGT`/`BGE`/`BLE`/`BHI`/`BLS`/`BCC`/`BCS`/`BPL`/`BMI`/`BVC`/`BVS target` | word | none (reads flags, doesn't set them) | Jumps to `target` only if the named condition on the current flags holds — e.g. `BEQ` after a `CMP` branches if the two values were equal. |
 
 Supported addressing modes for `src`/`dst` so far: a data register (`D0`-`D7`), an address register (`A0`-`A7`), an immediate value (`#123`, source only), and, through an address register, `(A0)`, `(A0)+`, and `-(A0)`. Absolute addresses (`$40000`) and indexed modes aren't supported yet — that's why the examples below load addresses into an address register first, the same way the [memory map](#memory-map) example does.
 
@@ -41,7 +46,21 @@ MOVE.L  #$FFFFFF,(A0)    ; first pixel = white
 TRAP    #0                ; exit
 ```
 
-The rest of the ~80-instruction set (subtraction, multiplication, branches, comparisons, ...) lands in upcoming sessions — each one gets its own entry here as it becomes real.
+**Example** — a countdown loop using `MOVEQ`, `SUB`, `CMP`, and `Bcc`:
+
+```
+MOVEQ   #5,D0             ; D0 = 5 (loop counter)
+LOOP:
+MOVEQ   #1,D1
+SUB.L   D1,D0             ; D0 -= 1
+CMP.L   #0,D0
+BNE     LOOP               ; keep looping while D0 != 0
+TRAP    #0                 ; exit
+```
+
+*(Labels like `LOOP:` are an assembler feature — there's no assembler yet, so this example is illustrative; today `Bcc`'s target has to be hand-encoded as a byte offset.)*
+
+The rest of the ~80-instruction set (multiplication, division, logical ops, subroutine calls, ...) lands in upcoming sessions — each one gets its own entry here as it becomes real.
 
 ## TRAP System Calls
 

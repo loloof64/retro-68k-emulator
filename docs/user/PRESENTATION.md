@@ -13,7 +13,7 @@ This project is under active development. The table below reflects what's genuin
 | Memory system (64KB addressable space + framebuffer) | ✅ Done |
 | CPU core (registers, flags, instruction execution) | ✅ Done |
 | Assembler (turns `.asm` source into runnable bytecode) | ⏳ Planned |
-| 68000 instruction set (~80 opcodes) | 🚧 3 of ~80 (`NOP`, `MOVE`, `ADD`) — see [Reference](./REFERENCE.md) |
+| 68000 instruction set (~80 opcodes) | 🚧 7 of ~80 (`NOP`, `MOVE`, `MOVEQ`, `ADD`, `SUB`, `CMP`, `Bcc`/`BRA`) — see [Reference](./REFERENCE.md) |
 | TRAP system calls (print text, draw pixels, clear screen) | 🚧 1 of several (`TRAP #0`, halt) — see [Reference](./REFERENCE.md) |
 | Editor / Debugger / Screen interface | 🚧 UI shell built, not yet connected to a working emulator |
 | Desktop installers (Windows / macOS / Linux) | 🚧 Packaging configured, first release not shipped yet |
