@@ -66,7 +66,7 @@ This uses Tauri's placeholder icon so the build pipeline works immediately. See 
 
 ## Documentation Toolchain (Optional)
 
-`npm run docs:pdf` bundles all the `docs/*.md` files into a single PDF (`dist/TI89-68000-Documentation.pdf`) with a cover page, table of contents, and real navigable PDF bookmarks generated from the headings.
+`npm run docs:pdf` bundles all the `docs/*.md` files into a single PDF (`dist-docs/TI89-68000-Documentation.pdf`) with a cover page, table of contents, and real navigable PDF bookmarks generated from the headings. `npm run docs:pdf:user` does the same for `docs/user/*.md` (`dist-docs/TI89-68000-User-Guide.pdf`). Both write to `dist-docs/`, not `dist/`, so they survive an `npm run build`.
 
 This requires [WeasyPrint](https://weasyprint.org) — a system package, not an npm one:
 

@@ -12,7 +12,7 @@ import { fileURLToPath } from 'url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.join(__dirname, '..');
 const docsDir = path.join(projectRoot, 'docs');
-const outputDir = path.join(projectRoot, 'dist');
+const outputDir = path.join(projectRoot, 'dist-docs');
 
 // Document structure with file order and bookmark hierarchy
 const documentStructure = [

@@ -13,7 +13,7 @@ import { generateHtmlDocument } from './lib/docs-html.js'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const projectRoot = path.join(__dirname, '..')
 const docsDir = path.join(projectRoot, 'docs')
-const outputDir = path.join(projectRoot, 'dist')
+const outputDir = path.join(projectRoot, 'dist-docs')
 
 /**
  * Main function - requires Puppeteer to be installed
