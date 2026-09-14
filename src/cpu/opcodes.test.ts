@@ -13,6 +13,7 @@ import {
   SOUND_TRIGGER,
   SOUND_WAVEFORM_TRIANGLE,
   ZERO_DIVIDE_VECTOR,
+  ILLEGAL_INSTRUCTION_VECTOR,
 } from '../memory'
 import { createCPU, step, writeRegister } from './index'
 import { opcodeTable } from './opcodes'
@@ -166,12 +167,25 @@ describe('MOVE', () => {
     expect(cpu.status.C).toBe(true)
   })
 
-  it('MOVE.B to an address register is rejected as a reserved encoding', () => {
+  it('MOVE.B to an address register raises Illegal Instruction (reserved encoding)', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    memory.write32(ILLEGAL_INSTRUCTION_VECTOR, 0x3000)
+    memory.write16(0x2000, moveWord(0b01, 0b001, 0, 0b000, 0)) // MOVE.B D0,A0
+    memory.write16(0x3000, RTS_WORD)
+
+    step(cpu, memory, opcodeTable) // raises -> pc = 0x3000
+    step(cpu, memory, opcodeTable) // RTS -> back to right after the MOVE.B
+
+    expect(cpu.pc).toBe(0x2002)
+  })
+
+  it('MOVE.B to an address register throws when no Illegal Instruction handler is installed', () => {
     const cpu = createCPU(0x2000)
     const memory = new SystemMemory()
     memory.write16(0x2000, moveWord(0b01, 0b001, 0, 0b000, 0)) // MOVE.B D0,A0
 
-    expect(() => step(cpu, memory, opcodeTable)).toThrow(/reserved encoding/)
+    expect(() => step(cpu, memory, opcodeTable)).toThrow(/no handler installed/)
   })
 
   it('MOVE.L #imm,(A0) writes through an address register indirect', () => {
@@ -1169,13 +1183,26 @@ describe('BTST', () => {
     expect(cpu.status.Z).toBe(false)
   })
 
-  it('rejects an address register as the target', () => {
+  it('an address register target raises Illegal Instruction', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    memory.write32(ILLEGAL_INSTRUCTION_VECTOR, 0x3000)
+    memory.write16(0x2000, btstWord(0b001, 0)) // BTST #n,A0
+    memory.write16(0x3000, RTS_WORD)
+
+    step(cpu, memory, opcodeTable) // raises -> pc = 0x3000
+    step(cpu, memory, opcodeTable) // RTS -> back to right after the BTST
+
+    expect(cpu.pc).toBe(0x2002)
+  })
+
+  it('throws when no Illegal Instruction handler is installed', () => {
     const cpu = createCPU(0x2000)
     const memory = new SystemMemory()
     memory.write16(0x2000, btstWord(0b001, 0)) // BTST #n,A0
     memory.write16(0x2002, 0)
 
-    expect(() => step(cpu, memory, opcodeTable)).toThrow(/address register/)
+    expect(() => step(cpu, memory, opcodeTable)).toThrow(/no handler installed/)
   })
 
   it('a typical button-polling sequence: read input, then BTST each bit', () => {

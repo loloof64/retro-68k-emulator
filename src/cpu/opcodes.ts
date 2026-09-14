@@ -4,6 +4,7 @@ import { readRegister, updateFlags, writeRegister } from './index'
 import { decodeEA, type Size } from './addressing'
 import { addWithFlags, subWithFlags } from './arithmetic'
 import {
+  ILLEGAL_INSTRUCTION_VECTOR,
   INPUT_START,
   SOUND_DURATION,
   SOUND_FREQUENCY,
@@ -32,6 +33,37 @@ function decodeStandardOpSize(bits: number): Size {
   if (bits === 0b001) return 'word'
   if (bits === 0b010) return 'long'
   throw new Error(`Unsupported opmode: ${bits.toString(2)}`)
+}
+
+// --- CPU-raised exceptions (as opposed to explicit TRAP #n calls) -------
+//
+// Real 68000: an exception pushes the status register and PC onto the
+// *supervisor* stack, then jumps through a vector in low memory. This
+// emulator has no SR/supervisor-mode concept, so — like JSR — only PC is
+// pushed, onto the one stack there is (A7). A handler routine is expected
+// to end with RTS (there's no RTE) to match. See src/memory/index.ts for
+// the vector table layout (ZERO_DIVIDE_VECTOR, ILLEGAL_INSTRUCTION_VECTOR).
+//
+// Only for encodings that are genuinely reserved/invalid on real 68000
+// hardware (e.g. MOVE.B to An) or runtime faults (zero divide) — never as
+// a stand-in for "this addressing mode/opcode isn't implemented here yet,"
+// which would run fine on real silicon and has nothing to do with the
+// CPU's actual exception model.
+
+function raiseException(cpu: CPUState, memory: Memory, vectorAddress: number, name: string): void {
+  const handlerAddress = memory.read32(vectorAddress)
+  if (handlerAddress === 0) {
+    throw new Error(
+      `${name} exception: no handler installed at vector $${vectorAddress.toString(16)} ` +
+        '(write a handler routine\'s address there before this can happen)'
+    )
+  }
+
+  const sp = readRegister(cpu, Register.A7, 'long') - 4
+  memory.write32(sp, cpu.pc)
+  writeRegister(cpu, Register.A7, sp, 'long')
+
+  cpu.pc = handlerAddress
 }
 
 // --- NOP ($4E71) --------------------------------------------------------
@@ -73,7 +105,9 @@ const MOVE: OpcodeDefinition = {
 
     const isMovea = destMode === MOVEA_DEST_MODE
     if (isMovea && size === 'byte') {
-      throw new Error('MOVE.B to an address register is a reserved encoding (MOVEA only supports word/long)')
+      // Reserved encoding on real hardware (MOVEA only supports word/long).
+      raiseException(cpu, memory, ILLEGAL_INSTRUCTION_VECTOR, 'Illegal Instruction')
+      return 34
     }
 
     // Source decoded before destination: extension words (e.g. #imm) follow
@@ -391,7 +425,10 @@ const BTST: OpcodeDefinition = {
     const reg = opcodeWord & 0b111
 
     if (mode === 0b001) {
-      throw new Error('BTST cannot target an address register')
+      // An isn't a valid <ea> for BTST on real hardware (Dn tests as a
+      // long, memory as a byte — An direct isn't defined either way).
+      raiseException(cpu, memory, ILLEGAL_INSTRUCTION_VECTOR, 'Illegal Instruction')
+      return 34
     }
 
     // Extension word carries the bit number to test.
@@ -430,32 +467,6 @@ function decodeMulDiv(cpu: CPUState, memory: Memory, opcodeWord: number) {
   const reg = opcodeWord & 0b111
   const src = decodeEA(cpu, memory, mode, reg, 'word')
   return { destReg, src }
-}
-
-// --- CPU-raised exceptions (as opposed to explicit TRAP #n calls) -------
-//
-// Real 68000: an exception pushes the status register and PC onto the
-// *supervisor* stack, then jumps through a vector in low memory. This
-// emulator has no SR/supervisor-mode concept, so — like JSR — only PC is
-// pushed, onto the one stack there is (A7). A handler routine is expected
-// to end with RTS (there's no RTE) to match. See ZERO_DIVIDE_VECTOR in
-// src/memory/index.ts for the vector table layout; only Zero Divide raises
-// one so far.
-
-function raiseException(cpu: CPUState, memory: Memory, vectorAddress: number, name: string): void {
-  const handlerAddress = memory.read32(vectorAddress)
-  if (handlerAddress === 0) {
-    throw new Error(
-      `${name} exception: no handler installed at vector $${vectorAddress.toString(16)} ` +
-        '(write a handler routine\'s address there before this can happen)'
-    )
-  }
-
-  const sp = readRegister(cpu, Register.A7, 'long') - 4
-  memory.write32(sp, cpu.pc)
-  writeRegister(cpu, Register.A7, sp, 'long')
-
-  cpu.pc = handlerAddress
 }
 
 const MULU: OpcodeDefinition = {

@@ -41,6 +41,10 @@ export const INPUT_BUTTON_SELECT = 1 << 9
 // address 0. Sits right after the TRAP table's reserved 64 bytes.
 export const EXCEPTION_VECTORS_START = SYSTEM_START + 0x40
 export const ZERO_DIVIDE_VECTOR = EXCEPTION_VECTORS_START + 0 // DIVU/DIVS by zero
+// Genuinely reserved/invalid encodings only (e.g. MOVE.B to An, BTST
+// targeting An) — never for an instruction/addressing mode this emulator
+// simply hasn't implemented yet, which would run fine on real hardware.
+export const ILLEGAL_INSTRUCTION_VECTOR = EXCEPTION_VECTORS_START + 4
 
 // Sound port: layout reserved, not wired to any audio output yet (see
 // docs/MEMORY.md). Modeled on a simple single-voice tone generator — like

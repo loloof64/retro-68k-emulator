@@ -127,7 +127,7 @@ A first handful of real instructions is wired in, grouped below the way Motorola
 | Mnemonic | Syntax | Sizes | Cycles | Flags affected | Description |
 |---|---|---|---|---|---|
 | `MOVE` | `MOVE.size src,dst` | byte, word, long | 4 | N, Z (V and C always cleared) | Copies a value from `src` to `dst`. |
-| `MOVEA` | `MOVEA.size src,An` | word, long | 4 | none | Loads an address register. Not a separate opcode — a `MOVE` whose destination is `An` *is* `MOVEA`, bit-for-bit, which is exactly why it skips the flags a plain `MOVE` would set. |
+| `MOVEA` | `MOVEA.size src,An` | word, long | 4 | none | Loads an address register. Not a separate opcode — a `MOVE` whose destination is `An` *is* `MOVEA`, bit-for-bit, which is exactly why it skips the flags a plain `MOVE` would set. Byte size raises the [Illegal Instruction exception](#exceptions). |
 | `MOVEQ` | `MOVEQ #data,Dn` | long | 4 | N, Z (V and C always cleared) | Loads a small immediate (-128 to 127) into a data register. Faster/shorter than `MOVE.L #imm,Dn`. |
 | `SWAP` | `SWAP Dn` | long | 4 | N, Z (V and C always cleared) | Swaps the high and low 16-bit halves of `Dn`. |
 
@@ -160,7 +160,7 @@ A first handful of real instructions is wired in, grouped below the way Motorola
 
 | Mnemonic | Syntax | Sizes | Cycles | Flags affected | Description |
 |---|---|---|---|---|---|
-| `BTST` | `BTST #n,dst` | long (register), byte (memory) | 4 (register), 8 (memory) | Z only | Tests bit `n` of `dst` (Z=1 when clear). Doesn't modify `dst` — the standard way to poll one button out of the [gamepad bitmask](#reading-the-gamepad). |
+| `BTST` | `BTST #n,dst` | long (register), byte (memory) | 4 (register), 8 (memory) | Z only | Tests bit `n` of `dst` (Z=1 when clear). Doesn't modify `dst` — the standard way to poll one button out of the [gamepad bitmask](#reading-the-gamepad). An address register isn't a valid `dst` — that raises the [Illegal Instruction exception](#exceptions). |
 
 ### Shift and Rotate
 
@@ -320,11 +320,14 @@ The rest — printing text, reading/writing pixels, clearing the screen — is d
 
 Different from a `TRAP #n` a program calls on purpose: an exception is
 something the CPU raises *on its own* when an instruction hits a fault it
-can't just set a flag for. Only one exists so far:
+can't just set a flag for. Only genuinely reserved/invalid encodings and
+runtime faults raise one — never an instruction this emulator simply
+hasn't implemented yet, which would run fine on real hardware.
 
 | Vector | Address | Raised by | Description |
 |---|---|---|---|
 | Zero Divide | `$40` | `DIVU`/`DIVS` with a zero divisor | Jumps to the handler address stored at `$40`. |
+| Illegal Instruction | `$44` | `MOVE.B` to an address register; `BTST` targeting one | Jumps to the handler address stored at `$44`. Both are reserved/undefined encodings on real 68000 hardware, not missing features. |
 
 Your program installs a handler by writing its address into the vector
 *before* the fault can happen:

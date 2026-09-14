@@ -24,8 +24,8 @@ Reserved for interrupt vectors and system-level data:
 
 ```
 $00000-$0003F    64 bytes   TRAP vector table (16 vectors x 4 bytes)
-$00040-$00043     4 bytes   CPU exception vector table (1 vector so far)
-$00044-$01FFF    8 KB-68B   Reserved for future use
+$00040-$00047     8 bytes   CPU exception vector table (2 vectors so far)
+$00048-$01FFF    8 KB-72B   Reserved for future use
 ```
 
 ### TRAP Vector Table
@@ -56,15 +56,20 @@ $1C-$3F  7-15     (reserved for future)
 
 Unlike the TRAP table above, this one is real: it's how the CPU signals a
 fault it hits on its own (as opposed to a program explicitly calling
-`TRAP #n`) — starting with `DIVU`/`DIVS` dividing by zero. Each vector is
-a 4-byte slot your program fills in with a handler routine's address
-*before* the fault can happen; the CPU reads it back and jumps there when
-it does.
+`TRAP #n`). Each vector is a 4-byte slot your program fills in with a
+handler routine's address *before* the fault can happen; the CPU reads it
+back and jumps there when it does.
+
+Only genuinely reserved/invalid encodings and runtime faults raise one —
+never an instruction or addressing mode this emulator simply hasn't
+implemented yet, which would run fine on real 68000 hardware and has
+nothing to do with its actual exception model.
 
 ```
-Offset   Exception      Raised by
-──────────────────────────────────────
-$40      Zero Divide    DIVU / DIVS with a zero divisor
+Offset   Exception            Raised by
+────────────────────────────────────────────────────────
+$40      Zero Divide          DIVU / DIVS with a zero divisor
+$44      Illegal Instruction  MOVE.B to An; BTST targeting An
 ```
 
 Real 68000 hardware pushes the status register and PC onto a *supervisor*

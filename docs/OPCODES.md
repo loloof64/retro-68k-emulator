@@ -56,8 +56,9 @@ hardware (and in this emulator) `MOVEA` isn't a distinct opcode — a `MOVE`
 whose destination is an address register *is* `MOVEA`, exactly the same
 bit pattern; only the mnemonic an assembler prints differs. So `MOVE.L
 #$1000,A0` and `MOVEA.L #$1000,A0` assemble to the same instruction, and
-both correctly leave the flags untouched. Byte size to an address register
-is a reserved encoding and raises an error.
+both correctly leave the flags untouched. Byte size to an address
+register is a reserved encoding and raises the
+[Illegal Instruction exception](#cpu-exception-vector-table).
 
 **Sizes**: W, L
 **Cycles**: 4
@@ -351,8 +352,10 @@ it's the standard way to check one flag/button out of a packed bitmask,
 such as the [Controller Input](./MEMORY.md#controller-input-7e800-7e803)
 register.
 
-**Sizes**: A register destination is tested as a full long (bit number
-0-31); a memory destination is tested as a byte (bit number 0-7).
+**Sizes**: A data register destination is tested as a full long (bit
+number 0-31); a memory destination is tested as a byte (bit number 0-7).
+An address register isn't a valid destination either way — that raises
+the [Illegal Instruction exception](#cpu-exception-vector-table).
 **Cycles**: 4 (register), 8 (memory)
 **Flags**: Z only
 
