@@ -1,0 +1,45 @@
+{
+  "name": "ti89-68k-emulator",
+  "version": "0.1.0",
+  "description": "TI-89 inspired 68000 CPU emulator with web UI",
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "vitest",
+    "test:ui": "vitest --ui",
+    "lint": "eslint src --ext .ts,.tsx",
+    "format": "prettier --write \"src/**/*.{ts,tsx,css}\"",
+    "type-check": "tsc --noEmit",
+    "docs": "node scripts/generate-docs-pdf.js",
+    "docs:pdf": "node scripts/generate-pdf-puppeteer.js",
+    "docs:pdf:pandoc": "pandoc docs/*.md -o dist/TI89-68000-Documentation.pdf --toc --toc-depth=2 -V colorlinks",
+    "docs:watch": "nodemon -e md -w docs -x 'npm run docs:pdf'",
+    "tauri": "tauri",
+    "tauri:dev": "tauri dev",
+    "tauri:build": "tauri build",
+    "tauri:build:debug": "tauri build --debug"
+  },
+  "dependencies": {
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
+  },
+  "devDependencies": {
+    "@tauri-apps/api": "^2.1.1",
+    "@tauri-apps/cli": "^2.1.0",
+    "@types/node": "^20.0.0",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "@typescript-eslint/eslint-plugin": "^6.0.0",
+    "@typescript-eslint/parser": "^6.0.0",
+    "@vitejs/plugin-react": "^4.3.4",
+    "@vitest/ui": "^1.0.0",
+    "eslint": "^8.0.0",
+    "prettier": "^3.0.0",
+    "typescript": "^5.2.0",
+    "vite": "^4.5.0",
+    "vitest": "^1.0.0"
+  }
+}

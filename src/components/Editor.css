@@ -1,0 +1,24 @@
+.editor {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.editor-textarea {
+  flex: 1;
+  padding: 12px;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  border: none;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Courier New', monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  resize: none;
+  outline: none;
+  tab-size: 4;
+}
+
+.editor-textarea:focus {
+  background-color: var(--bg-secondary);
+}
