@@ -145,10 +145,10 @@ function markdownToHtml(markdown, filenameToId = {}) {
 export function generateHtmlDocument({
   docsDir,
   documentStructure = developerDocumentStructure,
-  pageTitle = 'TI-89 68000 Emulator - Documentation',
-  coverTitle = 'TI-89 68000 Emulator',
+  pageTitle = 'Retro 68K Emulator - Documentation',
+  coverTitle = 'Retro 68K Emulator',
   coverSubtitle = 'Complete Documentation',
-  footerLine = 'TI-89 68000 Emulator Documentation',
+  footerLine = 'Retro 68K Emulator Documentation',
 }) {
   let html = `<!DOCTYPE html>
 <html lang="en">

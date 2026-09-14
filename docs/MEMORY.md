@@ -1,6 +1,6 @@
 # Memory Layout
 
-Reference for the TI-89 68000 emulator's memory organization.
+Reference for the Retro 68K Emulator's memory organization.
 
 ## Memory Map
 

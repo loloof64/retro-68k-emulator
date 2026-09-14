@@ -1,6 +1,6 @@
 # Getting Started
 
-Welcome to the TI-89 68000 Emulator! This guide will help you install and run the emulator.
+Welcome to the Retro 68K Emulator! This guide will help you install and run the emulator.
 
 ## Prerequisites
 
@@ -13,7 +13,7 @@ Welcome to the TI-89 68000 Emulator! This guide will help you install and run th
 ### 1. Clone or extract the project
 
 ```bash
-cd ti89-68k-emulator
+cd retro-68k-emulator
 ```
 
 ### 2. Install dependencies

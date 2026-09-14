@@ -1,6 +1,6 @@
 # Troubleshooting
 
-Solutions for common problems when using the TI-89 68000 Emulator.
+Solutions for common problems when using the Retro 68K Emulator.
 
 ## Installation Issues
 

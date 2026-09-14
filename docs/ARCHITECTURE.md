@@ -1,6 +1,6 @@
 # Architecture
 
-This document describes the internal architecture of the TI-89 68000 Emulator.
+This document describes the internal architecture of the Retro 68K Emulator.
 
 ## System Overview
 

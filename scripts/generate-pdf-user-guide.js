@@ -44,16 +44,16 @@ function main() {
   const html = generateHtmlDocument({
     docsDir,
     documentStructure,
-    pageTitle: 'TI-89 68000 Emulator - User Guide',
-    coverTitle: 'TI-89 68000 Emulator',
+    pageTitle: 'Retro 68K Emulator - User Guide',
+    coverTitle: 'Retro 68K Emulator',
     coverSubtitle: 'User Guide',
-    footerLine: 'TI-89 68000 Emulator — User Guide',
+    footerLine: 'Retro 68K Emulator — User Guide',
   })
 
   const tempHtmlPath = path.join(outputDir, 'temp-user-guide.html')
   fs.writeFileSync(tempHtmlPath, html)
 
-  const pdfPath = path.join(outputDir, 'TI89-68000-User-Guide.pdf')
+  const pdfPath = path.join(outputDir, 'Retro68K-User-Guide.pdf')
 
   console.log('📄 Rendering to PDF...')
   execFileSync('weasyprint', [tempHtmlPath, pdfPath], { stdio: 'inherit' })

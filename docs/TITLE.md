@@ -1,4 +1,4 @@
-# TI-89 68000 Emulator
+# Retro 68K Emulator
 
 ## Complete Documentation & Reference Guide
 
@@ -6,7 +6,7 @@
 
 ### About This Documentation
 
-This comprehensive guide covers the TI-89 68000 Emulator, a simplified Motorola 68000 CPU emulator inspired by the TI-89 graphing calculator, built for learning 68000 assembly language.
+This comprehensive guide covers the Retro 68K Emulator, a simplified retro-style Motorola 68000 CPU emulator, built for learning 68000 assembly language.
 
 **Version**: 0.1.0  
 **Updated**: September 2026  
@@ -29,8 +29,8 @@ This comprehensive guide covers the TI-89 68000 Emulator, a simplified Motorola 
 ### Quick Start
 
 ```bash
-git clone https://github.com/youruser/ti89-68k-emulator.git
-cd ti89-68k-emulator
+git clone https://github.com/loloof64/retro-68k-emulator.git
+cd retro-68k-emulator
 npm install
 npm run dev
 ```
@@ -84,7 +84,6 @@ If you're extending or modifying the emulator:
 
 - **Motorola 68000 Reference**: https://en.wikipedia.org/wiki/Motorola_68000
 - **68000 Assembly Guide**: http://www.easy68k.com/
-- **TI-89 Development**: https://www.ti89.com/
 
 ---
 
@@ -100,7 +99,7 @@ If you're extending or modifying the emulator:
 A: No, this is an educational emulator. For production, use actual Motorola 68000 systems or modern alternatives.
 
 **Q: Which 68000 variant does this emulate?**  
-A: The original Motorola 68000 with instruction subset from TI-89 systems.
+A: The original Motorola 68000 with a subset of its instruction set.
 
 **Q: Can I extend the instruction set?**  
 A: Yes! See [API Documentation](./API.md) for details on adding new instructions.

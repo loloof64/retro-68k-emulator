@@ -2,5 +2,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
-    ti89_68k_emulator_lib::run();
+    retro_68k_emulator_lib::run();
 }

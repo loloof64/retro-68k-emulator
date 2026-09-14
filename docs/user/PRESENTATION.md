@@ -1,6 +1,6 @@
-# What Is the TI-89 68000 Emulator?
+# What Is the Retro 68K Emulator?
 
-The TI-89 68000 Emulator is a free desktop app for learning Motorola 68000 assembly language, inspired by the classic TI-89 graphing calculator. Write 68000 assembly, run it, and watch the CPU registers, flags, and a simulated 320×200 LCD screen react in real time — no physical calculator or real hardware required.
+The Retro 68K Emulator is a free desktop app for learning Motorola 68000 assembly language, in the style of a retro fantasy console. Write 68000 assembly, run it, and watch the CPU registers, flags, and a simulated 320×200 LCD screen react in real time — no physical hardware required.
 
 It's aimed at students, hobbyists, and anyone curious about how a CPU actually executes instructions, one step at a time.
 

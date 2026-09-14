@@ -6,7 +6,7 @@
 
 This project builds real, native installers for Windows, macOS, and Linux — no need for Node.js, Rust, or a terminal to run it once it's installed. When a version is ready, it will be published on the project's GitHub Releases page:
 
-**https://github.com/loloof64/ti89-68k-emulator/releases**
+**https://github.com/loloof64/retro-68k-emulator/releases**
 
 Each release will include one installer per platform:
 

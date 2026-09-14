@@ -1,6 +1,6 @@
 # Opcode Reference
 
-Complete reference for Motorola 68000 instructions supported by the TI-89 Emulator.
+Complete reference for Motorola 68000 instructions supported by the Retro 68K Emulator.
 
 ## Instruction Format
 

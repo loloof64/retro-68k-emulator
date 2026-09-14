@@ -17,7 +17,7 @@ const outputDir = path.join(projectRoot, 'dist-docs');
 // Document structure with file order and bookmark hierarchy
 const documentStructure = [
   {
-    title: 'TI-89 68000 Emulator Documentation',
+    title: 'Retro 68K Emulator Documentation',
     file: 'TITLE.md',
     level: 0,
   },
@@ -95,7 +95,7 @@ function markdownToText(markdown) {
  * (Since we can't easily add bookmarks in Node without heavy dependencies)
  */
 function generatePlainTextWithStructure() {
-  let fullText = 'TI-89 68000 EMULATOR - COMPLETE DOCUMENTATION\n';
+  let fullText = 'RETRO 68K EMULATOR - COMPLETE DOCUMENTATION\n';
   fullText += '='.repeat(50) + '\n\n';
   fullText += `Generated: ${new Date().toISOString()}\n\n`;
 
@@ -144,7 +144,7 @@ async function main() {
     // For now, generate the combined markdown
     console.log('📄 Combining markdown files...');
 
-    let combinedMarkdown = '# TI-89 68000 Emulator - Documentation\n\n';
+    let combinedMarkdown = '# Retro 68K Emulator - Documentation\n\n';
     combinedMarkdown +=
       `*Generated: ${new Date().toISOString()}*\n\n`;
     combinedMarkdown += '## Table of Contents\n\n';

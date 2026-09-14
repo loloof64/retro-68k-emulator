@@ -1,7 +1,7 @@
 {
-  "name": "ti89-68k-emulator",
+  "name": "retro-68k-emulator",
   "version": "0.1.3",
-  "description": "TI-89 inspired 68000 CPU emulator with web UI",
+  "description": "Retro Motorola 68000 CPU emulator with web UI",
   "type": "module",
   "main": "dist/index.js",
   "scripts": {
@@ -18,7 +18,7 @@
     "docs:pdf:puppeteer": "node scripts/generate-pdf-puppeteer.js",
     "docs:pdf:weasyprint": "node scripts/generate-pdf-weasyprint.js",
     "docs:pdf:user": "node scripts/generate-pdf-user-guide.js",
-    "docs:pdf:pandoc": "pandoc docs/*.md -o dist-docs/TI89-68000-Documentation.pdf --toc --toc-depth=2 -V colorlinks",
+    "docs:pdf:pandoc": "pandoc docs/*.md -o dist-docs/Retro68K-Documentation.pdf --toc --toc-depth=2 -V colorlinks",
     "docs:watch": "nodemon -e md -w docs -x 'npm run docs:pdf'",
     "tauri": "tauri",
     "tauri:dev": "tauri dev",

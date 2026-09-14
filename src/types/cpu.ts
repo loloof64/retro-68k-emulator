@@ -1,5 +1,5 @@
 /**
- * TI-89 68000 CPU Emulator - Type Definitions
+ * Retro 68K Emulator - Type Definitions
  */
 
 // Register indices

@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "TI-89 68K Emulator",
+  "productName": "Retro 68K Emulator",
   "version": "0.1.2",
-  "identifier": "com.ti89emulator.app",
+  "identifier": "com.retro68kemulator.app",
   "build": {
     "beforeDevCommand": "npm run dev",
     "beforeBuildCommand": "npm run build",
@@ -14,7 +14,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "TI-89 68000 Emulator",
+        "title": "Retro 68K Emulator",
         "width": 1400,
         "height": 900,
         "minWidth": 1000,
@@ -41,7 +41,7 @@
     ],
     "category": "Education",
     "shortDescription": "68000 assembly learning emulator",
-    "longDescription": "A simplified Motorola 68000 CPU emulator inspired by the TI-89, built for learning 68000 assembly language with an interactive debugger and simulated LCD screen.",
+    "longDescription": "A simplified retro Motorola 68000 CPU emulator, built for learning 68000 assembly language with an interactive debugger and simulated LCD screen.",
     "linux": {
       "deb": {
         "depends": []

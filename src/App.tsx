@@ -5,7 +5,7 @@ import Debugger from './components/Debugger'
 import Screen from './components/Screen'
 
 export default function App() {
-  const [asmCode, setAsmCode] = useState<string>(`; TI-89 68000 Assembly Example
+  const [asmCode, setAsmCode] = useState<string>(`; Retro 68K Assembly Example
 ; Simple program to test the emulator
 
         ORG     $1000           ; Origin at $1000

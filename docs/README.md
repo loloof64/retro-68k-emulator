@@ -1,6 +1,6 @@
-# TI-89 68000 Emulator - Documentation
+# Retro 68K Emulator - Documentation
 
-Complete reference documentation for the TI-89 68000 Emulator project.
+Complete reference documentation for the Retro 68K Emulator project.
 
 ## 📚 Table of Contents
 

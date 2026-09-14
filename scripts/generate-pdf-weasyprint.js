@@ -41,7 +41,7 @@ function main() {
   const tempHtmlPath = path.join(outputDir, 'temp-doc.html')
   fs.writeFileSync(tempHtmlPath, html)
 
-  const pdfPath = path.join(outputDir, 'TI89-68000-Documentation.pdf')
+  const pdfPath = path.join(outputDir, 'Retro68K-Documentation.pdf')
 
   console.log('📄 Rendering to PDF...')
   execFileSync('weasyprint', [tempHtmlPath, pdfPath], { stdio: 'inherit' })

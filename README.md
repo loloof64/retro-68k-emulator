@@ -1,3 +1,5 @@
+# A simple m68k simulation for games in assembly language
+
 ## 🛠️ Available Scripts
 
 ```bash
@@ -110,7 +112,6 @@ npm run test:ui
 
 - [Motorola 68000 Instruction Set](https://en.wikipedia.org/wiki/Motorola_68000)
 - [68000 Assembly Guide](http://www.easy68k.com/)
-- [TI-89 Developer](https://www.ti89.com/)
 
 ## 📄 License
 

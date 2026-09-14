@@ -1,6 +1,6 @@
 # Installation & Distribution
 
-How to build a real installable executable of the TI-89 68000 Emulator, and how to install it on another machine.
+How to build a real installable executable of the Retro 68K Emulator, and how to install it on another machine.
 
 ## Overview
 
@@ -50,7 +50,7 @@ This is more verbose than v1's `allowlist: { fs: { all: true } }`, but it means 
 ## First-Time Setup
 
 ```bash
-cd ti89-68k-emulator
+cd retro-68k-emulator
 npm install
 ```
 
@@ -66,7 +66,7 @@ This uses Tauri's placeholder icon so the build pipeline works immediately. See 
 
 ## Documentation Toolchain (Optional)
 
-`npm run docs:pdf` bundles all the `docs/*.md` files into a single PDF (`dist-docs/TI89-68000-Documentation.pdf`) with a cover page, table of contents, and real navigable PDF bookmarks generated from the headings. `npm run docs:pdf:user` does the same for `docs/user/*.md` (`dist-docs/TI89-68000-User-Guide.pdf`). Both write to `dist-docs/`, not `dist/`, so they survive an `npm run build`.
+`npm run docs:pdf` bundles all the `docs/*.md` files into a single PDF (`dist-docs/Retro68K-Documentation.pdf`) with a cover page, table of contents, and real navigable PDF bookmarks generated from the headings. `npm run docs:pdf:user` does the same for `docs/user/*.md` (`dist-docs/Retro68K-User-Guide.pdf`). Both write to `dist-docs/`, not `dist/`, so they survive an `npm run build`.
 
 This requires [WeasyPrint](https://weasyprint.org) — a system package, not an npm one:
 
@@ -124,9 +124,9 @@ Once you have the installer file (`.msi`, `.dmg`, `.deb`, `.AppImage`, etc.), sh
 3. First launch: right-click → Open (to bypass Gatekeeper's unsigned-app warning, since this isn't notarized by Apple)
 
 ### Linux
-- **`.deb`** (Debian/Ubuntu): `sudo dpkg -i ti89-68k-emulator_0.1.0_amd64.deb`
-- **`.AppImage`**: `chmod +x TI89-68K-Emulator.AppImage && ./TI89-68K-Emulator.AppImage`
-- **`.rpm`** (Fedora/RHEL): `sudo rpm -i ti89-68k-emulator-0.1.0.x86_64.rpm`
+- **`.deb`** (Debian/Ubuntu): `sudo dpkg -i retro-68k-emulator_0.1.0_amd64.deb`
+- **`.AppImage`**: `chmod +x Retro-68K-Emulator.AppImage && ./Retro-68K-Emulator.AppImage`
+- **`.rpm`** (Fedora/RHEL): `sudo rpm -i retro-68k-emulator-0.1.0.x86_64.rpm`
 
 ## Sharing the App with Someone Else
 
@@ -146,9 +146,9 @@ This isn't necessary to get started — skip it for now.
 
 ## Uninstalling
 
-- **Windows**: Settings → Apps → TI-89 68K Emulator → Uninstall
+- **Windows**: Settings → Apps → Retro 68K Emulator → Uninstall
 - **macOS**: Drag the app from `Applications` to Trash
-- **Linux**: `sudo apt remove ti89-68k-emulator` (deb) or just delete the `.AppImage` file
+- **Linux**: `sudo apt remove retro-68k-emulator` (deb) or just delete the `.AppImage` file
 
 ## Troubleshooting Build Issues
 

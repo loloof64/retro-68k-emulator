@@ -55,14 +55,14 @@ async function main() {
     console.log('📄 Rendering to PDF...')
     await page.goto(`file://${tempHtmlPath}`, { waitUntil: 'networkidle0' })
 
-    const pdfPath = path.join(outputDir, 'TI89-68000-Documentation.pdf')
+    const pdfPath = path.join(outputDir, 'Retro68K-Documentation.pdf')
     await page.pdf({
       path: pdfPath,
       format: 'A4',
       margin: { top: '1cm', bottom: '1cm', left: '1cm', right: '1cm' },
       displayHeaderFooter: true,
       headerTemplate:
-        '<div style="font-size: 10px; width: 100%; text-align: center;">TI-89 68000 Emulator Documentation</div>',
+        '<div style="font-size: 10px; width: 100%; text-align: center;">Retro 68K Emulator Documentation</div>',
       footerTemplate:
         '<div style="font-size: 10px; width: 100%; text-align: center;"><span class="pageNumber"></span> / <span class="totalPages"></span></div>',
       printBackground: true,

@@ -1,6 +1,6 @@
 # Examples
 
-Practical examples for learning 68000 assembly with the TI-89 emulator.
+Practical examples for learning 68000 assembly with the Retro 68K Emulator.
 
 ## Example 1: Simple Addition
 

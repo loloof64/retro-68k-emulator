@@ -30,4 +30,4 @@ npm run tauri icon
 
 ## Suggested icon idea for this project
 
-Something evoking both the TI-89 and the 68000: a monochrome LCD-pixel motif (like the screen simulated in the emulator), or a stylized "68K" wordmark in a calculator-style font. Keep it simple — it needs to be legible at 16×16 in a taskbar.
+Something evoking a retro 68000 system: a monochrome LCD-pixel motif (like the screen simulated in the emulator), or a stylized "68K" wordmark in a retro console/calculator-style font. Keep it simple — it needs to be legible at 16×16 in a taskbar.

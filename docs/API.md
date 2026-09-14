@@ -1,6 +1,6 @@
 # API Documentation
 
-Detailed API reference for extending and using the TI-89 68000 Emulator programmatically.
+Detailed API reference for extending and using the Retro 68K Emulator programmatically.
 
 ## CPU Module
 
