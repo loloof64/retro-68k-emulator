@@ -410,6 +410,32 @@ const CLR: OpcodeDefinition = {
   },
 }
 
+// --- NEG <ea> ($4400) - dst = 0 - dst, full flags (unlike CLR/NOT) -------
+
+const NEG: OpcodeDefinition = {
+  mnemonic: 'NEG',
+  encoding: '01000100ssmmmrrr',
+  size: 'variable',
+  handler: (cpu: CPUState, memory: Memory, args: unknown[]) => {
+    const opcodeWord = opcodeWordOf(args)
+    const size = decodeByteWordLongSize((opcodeWord >> 6) & 0b11)
+    const mode = (opcodeWord >> 3) & 0b111
+    const reg = opcodeWord & 0b111
+
+    const ea = decodeEA(cpu, memory, mode, reg, size)
+    const { result, flags } = subWithFlags(0, ea.read(), size)
+    ea.write(result)
+
+    cpu.status.N = flags.N
+    cpu.status.Z = flags.Z
+    cpu.status.V = flags.V
+    cpu.status.C = flags.C
+    cpu.status.X = flags.X
+
+    return 4
+  },
+}
+
 // --- TST <ea> ($4A00) - like CMP against 0, doesn't write back ------------
 
 const TST: OpcodeDefinition = {
@@ -481,6 +507,7 @@ export const opcodeTable: readonly OpcodeEntry[] = [
   { mask: 0xffc0, pattern: 0x0800, definition: BTST },
   { mask: 0xff00, pattern: 0x4600, definition: NOT },
   { mask: 0xff00, pattern: 0x4200, definition: CLR },
+  { mask: 0xff00, pattern: 0x4400, definition: NEG },
   { mask: 0xff00, pattern: 0x4a00, definition: TST },
   { mask: 0xf100, pattern: 0xd000, definition: ADD },
   { mask: 0xf100, pattern: 0x9000, definition: SUB },

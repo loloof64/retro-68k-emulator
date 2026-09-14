@@ -68,6 +68,10 @@ function clrWord(size: 0b00 | 0b01 | 0b10, mode: number, reg: number) {
   return (0b0100001000000000) | (size << 6) | (mode << 3) | reg
 }
 
+function negWord(size: 0b00 | 0b01 | 0b10, mode: number, reg: number) {
+  return (0b0100010000000000) | (size << 6) | (mode << 3) | reg
+}
+
 function tstWord(size: 0b00 | 0b01 | 0b10, mode: number, reg: number) {
   return (0b0100101000000000) | (size << 6) | (mode << 3) | reg
 }
@@ -427,6 +431,47 @@ describe('CLR', () => {
     step(cpu, memory, opcodeTable)
 
     expect(memory.read8(0x2000 + 4)).toBe(0)
+  })
+})
+
+describe('NEG', () => {
+  it('negates a positive register value', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.D0, 5, 'long')
+    memory.write16(0x2000, negWord(0b10, 0b000, 0)) // NEG.L D0
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.registers[Register.D0]).toBe(0xfffffffb) // -5
+    expect(cpu.status.N).toBe(true)
+    expect(cpu.status.C).toBe(true) // real 68000: NEG of a nonzero value sets C
+  })
+
+  it('negating zero yields zero and clears C/V/N, sets Z', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.D0, 0, 'long')
+    memory.write16(0x2000, negWord(0b10, 0b000, 0)) // NEG.L D0
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.registers[Register.D0]).toBe(0)
+    expect(cpu.status.Z).toBe(true)
+    expect(cpu.status.N).toBe(false)
+    expect(cpu.status.C).toBe(false)
+  })
+
+  it('negates a byte in memory', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.A0, 0x2000 + 4, 'long')
+    memory.write8(0x2000 + 4, 1)
+    memory.write16(0x2000, negWord(0b00, 0b010, 0)) // NEG.B (A0)
+
+    step(cpu, memory, opcodeTable)
+
+    expect(memory.read8(0x2000 + 4)).toBe(0xff) // -1
   })
 })
 
