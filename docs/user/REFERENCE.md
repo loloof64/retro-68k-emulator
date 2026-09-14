@@ -68,13 +68,18 @@ control pad by default, or a real controller's buttons the moment one is
 connected (a standard-mapped gamepad takes over automatically — the
 on-screen buttons stop doing anything while it's plugged in).
 
-| Bit | Button | Bit | Button |
-|---|---|---|---|
-| 0 | A | 5 | D-Pad Down |
-| 1 | B | 6 | D-Pad Left |
-| 2 | X | 7 | D-Pad Right |
-| 3 | Y | 8 | Start |
-| 4 | D-Pad Up | 9 | Select |
+| Bit | Button |
+|---|---|
+| 0 | A |
+| 1 | B |
+| 2 | X |
+| 3 | Y |
+| 4 | D-Pad Up |
+| 5 | D-Pad Down |
+| 6 | D-Pad Left |
+| 7 | D-Pad Right |
+| 8 | Start |
+| 9 | Select |
 
 ```
 TRAP    #5                ; D0 = controller state
