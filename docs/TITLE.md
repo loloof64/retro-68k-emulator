@@ -45,7 +45,7 @@ Then open `http://localhost:3000` in your browser.
 ✅ Full register set (D0-D7, A0-A7)  
 ✅ Flag management (N, Z, V, C, X)  
 ✅ TRAP system for interrupts/syscalls  
-✅ 320×200 monochrome LCD display  
+✅ 320×200 color LCD display (32-bit RGBA)  
 ✅ Real-time debugger with register visualization  
 ✅ Syntax-highlighted assembly editor  
 

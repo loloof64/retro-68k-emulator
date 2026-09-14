@@ -27,7 +27,7 @@ If you just want to try the app today, it's not ready for that yet — check the
 - Full register set: `D0`–`D7` (data), `A0`–`A7` (address, with `A7` as the stack pointer)
 - Status flags: Negative, Zero, Overflow, Carry, Extend
 - A TRAP-based system-call layer, for things like printing text or drawing to the screen from your own assembly code
-- A simulated 320×200 monochrome LCD, mapped directly into memory
+- A simulated 320×200 color LCD (32-bit RGBA), mapped directly into memory
 - An on-screen retro gamepad (A/B/X/Y, D-pad, Start/Select), superseded by a real gamepad when one is connected
 - A step-by-step debugger: watch registers and memory change instruction by instruction
 - A syntax-highlighted assembly editor, built into the app — no external tools needed
