@@ -272,12 +272,30 @@ RTS                      ; Pop return address to PC
 
 ## Memory Protection
 
-Currently, the emulator does NOT implement:
-- Read-only memory regions
-- Memory protection exceptions
-- Out-of-bounds access detection
+Everything described on this page — system area, user RAM, framebuffer,
+controller input — lives inside one plain `Uint8Array` owned by the
+emulator, not in any memory your host machine actually uses for anything
+else. A program running in the emulator cannot read or write your real
+computer's memory: there's nothing to sandbox, because there's no bridge
+from emulated address space to host address space to begin with. The
+worst a buggy program can do is corrupt *its own* simulated RAM, which a
+reset clears.
 
-All memory locations are readable and writable.
+Within that simulated address space:
+- **Out-of-bounds accesses are caught**: reading or writing an address
+  outside `$00000`–`$7E803` throws immediately (see `SystemMemory.checkBounds`
+  in `src/memory/index.ts`) and stops execution.
+- **There is no protection *inside* that range**: a program can read or
+  write any address in it, including the system area, the TRAP vector
+  table, or its own code — nothing stops a bug from overwriting them.
+
+That second point matches real Motorola 68000 hardware, not just this
+emulator: the base 68000 has no MMU and no memory protection built in —
+the Mac 128K, the Sega Genesis, the Atari ST, and the TI-89 all ran (and
+could all crash) exactly this way. Memory protection only arrived with
+later chips (68030+) paired with an MMU. So a program stomping on its own
+vector table here is the emulator being accurate to 1979-era hardware,
+not a gap to close.
 
 ## Performance Characteristics
 
