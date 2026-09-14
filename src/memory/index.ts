@@ -14,9 +14,27 @@ export const FRAMEBUFFER_SIZE =
   FRAMEBUFFER_WIDTH * FRAMEBUFFER_HEIGHT * FRAMEBUFFER_BYTES_PER_PIXEL
 export const FRAMEBUFFER_END = FRAMEBUFFER_START + FRAMEBUFFER_SIZE - 1
 
+// Controller input port: a single 32-bit, bit-mapped button state register,
+// live-updated by the UI (on-screen gamepad, or a real Gamepad API device
+// once that's wired up) and polled by running programs. See docs/MEMORY.md.
+export const INPUT_START = FRAMEBUFFER_END + 1
+export const INPUT_SIZE = 4
+export const INPUT_END = INPUT_START + INPUT_SIZE - 1
+
+export const INPUT_BUTTON_A = 1 << 0
+export const INPUT_BUTTON_B = 1 << 1
+export const INPUT_BUTTON_X = 1 << 2
+export const INPUT_BUTTON_Y = 1 << 3
+export const INPUT_BUTTON_UP = 1 << 4
+export const INPUT_BUTTON_DOWN = 1 << 5
+export const INPUT_BUTTON_LEFT = 1 << 6
+export const INPUT_BUTTON_RIGHT = 1 << 7
+export const INPUT_BUTTON_START = 1 << 8
+export const INPUT_BUTTON_SELECT = 1 << 9
+
 // The docs state the framebuffer region is 64-128KB, but 320x200 @ 32bpp
 // actually needs ~250KB. Total space is rounded up to fit it exactly.
-export const MEMORY_SIZE = FRAMEBUFFER_END + 1
+export const MEMORY_SIZE = INPUT_END + 1
 
 export class SystemMemory implements Memory {
   private bytes: Uint8Array
@@ -92,5 +110,15 @@ export class SystemMemory implements Memory {
   // Read-only view of the framebuffer, for the UI to render directly.
   getFramebuffer(): Uint8Array {
     return this.bytes.subarray(FRAMEBUFFER_START, FRAMEBUFFER_START + FRAMEBUFFER_SIZE)
+  }
+
+  // For the UI (on-screen gamepad and/or a real controller) to publish the
+  // current button state; running programs read it back via MOVE or TRAP #5.
+  setButtonState(mask: number): void {
+    this.write32(INPUT_START, mask >>> 0)
+  }
+
+  getButtonState(): number {
+    return this.read32(INPUT_START)
   }
 }

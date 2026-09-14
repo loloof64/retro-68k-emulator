@@ -10,11 +10,12 @@ This project is under active development. The table below reflects what's genuin
 
 | Component | Status |
 |---|---|
-| Memory system (64KB addressable space + framebuffer) | ✅ Done |
+| Memory system (addressable space + framebuffer + controller input) | ✅ Done |
 | CPU core (registers, flags, instruction execution) | ✅ Done |
 | Assembler (turns `.asm` source into runnable bytecode) | ⏳ Planned |
-| 68000 instruction set (~80 opcodes) | 🚧 7 of ~80 (`NOP`, `MOVE`, `MOVEQ`, `ADD`, `SUB`, `CMP`, `Bcc`/`BRA`) — see [Reference](./REFERENCE.md) |
-| TRAP system calls (print text, draw pixels, clear screen) | 🚧 1 of several (`TRAP #0`, halt) — see [Reference](./REFERENCE.md) |
+| 68000 instruction set (~80 opcodes) | 🚧 8 of ~80 (`NOP`, `MOVE`, `MOVEQ`, `ADD`, `SUB`, `CMP`, `Bcc`/`BRA`, `BTST`) — see [Reference](./REFERENCE.md) |
+| TRAP system calls (print text, draw pixels, clear screen, read gamepad) | 🚧 2 of several (`TRAP #0` halt, `TRAP #5` read controller) — see [Reference](./REFERENCE.md) |
+| On-screen gamepad UI (A/B/X/Y, D-pad, Start/Select) | ⏳ Planned — memory/opcode/TRAP support for it is done |
 | Editor / Debugger / Screen interface | 🚧 UI shell built, not yet connected to a working emulator |
 | Desktop installers (Windows / macOS / Linux) | 🚧 Packaging configured, first release not shipped yet |
 
@@ -27,6 +28,7 @@ If you just want to try the app today, it's not ready for that yet — check the
 - Status flags: Negative, Zero, Overflow, Carry, Extend
 - A TRAP-based system-call layer, for things like printing text or drawing to the screen from your own assembly code
 - A simulated 320×200 monochrome LCD, mapped directly into memory
+- An on-screen retro gamepad (A/B/X/Y, D-pad, Start/Select), superseded by a real gamepad when one is connected
 - A step-by-step debugger: watch registers and memory change instruction by instruction
 - A syntax-highlighted assembly editor, built into the app — no external tools needed
 - Native installers for Windows, macOS, and Linux, so it runs like any other desktop app

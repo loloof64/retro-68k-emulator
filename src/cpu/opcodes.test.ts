@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { Register } from '../types/cpu'
-import { SystemMemory } from '../memory'
+import { SystemMemory, INPUT_START, INPUT_BUTTON_A, INPUT_BUTTON_B, INPUT_BUTTON_UP } from '../memory'
 import { createCPU, step, writeRegister } from './index'
 import { opcodeTable } from './opcodes'
 
@@ -28,6 +28,10 @@ function moveqWord(destReg: number, data: number) {
 
 function bccWord(cc: number, disp8: number) {
   return (0b0110 << 12) | (cc << 8) | (disp8 & 0xff)
+}
+
+function btstWord(mode: number, reg: number) {
+  return (0b0000100000 << 6) | (mode << 3) | reg
 }
 
 const MOVE_L_IMM_TO_Dn = 0b10 // long
@@ -335,6 +339,93 @@ describe('TRAP', () => {
     memory.write16(0x2000, 0x4e41) // TRAP #1
 
     expect(() => step(cpu, memory, opcodeTable)).toThrow(/Unimplemented TRAP vector: 1/)
+  })
+
+  it('TRAP #5 loads the controller state into D0', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    memory.setButtonState(INPUT_BUTTON_A | INPUT_BUTTON_UP)
+    memory.write16(0x2000, 0x4e45) // TRAP #5
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.registers[Register.D0]).toBe(INPUT_BUTTON_A | INPUT_BUTTON_UP)
+  })
+})
+
+describe('BTST', () => {
+  it('clears Z when the tested register bit is set', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.D0, 0b0100, 'long')
+    memory.write16(0x2000, btstWord(0b000, 0)) // BTST #n,D0
+    memory.write16(0x2002, 2) // bit number 2
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.status.Z).toBe(false)
+  })
+
+  it('sets Z when the tested register bit is clear', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.D0, 0b0100, 'long')
+    memory.write16(0x2000, btstWord(0b000, 0)) // BTST #n,D0
+    memory.write16(0x2002, 0) // bit number 0
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.status.Z).toBe(true)
+  })
+
+  it('tests a bit of a memory operand as a byte', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.A0, 0x2000 + 4, 'long')
+    memory.write8(0x2000 + 4, 0b00000001)
+    memory.write16(0x2000, btstWord(0b010, 0)) // BTST #n,(A0)
+    memory.write16(0x2002, 0) // bit number 0
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.status.Z).toBe(false)
+  })
+
+  it('rejects an address register as the target', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    memory.write16(0x2000, btstWord(0b001, 0)) // BTST #n,A0
+    memory.write16(0x2002, 0)
+
+    expect(() => step(cpu, memory, opcodeTable)).toThrow(/address register/)
+  })
+
+  it('a typical button-polling sequence: read input, then BTST each bit', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    memory.setButtonState(INPUT_BUTTON_B)
+
+    let addr = 0x2000
+    const emit = (word: number) => {
+      memory.write16(addr, word)
+      addr += 2
+    }
+    const emitLong = (value: number) => {
+      memory.write32(addr, value)
+      addr += 4
+    }
+
+    emit(moveWord(MOVE_L_IMM_TO_Dn, 0b001, 0, 0b111, 0b100)) // MOVEA.L #INPUT_START,A0
+    emitLong(INPUT_START)
+    emit(moveWord(MOVE_L_IMM_TO_Dn, 0b000, 0, 0b010, 0)) // MOVE.L (A0),D0
+    emit(btstWord(0b000, 0)) // BTST #1,D0 (button B)
+    emit(1)
+
+    step(cpu, memory, opcodeTable) // MOVEA
+    step(cpu, memory, opcodeTable) // MOVE
+    step(cpu, memory, opcodeTable) // BTST
+
+    expect(cpu.status.Z).toBe(false) // button B is pressed
   })
 })
 

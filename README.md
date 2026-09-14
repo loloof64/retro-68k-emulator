@@ -53,8 +53,9 @@ START:
 
 - **Registers**: D0-D7 (data), A0-A7 (address)
 - **Flags**: N, Z, V, C, X
-- **Memory**: 64KB addressable
+- **Memory**: ~506KB addressable (system + user RAM, framebuffer, controller input — see [docs/MEMORY.md](./docs/MEMORY.md))
 - **Framebuffer**: 320×200 pixels (0x40000)
+- **Controller input**: gamepad button bitmask (0x7E800)
 
 ### Supported Opcodes
 
@@ -63,6 +64,7 @@ To be added progressively:
 - MOVE, MOVEA, MOVEQ
 - ADD, SUB, MUL, DIV, CMP
 - AND, OR, XOR, NOT
+- BTST
 - LSL, LSR, ASL, ASR, ROL, ROR
 - BRA, BEQ, BNE, BLT, BLE, BGT, BGE
 - JSR, RTS, TRAP

@@ -3,6 +3,7 @@ import type { OpcodeEntry } from './index'
 import { updateFlags, writeRegister } from './index'
 import { decodeEA, type Size } from './addressing'
 import { addWithFlags, subWithFlags } from './arithmetic'
+import { INPUT_START } from '../memory'
 
 function opcodeWordOf(args: unknown[]): number {
   return args[0] as number
@@ -237,6 +238,45 @@ const Bcc: OpcodeDefinition = {
   },
 }
 
+// --- BTST #<data>,<ea> ($0800) -------------------------------------------
+//
+// Tests a single bit and sets Z accordingly (Z=1 when the bit is clear) —
+// unlike AND, it never modifies its operand. That makes it the natural way
+// to poll one button at a time out of the packed bitmask at INPUT_START
+// (see docs/MEMORY.md): MOVE the input word into Dn, then BTST each bit.
+
+const BTST: OpcodeDefinition = {
+  mnemonic: 'BTST',
+  encoding: '0000100000mmmrrr',
+  size: 'variable',
+  handler: (cpu: CPUState, memory: Memory, args: unknown[]) => {
+    const opcodeWord = opcodeWordOf(args)
+    const mode = (opcodeWord >> 3) & 0b111
+    const reg = opcodeWord & 0b111
+
+    if (mode === 0b001) {
+      throw new Error('BTST cannot target an address register')
+    }
+
+    // Extension word carries the bit number to test.
+    const bitNumberWord = memory.read16(cpu.pc)
+    cpu.pc += 2
+
+    // Real 68000: a register operand is tested as a full 32-bit long (bit
+    // number mod 32); a memory operand is tested as a single byte (mod 8).
+    const isRegisterOperand = mode === 0b000
+    const size: Size = isRegisterOperand ? 'long' : 'byte'
+    const bitNumber = bitNumberWord & (isRegisterOperand ? 0x1f : 0x07)
+
+    const ea = decodeEA(cpu, memory, mode, reg, size)
+    const value = ea.read()
+
+    cpu.status.Z = ((value >>> bitNumber) & 1) === 0
+
+    return isRegisterOperand ? 4 : 8
+  },
+}
+
 // --- TRAP #n ($4E40-$4E4F) ----------------------------------------------
 
 export type TrapHandler = (cpu: CPUState, memory: Memory, vector: number) => void
@@ -245,6 +285,11 @@ export type TrapHandler = (cpu: CPUState, memory: Memory, vector: number) => voi
 export const trapHandlers: Record<number, TrapHandler> = {
   0: (cpu) => {
     cpu.halted = true
+  },
+  // TRAP #5: read controller state -> D0 (convenience wrapper around a
+  // plain MOVE.L from INPUT_START; see docs/MEMORY.md).
+  5: (cpu, memory) => {
+    writeRegister(cpu, Register.D0, memory.read32(INPUT_START), 'long')
   },
 }
 
@@ -266,6 +311,7 @@ const TRAP: OpcodeDefinition = {
 export const opcodeTable: readonly OpcodeEntry[] = [
   { mask: 0xffff, pattern: 0x4e71, definition: NOP },
   { mask: 0xfff0, pattern: 0x4e40, definition: TRAP },
+  { mask: 0xffc0, pattern: 0x0800, definition: BTST },
   { mask: 0xf100, pattern: 0xd000, definition: ADD },
   { mask: 0xf100, pattern: 0x9000, definition: SUB },
   { mask: 0xf100, pattern: 0xb000, definition: CMP },

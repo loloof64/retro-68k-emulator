@@ -11,11 +11,33 @@ The emulator's memory system is implemented and working. Every address below is 
 | System area | `$00000`–`$01FFF` | 8 KB | Reserved for TRAP vectors and system data |
 | User RAM | `$02000`–`$3FFFF` | ~248 KB | Your program's code, data, and stack |
 | Framebuffer | `$40000`–`$7E7FF` | 250 KB | The 320×200 screen, 4 bytes (RGBA) per pixel |
+| Controller Input | `$7E800`–`$7E803` | 4 B | Gamepad button state, as a bitmask (see below) |
 
 To find the address of pixel `(x, y)`:
 
 ```
 address = $40000 + (y * 320 + x) * 4
+```
+
+### Reading the Gamepad
+
+`$7E800` is a live 32-bit bitmask of the current button state — bit `1`
+means held down. It reflects whichever input is active: the app's own
+on-screen A/B/X/Y + D-pad + Start/Select control pad, or a real gamepad
+once physical controller support lands (see [Presentation](./PRESENTATION.md)).
+
+| Bit | Button | Bit | Button |
+|---|---|---|---|
+| 0 | A | 5 | D-Pad Down |
+| 1 | B | 6 | D-Pad Left |
+| 2 | X | 7 | D-Pad Right |
+| 3 | Y | 8 | Start |
+| 4 | D-Pad Up | 9 | Select |
+
+```
+TRAP    #5                ; D0 = controller state
+BTST    #0,D0              ; test bit 0 (button A)
+BEQ     A_NOT_PRESSED      ; Z=1 -> button A isn't held
 ```
 
 ## Instruction Set (Opcodes)
@@ -32,6 +54,7 @@ The CPU core (registers, status flags, and the fetch-decode-execute loop) is up 
 | `CMP` | `CMP.size src,Dn` | byte, word, long | N, Z, V, C | Subtracts `src` from a data register like `SUB`, but only sets flags — the register itself is unchanged. Typically followed by a `Bcc`. |
 | `BRA` | `BRA target` | word | none | Always jumps to `target`. |
 | `Bcc` | see below | word | none (reads flags, doesn't set them) | Jumps to `target` only if the named condition on the current flags holds. |
+| `BTST` | `BTST #n,dst` | long (register), byte (memory) | Z only | Tests bit `n` of `dst` (Z=1 when clear). Doesn't modify `dst` — the standard way to poll one button out of the [gamepad bitmask](#reading-the-gamepad). |
 
 ### Which `Bcc` do I want?
 
@@ -97,11 +120,12 @@ The rest of the ~80-instruction set (multiplication, division, logical ops, subr
 
 ## TRAP System Calls
 
-One TRAP vector is wired in:
+Two TRAP vectors are wired in:
 
 | Vector | Syntax | Description |
 |---|---|---|
 | `#0` | `TRAP #0` | Halts the CPU (ends the program). |
+| `#5` | `TRAP #5` | Loads the controller button bitmask into D0 — a shortcut for reading `$7E800` directly. |
 
 The rest — printing text, reading/writing pixels, clearing the screen — is documented here as each one is implemented.
 

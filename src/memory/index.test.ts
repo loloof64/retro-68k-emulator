@@ -4,6 +4,9 @@ import {
   FRAMEBUFFER_START,
   FRAMEBUFFER_WIDTH,
   MEMORY_SIZE,
+  INPUT_START,
+  INPUT_BUTTON_A,
+  INPUT_BUTTON_UP,
 } from './index'
 
 describe('SystemMemory', () => {
@@ -78,6 +81,19 @@ describe('SystemMemory', () => {
       expect(fb[1]).toBe(0x22)
       expect(fb[2]).toBe(0x33)
       expect(fb[3]).toBe(0x44)
+    })
+  })
+
+  describe('controller input', () => {
+    it('publishes and reads back a button state bitmask', () => {
+      const mem = new SystemMemory()
+      mem.setButtonState(INPUT_BUTTON_A | INPUT_BUTTON_UP)
+      expect(mem.getButtonState()).toBe(INPUT_BUTTON_A | INPUT_BUTTON_UP)
+      expect(mem.read32(INPUT_START)).toBe(INPUT_BUTTON_A | INPUT_BUTTON_UP)
+    })
+
+    it('is included in the addressable memory space', () => {
+      expect(INPUT_START).toBeLessThan(MEMORY_SIZE)
     })
   })
 })

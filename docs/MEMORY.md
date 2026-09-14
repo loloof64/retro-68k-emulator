@@ -4,15 +4,18 @@ Reference for the Retro 68K Emulator's memory organization.
 
 ## Memory Map
 
-The emulator provides 64KB of addressable memory space:
+```
+Address Range        Size       Purpose
+──────────────────────────────────────────────────────
+$00000-$01FFF         8 KB      System Area (vectors, TRAP handlers)
+$02000-$3FFFF        248 KB     User RAM (program code & data)
+$40000-$7E7FF       ~244 KB     Framebuffer (320×200 pixels, 32bpp)
+$7E800-$7E803          4 B      Controller Input (button state)
+```
 
-```
-Address Range    Size      Purpose
-─────────────────────────────────────────────
-$00000-$01FFF    8 KB      System Area (vectors, TRAP handlers)
-$02000-$3FFFF    56 KB     User RAM (program code & data)
-$40000-$5FFFF    128 KB    Framebuffer (320×200 pixels)
-```
+320×200 pixels at 32 bits per pixel needs 250,000 bytes, not the 128KB a
+flat `$40000-$5FFFF` range would give — the framebuffer is sized to fit
+exactly, and the Controller Input register sits right after it.
 
 ## System Area ($00000-$01FFF)
 
@@ -35,7 +38,8 @@ $04      1        Print string
 $08      2        Read pixel
 $0C      3        Write pixel
 $10      4        Clear screen
-$14-$7F  5-31     (reserved for future)
+$14      5        Read controller state
+$18-$7F  6-31     (reserved for future)
 ```
 
 ## User RAM ($02000-$3FFFF)
@@ -60,7 +64,7 @@ MOVE.L  D0,-(A7)    ; Push D0 (A7 -= 4)
 MOVE.L  (A7)+,D0    ; Pop to D0 (A7 += 4)
 ```
 
-## Framebuffer ($40000-$5FFFF)
+## Framebuffer ($40000-$7E7FF)
 
 Screen display memory for the 320×200 LCD.
 
@@ -68,8 +72,8 @@ Screen display memory for the 320×200 LCD.
 
 - **Resolution**: 320 × 200 pixels
 - **Format**: 32-bit RGBA per pixel
-- **Total Size**: 320 × 200 × 4 bytes = 256 KB
-- **Actual Used**: 256 KB (occupies $40000-$5FFFF)
+- **Total Size**: 320 × 200 × 4 bytes = 250,000 bytes (~244 KB)
+- **Actual Used**: occupies $40000-$7E7FF
 
 ### Pixel Storage
 
@@ -151,6 +155,68 @@ LOOP_X:
   DBRA    D0,LOOP_X
 ```
 
+## Controller Input ($7E800-$7E803)
+
+A single 32-bit, read-oriented register holding the current gamepad button
+state as a bitmask. It's live: the UI writes the current state into it
+continuously (from the on-screen retro control pad, or from a real gamepad
+once physical controller support is added — see [Presentation](./user/PRESENTATION.md)),
+so a running program always sees the latest state just by reading the word.
+
+### Button Bit Layout
+
+```
+Bit   Button
+──────────────
+0     A
+1     B
+2     X
+3     Y
+4     D-Pad Up
+5     D-Pad Down
+6     D-Pad Left
+7     D-Pad Right
+8     Start
+9     Select
+10-31 (reserved)
+```
+
+A bit is `1` while its button is held down, `0` otherwise.
+
+### Reading Controller State
+
+Either read the memory-mapped register directly, or use the `TRAP #5`
+convenience wrapper, which does the same read and drops the result in D0:
+
+```asm
+; Direct memory-mapped read
+MOVE.L  #$7E800,A0
+MOVE.L  (A0),D0          ; D0 = current button state
+
+; Equivalent, via TRAP
+TRAP    #5               ; D0 = current button state
+```
+
+### Polling a Single Button
+
+Use `BTST` to test one bit without disturbing the rest of the word — unlike
+`AND`, it only affects the Z flag:
+
+```asm
+TRAP    #5                ; D0 = button state
+BTST    #0,D0              ; test bit 0 (button A)
+BEQ     A_NOT_PRESSED      ; Z=1 -> bit was clear
+  ; ... button A is held ...
+A_NOT_PRESSED:
+```
+
+### Writing to the Input Register
+
+Like the rest of memory, writes to this region aren't blocked by the
+emulator (see [Memory Protection](#memory-protection) below) — but a
+program that writes here only overwrites the value until the next UI
+update, so there's no reason to.
+
 ## Memory Access Instructions
 
 ### Reading from Memory
@@ -218,7 +284,7 @@ All memory locations are readable and writable.
 - **Random access**: O(1)
 - **Sequential access**: O(1)
 - **No caching**: Direct memory simulation
-- **No virtual memory**: All 64KB is physical memory
+- **No virtual memory**: The whole address space is physical memory
 
 ## Tips for Efficient Memory Use
 

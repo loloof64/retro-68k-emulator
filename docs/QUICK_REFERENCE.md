@@ -26,6 +26,11 @@ XOR     src,dst      Bitwise XOR
 NOT     dst          Bitwise NOT
 ```
 
+### Bit Test (4-8 cycles)
+```
+BTST    #n,dst       Test bit n of dst, sets Z only (doesn't modify dst)
+```
+
 ### Shifts/Rotates (6+ cycles)
 ```
 ASL #n,Dn   Arithmetic shift left
@@ -97,9 +102,10 @@ NOP                 No operation
 ## Memory Map
 
 ```
-$00000-$01FFF    8 KB     System area
-$02000-$3FFFF    56 KB    User RAM
-$40000-$5FFFF    128 KB   Framebuffer (320×200)
+$00000-$01FFF    8 KB      System area
+$02000-$3FFFF    248 KB    User RAM
+$40000-$7E7FF    ~244 KB   Framebuffer (320×200)
+$7E800-$7E803    4 B       Controller input (button state)
 ```
 
 ## TRAP Numbers
@@ -109,6 +115,7 @@ $40000-$5FFFF    128 KB   Framebuffer (320×200)
 - **TRAP #2**: Read pixel from framebuffer
 - **TRAP #3**: Write pixel to framebuffer  
 - **TRAP #4**: Clear screen
+- **TRAP #5**: Read controller state into D0
 
 ## Program Template
 

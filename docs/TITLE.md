@@ -57,7 +57,7 @@ Then open `http://localhost:3000` in your browser.
 |-----------|-------------|
 | **Assembler** | Tokenizes, parses, and compiles 68000 assembly |
 | **CPU Emulator** | Simulates 68000 instruction execution |
-| **Memory** | 64KB addressable space with framebuffer |
+| **Memory** | Addressable space with framebuffer and controller input |
 | **UI** | React-based web interface with three-panel layout |
 
 ---

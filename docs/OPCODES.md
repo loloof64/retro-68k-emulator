@@ -238,6 +238,31 @@ NOT.L   D0             ; D0 = ~D0
 NOT.W   D1             ; D1 = ~D1 (16-bit flip)
 ```
 
+## Bit Instructions
+
+### BTST - Test Bit
+```
+BTST #n,dst
+```
+
+Tests bit `n` of `dst` and sets the Z flag (Z=1 when the bit is clear,
+Z=0 when it's set). Unlike `AND`, the operand itself is never modified —
+it's the standard way to check one flag/button out of a packed bitmask,
+such as the [Controller Input](./MEMORY.md#controller-input-7e800-7e803)
+register.
+
+**Sizes**: A register destination is tested as a full long (bit number
+0-31); a memory destination is tested as a byte (bit number 0-7).
+**Cycles**: 4 (register), 8 (memory)
+**Flags**: Z only
+
+**Examples**:
+```asm
+TRAP    #5                 ; D0 = controller button state
+BTST    #0,D0              ; test bit 0 (button A)
+BEQ     A_NOT_PRESSED      ; Z=1 -> bit was clear
+```
+
 ## Shift and Rotate Operations
 
 ### ASL/ASR - Arithmetic Shift
@@ -433,6 +458,7 @@ Does nothing, useful for timing/padding.
 | Data Movement | MOVE, MOVEA, MOVEQ |
 | Arithmetic | ADD, SUB, MUL, DIV, CMP |
 | Logical | AND, OR, XOR, NOT |
+| Bit | BTST |
 | Shift/Rotate | ASL, ASR, LSL, LSR, ROL, ROR |
 | Branches | BRA, BEQ, BNE, BLT, BLE, BGT, BGE, BHI, BLS, BCS, BCC, BVS, BVC, BPL, BMI, DBRA |
 | Subroutines | JSR, BSR, RTS |
@@ -447,6 +473,7 @@ Does nothing, useful for timing/padding.
 | 2 | Read Pixel | Read pixel from framebuffer at (A0) |
 | 3 | Write Pixel | Write pixel to framebuffer at (A0) |
 | 4 | Clear Screen | Clear entire LCD screen |
+| 5 | Read Controller State | Load the controller button bitmask into D0 |
 
 ---
 

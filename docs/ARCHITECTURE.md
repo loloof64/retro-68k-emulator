@@ -19,27 +19,29 @@ This document describes the internal architecture of the Retro 68K Emulator.
 │   - Flag Management                 │
 ├─────────────────────────────────────┤
 │   Memory Module                     │
-│   - RAM (64KB)                      │
+│   - RAM (256KB)                     │
 │   - Framebuffer (320x200)           │
+│   - Controller Input                │
 │   - TRAP handlers                   │
 └─────────────────────────────────────┘
 ```
 
 ## Memory Layout
 
-The 68000 emulator uses a 64KB addressable memory space:
-
 ```
 $00000 ┌─────────────────┐
-       │  System RAM     │  0-8KB    (Reserved for vectors/TRAP handlers)
+       │  System RAM     │  8 KB     (Reserved for vectors/TRAP handlers)
        │                 │
 $02000 ├─────────────────┤
-       │  User RAM       │  8-64KB   (Program data)
+       │  User RAM       │  248 KB   (Program code & data)
        │                 │
 $40000 ├─────────────────┤
-       │  Framebuffer    │  64KB     (320x200 LCD display)
+       │  Framebuffer    │  ~244 KB  (320x200 LCD display, 32bpp)
        │                 │
-$50000 └─────────────────┘
+$7E800 ├─────────────────┤
+       │  Controller     │  4 B      (Button state bitmask)
+       │  Input          │
+$7E804 └─────────────────┘
 ```
 
 ## Register File
@@ -127,6 +129,7 @@ Maps to a handler table:
 - **TRAP #2**: Read pixel from framebuffer
 - **TRAP #3**: Write pixel to framebuffer
 - **TRAP #4**: Clear screen
+- **TRAP #5**: Read controller state into D0
 
 ## Component Structure
 
