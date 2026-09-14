@@ -1,0 +1,135 @@
+.controller {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+}
+
+.controller-status {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.controller-layout {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  gap: 24px;
+}
+
+.controller-layout.is-disabled {
+  opacity: 0.35;
+  pointer-events: none;
+}
+
+/* D-pad: 3x3 grid, only the cross cells populated */
+.dpad {
+  display: grid;
+  grid-template-columns: repeat(3, 32px);
+  grid-template-rows: repeat(3, 32px);
+  gap: 2px;
+}
+
+.dpad-btn {
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  font-size: 12px;
+  cursor: pointer;
+  touch-action: none;
+  user-select: none;
+}
+
+.dpad-btn:active {
+  background-color: var(--accent);
+}
+
+.dpad-up {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.dpad-left {
+  grid-column: 1;
+  grid-row: 2;
+}
+
+.dpad-right {
+  grid-column: 3;
+  grid-row: 2;
+}
+
+.dpad-down {
+  grid-column: 2;
+  grid-row: 3;
+}
+
+/* Action buttons: Y/X/B/A diamond, same layout as a standard gamepad */
+.action-buttons {
+  display: grid;
+  grid-template-columns: repeat(3, 32px);
+  grid-template-rows: repeat(3, 32px);
+  gap: 2px;
+}
+
+.action-btn {
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  color: var(--bg-primary);
+  font-weight: 700;
+  font-size: 12px;
+  cursor: pointer;
+  touch-action: none;
+  user-select: none;
+}
+
+.action-btn:active {
+  filter: brightness(1.2);
+}
+
+.action-y {
+  grid-column: 2;
+  grid-row: 1;
+  background-color: #e0c341;
+}
+
+.action-x {
+  grid-column: 1;
+  grid-row: 2;
+  background-color: #4a90d9;
+}
+
+.action-b {
+  grid-column: 3;
+  grid-row: 2;
+  background-color: #d94a4a;
+}
+
+.action-a {
+  grid-column: 2;
+  grid-row: 3;
+  background-color: #4ad971;
+}
+
+.start-select {
+  display: flex;
+  gap: 12px;
+}
+
+.pill-btn {
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  border-radius: 10px;
+  padding: 4px 14px;
+  font-size: 11px;
+  cursor: pointer;
+  touch-action: none;
+  user-select: none;
+}
+
+.pill-btn:active {
+  background-color: var(--accent);
+}

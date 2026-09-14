@@ -1,8 +1,10 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import './App.css'
 import Editor from './components/Editor'
 import Debugger from './components/Debugger'
 import Screen from './components/Screen'
+import Controller from './components/Controller'
+import { SystemMemory } from './memory'
 
 export default function App() {
   const [asmCode, setAsmCode] = useState<string>(`; Retro 68K Assembly Example
@@ -27,6 +29,14 @@ START:
 
   const [isRunning, setIsRunning] = useState(false)
 
+  // Not React state on purpose: the controller reports button changes up to
+  // 60x/second, and nothing here needs a re-render when they happen — only
+  // the emulator's own memory needs to see them (see docs/MEMORY.md).
+  const memoryRef = useRef<SystemMemory | null>(null)
+  if (memoryRef.current === null) {
+    memoryRef.current = new SystemMemory()
+  }
+
   return (
     <div className="app">
       <div className="container">
@@ -47,6 +57,7 @@ START:
         <div className="panel screen-panel">
           <h2>Écran LCD</h2>
           <Screen />
+          <Controller onButtonStateChange={(mask) => memoryRef.current?.setButtonState(mask)} />
         </div>
       </div>
     </div>

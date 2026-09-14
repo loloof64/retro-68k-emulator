@@ -62,9 +62,11 @@ address = $40000 + (y * 320 + x) * 4
 ### Reading the Gamepad
 
 `$7E800` is a live 32-bit bitmask of the current button state — bit `1`
-means held down. It reflects whichever input is active: the app's own
-on-screen A/B/X/Y + D-pad + Start/Select control pad, or a real gamepad
-once physical controller support lands (see [Presentation](./PRESENTATION.md)).
+means held down. The app's Gamepad component keeps it updated from
+whichever input is active: the on-screen A/B/X/Y + D-pad + Start/Select
+control pad by default, or a real controller's buttons the moment one is
+connected (a standard-mapped gamepad takes over automatically — the
+on-screen buttons stop doing anything while it's plugged in).
 
 | Bit | Button | Bit | Button |
 |---|---|---|---|
