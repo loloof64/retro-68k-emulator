@@ -64,6 +64,14 @@ function notWord(size: 0b00 | 0b01 | 0b10, mode: number, reg: number) {
   return (0b0100011000000000) | (size << 6) | (mode << 3) | reg
 }
 
+function clrWord(size: 0b00 | 0b01 | 0b10, mode: number, reg: number) {
+  return (0b0100001000000000) | (size << 6) | (mode << 3) | reg
+}
+
+function tstWord(size: 0b00 | 0b01 | 0b10, mode: number, reg: number) {
+  return (0b0100101000000000) | (size << 6) | (mode << 3) | reg
+}
+
 const MOVE_L_IMM_TO_Dn = 0b10 // long
 const OPMODE_LONG = 0b010
 
@@ -388,6 +396,67 @@ describe('NOT', () => {
     step(cpu, memory, opcodeTable)
 
     expect(memory.read8(0x2000 + 4)).toBe(0xf0)
+  })
+})
+
+describe('CLR', () => {
+  it('zeroes a data register regardless of its previous value', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.D0, 0xdeadbeef, 'long')
+    cpu.status.V = true
+    cpu.status.C = true
+    memory.write16(0x2000, clrWord(0b10, 0b000, 0)) // CLR.L D0
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.registers[Register.D0]).toBe(0)
+    expect(cpu.status.Z).toBe(true)
+    expect(cpu.status.N).toBe(false)
+    expect(cpu.status.V).toBe(false)
+    expect(cpu.status.C).toBe(false)
+  })
+
+  it('zeroes a byte in memory', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.A0, 0x2000 + 4, 'long')
+    memory.write8(0x2000 + 4, 0xff)
+    memory.write16(0x2000, clrWord(0b00, 0b010, 0)) // CLR.B (A0)
+
+    step(cpu, memory, opcodeTable)
+
+    expect(memory.read8(0x2000 + 4)).toBe(0)
+  })
+})
+
+describe('TST', () => {
+  it('sets flags from the operand without modifying it', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.D0, 0x80000000, 'long')
+    memory.write16(0x2000, tstWord(0b10, 0b000, 0)) // TST.L D0
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.registers[Register.D0]).toBe(0x80000000) // unchanged
+    expect(cpu.status.N).toBe(true)
+    expect(cpu.status.Z).toBe(false)
+  })
+
+  it('sets Z for a zero operand and clears V/C', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    cpu.status.V = true
+    cpu.status.C = true
+    writeRegister(cpu, Register.D0, 0, 'long')
+    memory.write16(0x2000, tstWord(0b10, 0b000, 0)) // TST.L D0
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.status.Z).toBe(true)
+    expect(cpu.status.V).toBe(false)
+    expect(cpu.status.C).toBe(false)
   })
 })
 

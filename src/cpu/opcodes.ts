@@ -387,6 +387,51 @@ const NOT: OpcodeDefinition = {
   },
 }
 
+// --- CLR <ea> ($4200) -----------------------------------------------------
+
+const CLR: OpcodeDefinition = {
+  mnemonic: 'CLR',
+  encoding: '01000010ssmmmrrr',
+  size: 'variable',
+  handler: (cpu: CPUState, memory: Memory, args: unknown[]) => {
+    const opcodeWord = opcodeWordOf(args)
+    const size = decodeByteWordLongSize((opcodeWord >> 6) & 0b11)
+    const mode = (opcodeWord >> 3) & 0b111
+    const reg = opcodeWord & 0b111
+
+    const ea = decodeEA(cpu, memory, mode, reg, size)
+    ea.write(0)
+
+    updateFlags(cpu, 0, size)
+    cpu.status.V = false
+    cpu.status.C = false
+
+    return 4
+  },
+}
+
+// --- TST <ea> ($4A00) - like CMP against 0, doesn't write back ------------
+
+const TST: OpcodeDefinition = {
+  mnemonic: 'TST',
+  encoding: '01001010ssmmmrrr',
+  size: 'variable',
+  handler: (cpu: CPUState, memory: Memory, args: unknown[]) => {
+    const opcodeWord = opcodeWordOf(args)
+    const size = decodeByteWordLongSize((opcodeWord >> 6) & 0b11)
+    const mode = (opcodeWord >> 3) & 0b111
+    const reg = opcodeWord & 0b111
+
+    const ea = decodeEA(cpu, memory, mode, reg, size)
+
+    updateFlags(cpu, ea.read(), size)
+    cpu.status.V = false
+    cpu.status.C = false
+
+    return 4
+  },
+}
+
 // --- TRAP #n ($4E40-$4E4F) ----------------------------------------------
 
 export type TrapHandler = (cpu: CPUState, memory: Memory, vector: number) => void
@@ -435,6 +480,8 @@ export const opcodeTable: readonly OpcodeEntry[] = [
   { mask: 0xfff0, pattern: 0x4e40, definition: TRAP },
   { mask: 0xffc0, pattern: 0x0800, definition: BTST },
   { mask: 0xff00, pattern: 0x4600, definition: NOT },
+  { mask: 0xff00, pattern: 0x4200, definition: CLR },
+  { mask: 0xff00, pattern: 0x4a00, definition: TST },
   { mask: 0xf100, pattern: 0xd000, definition: ADD },
   { mask: 0xf100, pattern: 0x9000, definition: SUB },
   { mask: 0xf100, pattern: 0xb000, definition: CMP },

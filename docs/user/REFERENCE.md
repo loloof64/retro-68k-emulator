@@ -135,6 +135,8 @@ A first handful of real instructions is wired in. **Cycles** are how many CPU cy
 | `OR` | `OR.size src,Dn` | byte, word, long | 4 | N, Z (V and C always cleared) | Bitwise ORs `src` into a data register, in place. |
 | `XOR` | `XOR.size Dn,dst` | byte, word, long | 4 | N, Z (V and C always cleared) | Bitwise XORs a data register into `dst` — the one bitwise op where the *source* is always `Dn` and `dst` can be memory. |
 | `NOT` | `NOT.size dst` | byte, word, long | 4 | N, Z (V and C always cleared) | Bitwise inverts `dst` in place (one's complement: `dst = ~dst`). |
+| `CLR` | `CLR.size dst` | byte, word, long | 4 | N, Z (V and C always cleared) | Sets `dst` to `0`. |
+| `TST` | `TST.size dst` | byte, word, long | 4 | N, Z (V and C always cleared) | Sets flags from `dst`, like `CMP.size #0,dst` — doesn't modify it. |
 
 *(Real 68000 hardware charges different cycle counts per addressing mode, and `Bcc` costs less when the branch isn't taken — the emulator uses one flat number per instruction for now; that'll get more accurate as addressing-mode-specific timing is added.)*
 
