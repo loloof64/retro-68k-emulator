@@ -86,7 +86,7 @@ function convertLists(html) {
   return html
 }
 
-function markdownToHtml(markdown) {
+function markdownToHtml(markdown, filenameToId = {}) {
   let html = markdown
 
   html = html.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -118,7 +118,21 @@ function markdownToHtml(markdown) {
 
   html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
   html = html.replace(/\*(.*?)\*/g, '<em>$1</em>')
-  html = html.replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2">$1</a>')
+
+  // Convert relative .md links to internal anchors for PDF generation
+  html = html.replace(/\[(.*?)\]\((\.\/)?([A-Za-z_-]+)\.md(#[^\)]*?)?\)/g, (match, text, _slash, filename, anchor) => {
+    const targetId = filenameToId[`${filename}.md`]
+    if (targetId) {
+      // If there's an internal anchor like #section, preserve it; otherwise use the section ID
+      const href = anchor || `#${targetId}`
+      return `<a href="${href}">${text}</a>`
+    }
+    // Fall back to the original href if not in our document structure
+    return `<a href="${match.slice(1, -1)}">${text}</a>`
+  })
+
+  // General link handler (for any other links)
+  html = html.replace(/\[(.*?)\]\(((?!\.\/)[^\)]+)\)/g, '<a href="$2">$1</a>')
 
   html = html.replace(/\n\n/g, '</p><p>')
   html = `<p>${html}</p>`
@@ -349,12 +363,18 @@ export function generateHtmlDocument({
 
   <!-- Content Sections -->`
 
+  // Build a map of filenames -> section IDs for converting relative links to anchors
+  const filenameToId = {}
+  documentStructure.forEach((section) => {
+    filenameToId[section.file] = section.id
+  })
+
   documentStructure.forEach((section) => {
     const filePath = path.join(docsDir, section.file)
 
     if (fs.existsSync(filePath)) {
       const content = fs.readFileSync(filePath, 'utf-8')
-      const htmlContent = markdownToHtml(content)
+      const htmlContent = markdownToHtml(content, filenameToId)
 
       html += `
   <div class="section" id="${section.id}">
