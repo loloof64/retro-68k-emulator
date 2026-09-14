@@ -175,6 +175,32 @@ A first handful of real instructions is wired in, grouped below the way Motorola
 
 See [TRAP System Calls](#trap-system-calls) below for `TRAP`.
 
+### Alphabetical Index
+
+**A** — [ADD](#arithmetic) · [AND](#logical)
+
+**B** — [Bcc](#program-control) · [BRA](#program-control) · [BSR](#program-control) · [BTST](#bit-manipulation)
+
+**C** — [CLR](#arithmetic) · [CMP](#arithmetic)
+
+**E** — [EXT](#arithmetic)
+
+**J** — [JSR](#program-control)
+
+**M** — [MOVE](#data-movement) · [MOVEQ](#data-movement)
+
+**N** — [NEG](#arithmetic) · [NOP](#system) · [NOT](#logical)
+
+**O** — [OR](#logical)
+
+**R** — [RTS](#program-control)
+
+**S** — [SUB](#arithmetic) · [SWAP](#data-movement)
+
+**T** — [TST](#arithmetic)
+
+**X** — [XOR](#logical)
+
 ### Which `Bcc` do I want?
 
 After a `CMP`, there are *two separate* families of "is it bigger/smaller" branches — one for **signed** numbers (can be negative), one for **unsigned** (always treated as a positive count). Mixing them up is a classic bug: comparing `$FFFFFFFF` to `1`, as signed that's `-1 < 1` (`BLT` is true), but as unsigned `$FFFFFFFF` is a huge number `> 1` (`BHI` is true) — same bits, opposite answer. Pick the family that matches what the value actually represents (a loop counter is usually unsigned; a temperature could be signed).

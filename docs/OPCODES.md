@@ -550,6 +550,41 @@ Does nothing, useful for timing/padding.
 | Subroutines | JSR, BSR, RTS |
 | System | TRAP, NOP |
 
+## Alphabetical Index
+
+Every mnemonic documented above, A-Z, linking back to its section. The
+conditional `Bcc` variants (`BEQ`, `BNE`, ...) all share the one
+[Conditional Branches](#conditional-branches) table rather than having a
+section each.
+
+**A** — [ADD](#add---add) · [AND](#and---bitwise-and) · [ASL](#aslasr---arithmetic-shift) · [ASR](#aslasr---arithmetic-shift)
+
+**B** — [BCC](#conditional-branches) · [BCS](#conditional-branches) · [BEQ](#conditional-branches) · [BGE](#conditional-branches) · [BGT](#conditional-branches) · [BHI](#conditional-branches) · [BLE](#conditional-branches) · [BLS](#conditional-branches) · [BLT](#conditional-branches) · [BMI](#conditional-branches) · [BNE](#conditional-branches) · [BPL](#conditional-branches) · [BRA](#bra---branch-always) · [BSR](#bsr---branch-to-subroutine) · [BTST](#btst---test-bit) · [BVC](#conditional-branches) · [BVS](#conditional-branches)
+
+**C** — [CLR](#clr---clear) · [CMP](#cmp---compare)
+
+**D** — [DBRA](#dbra---decrement-and-branch) · [DIVS](#div---divide) · [DIVU](#div---divide)
+
+**E** — [EXT](#ext---sign-extend)
+
+**J** — [JSR](#jsr---jump-to-subroutine)
+
+**L** — [LSL](#lsllsr---logical-shift) · [LSR](#lsllsr---logical-shift)
+
+**M** — [MOVE](#move---move-data) · [MOVEA](#movea---move-address) · [MOVEQ](#moveq---move-quick) · [MULS](#mul---multiply) · [MULU](#mul---multiply)
+
+**N** — [NEG](#neg---negate) · [NOP](#nop---no-operation) · [NOT](#not---bitwise-not)
+
+**O** — [OR](#or---bitwise-or)
+
+**R** — [ROL](#rolror---rotate) · [ROR](#rolror---rotate) · [RTS](#rts---return-from-subroutine)
+
+**S** — [SUB](#sub---subtract) · [SWAP](#swap---swap-register-halves)
+
+**T** — [TRAP](#trap---software-trap) · [TST](#tst---test)
+
+**X** — [XOR](#xor---bitwise-xor)
+
 ## TRAP Handlers
 
 | TRAP # | Function | Description |
