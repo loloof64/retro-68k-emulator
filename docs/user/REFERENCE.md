@@ -192,10 +192,10 @@ isn't implemented.
 |---|---|---|---|---|---|
 | `BRA` | `BRA target` | word | 10 | none | Always jumps to `target`. |
 | `Bcc` | see below | word | 10 | none (reads flags, doesn't set them) | Jumps to `target` only if the named condition on the current flags holds. |
-| `JSR` | `JSR target` | word | 16 | none | Pushes the return address onto the stack, then jumps to `target`. Accepts any addressing mode that names a memory location without a register side effect: `(An)`, `d16(An)`, `d8(An,Xn)`, `xxx.W`, `xxx.L`, `d16(PC)`, `d8(PC,Xn)` — not `Dn`, `An`, `(An)+`, `-(An)`, or `#imm`. |
+| `JSR` | `JSR target` | word | 16 | none | Pushes the return address onto the stack, then jumps to `target`. See [below](#which-addressing-modes-can-jsr-target) for which addressing modes are valid. |
 | `BSR` | `BSR target` | word | 18 | none | Like `JSR`, but PC-relative — pushes the return address, then always branches to `target`. |
 | `RTS` | `RTS` | word | 16 | none | Pops a return address pushed by `JSR`/`BSR` and jumps there. |
-| `DBcc` | `DBcc Dn,target` | word | 10 (branch taken), 12 (condition already true), 14 (condition false, counter reaches `-1`) | none | Tests condition `cc` (same table as `Bcc`). `target` is usually a label earlier in the code — branching back to it repeatedly is what forms a loop, the way the example below does. If `cc` is already true, no branch happens and `Dn` is untouched — the loop ends there. Otherwise decrements the low 16 bits of `Dn` and branches back to `target` unless the result is `-1`, in which case it falls through instead (same end result, just after one more decrement). `DBRA` (a.k.a. `DBF`) is this instruction with `cc` fixed to "always false", so it always takes the decrement path. |
+| `DBcc` | `DBcc Dn,target` | word | 10 / 12 / 14 | none | Tests condition `cc` (same table as `Bcc`), then either stops or loops back to `target`. See [below](#how-does-dbcc-decide) for exactly how, and what the three cycle counts mean. |
 
 ### System
 
@@ -235,7 +235,7 @@ See [TRAP System Calls](#trap-system-calls) below for `TRAP`.
 
 **X** — [XOR](#logical)
 
-### Which `Bcc` do I want?
+### Which Bcc do I want?
 
 After a `CMP`, there are *two separate* families of "is it bigger/smaller" branches — one for **signed** numbers (can be negative), one for **unsigned** (always treated as a positive count). Mixing them up is a classic bug: comparing `$FFFFFFFF` to `1`, as signed that's `-1 < 1` (`BLT` is true), but as unsigned `$FFFFFFFF` is a huge number `> 1` (`BHI` is true) — same bits, opposite answer. Pick the family that matches what the value actually represents (a loop counter is usually unsigned; a temperature could be signed).
 
@@ -268,7 +268,23 @@ After a `CMP`, there are *two separate* families of "is it bigger/smaller" branc
 | `BVC` | `V=0` | Overflow Clear |
 | `BVS` | `V=1` | Overflow Set |
 
-See [Addressing Modes](#addressing-modes) above for what `src`/`dst` can be.
+### How does DBcc decide?
+
+`target` works the same way it does for `Bcc`: a label placed earlier in the code, so branching back to it repeatedly is what forms a loop — there's no loop construct in the CPU itself, just this instruction deciding, each time it runs, whether to jump back or not.
+
+Here's exactly what happens, in order:
+
+1. Test condition `cc` (the same table as `Bcc`, above).
+2. **Already true?** Stop here: no branch, `Dn` untouched. *(12 cycles.)*
+3. **False** — decrement the low 16 bits of `Dn`.
+4. **Result isn't `-1`?** Branch back to `target`: the loop runs again. *(10 cycles.)*
+5. **Result is `-1`?** Fall through instead: the loop is over. *(14 cycles.)*
+
+`DBRA` (a.k.a. `DBF`) is `DBcc` with `cc` fixed to "always false" — step 2 never fires, so it always falls through to the decrement. See the `DBRA` example further down this page, including the classic off-by-one it's easy to trip over.
+
+### Which addressing modes can JSR target?
+
+Any that name a memory location without a register side effect — the 68000's "control" addressing modes: `(An)`, `d16(An)`, `d8(An,Xn)`, `xxx.W`, `xxx.L`, `d16(PC)`, `d8(PC,Xn)`. Not valid: `Dn`, `An`, `(An)+`, `-(An)`, or `#imm`. See [Addressing Modes](#addressing-modes) above for what each of these means (that section covers what every other instruction's `src`/`dst` can be, too).
 
 **Example** — add two numbers and write a white pixel, using a direct absolute address:
 
