@@ -272,7 +272,17 @@ After a `CMP`, there are *two separate* families of "is it bigger/smaller" branc
 
 `target` works the same way it does for `Bcc`: a label placed earlier in the code, so branching back to it repeatedly is what forms a loop — there's no loop construct in the CPU itself, just this instruction deciding, each time it runs, whether to jump back or not.
 
-Here's exactly what happens, in order:
+```mermaid
+flowchart TD
+    Start(["DBcc runs"]) --> TestCC{"1. cc true?"}
+    TestCC -- yes --> Stop["2. Stop: no branch<br/>Dn untouched<br/>(12 cycles)"]
+    TestCC -- no --> Dec["3. Decrement low 16 bits of Dn"]
+    Dec --> TestNeg1{"Dn == -1?"}
+    TestNeg1 -- no --> Branch["4. Branch back to target<br/>loop runs again<br/>(10 cycles)"]
+    TestNeg1 -- yes --> Fall["5. Fall through<br/>loop is over<br/>(14 cycles)"]
+```
+
+Spelled out, step by step:
 
 1. Test condition `cc` (the same table as `Bcc`, above).
 2. **Already true?** Stop here: no branch, `Dn` untouched. *(12 cycles.)*

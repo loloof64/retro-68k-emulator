@@ -1,10 +1,70 @@
 import fs from 'fs'
+import os from 'os'
 import path from 'path'
+import { execFileSync } from 'child_process'
+import { fileURLToPath } from 'url'
 
 /**
  * Shared markdown -> single-page HTML build used by every docs/*.pdf script.
  * Kept separate so the puppeteer and weasyprint generators don't diverge.
  */
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
+const projectRoot = path.join(__dirname, '..', '..')
+
+function unescapeHtml(text) {
+  return text.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&')
+}
+
+// Renders a ```mermaid fenced block to a PNG (as a base64 data: URI) via
+// mermaid-cli (mmdc), so the PDF gets a real diagram instead of the literal
+// Mermaid syntax as text — WeasyPrint has no JS engine, so it can't
+// interpret the fence itself the way GitHub/VS Code's Mermaid plugin does.
+// PNG rather than SVG: mermaid's SVG output puts every node label in a
+// <foreignObject><div>...</div></foreignObject> (so it can do rich-text
+// layout), and WeasyPrint's SVG support doesn't render foreignObject
+// content at all — every node came out as an empty shape, label-less, with
+// the SVG route. Rasterizing sidesteps that entirely at the cost of the
+// diagram no longer being vector-crisp/zoomable in the PDF.
+//
+// Runs synchronously (execFileSync) so the rest of this file's synchronous
+// markdown pass doesn't need an async rewrite; each call spawns a headless
+// Chrome (chrome-headless-shell, via puppeteer-core under mermaid-cli),
+// ~1-2s.
+//
+// One-time local setup, if not done yet: `npx puppeteer browsers install
+// chrome-headless-shell` (see docs/INSTALLATION.md's "Documentation
+// toolchain" section). If that's missing, or `mmdc` itself isn't
+// installed, this warns and returns null so the caller falls back to a
+// plain code block instead of failing the whole doc build.
+function renderMermaidToImage(mermaidSource) {
+  const mmdcBin = path.join(projectRoot, 'node_modules', '.bin', 'mmdc')
+  if (!fs.existsSync(mmdcBin)) {
+    console.warn(
+      '⚠️  @mermaid-js/mermaid-cli not installed — mermaid diagram(s) will render as plain code blocks. Run: npm install -D @mermaid-js/mermaid-cli'
+    )
+    return null
+  }
+
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mermaid-'))
+  const inputPath = path.join(tmpDir, 'diagram.mmd')
+  const outputPath = path.join(tmpDir, 'diagram.png')
+
+  try {
+    fs.writeFileSync(inputPath, mermaidSource)
+    // -s 3: render at 3x so it stays crisp when scaled down to fit the
+    // page width (mermaid's default canvas is a modest 800x600).
+    execFileSync(mmdcBin, ['-i', inputPath, '-o', outputPath, '-b', 'white', '-s', '3'], { stdio: 'pipe' })
+    const png = fs.readFileSync(outputPath)
+    return `data:image/png;base64,${png.toString('base64')}`
+  } catch (error) {
+    console.warn(`⚠️  Mermaid rendering failed, falling back to a plain code block: ${error.message}`)
+    console.warn('   One-time setup, if not done yet: npx puppeteer browsers install chrome-headless-shell')
+    return null
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true })
+  }
+}
 
 export const developerDocumentStructure = [
   { title: 'Introduction', file: 'README.md', id: 'intro' },
@@ -101,9 +161,13 @@ function markdownToHtml(markdown, filenameToId = {}) {
     codeSnippets.push(htmlSnippet)
     return '@@CODE' + (codeSnippets.length - 1) + '@@'
   }
-  html = html.replace(/```(.*?)\r?\n([\s\S]*?)```/g, (_, lang, code) =>
-    stashCode(`<pre><code class="${lang}">${code}</code></pre>`)
-  )
+  html = html.replace(/```(.*?)\r?\n([\s\S]*?)```/g, (_, lang, code) => {
+    if (lang.trim() === 'mermaid') {
+      const dataUri = renderMermaidToImage(unescapeHtml(code))
+      if (dataUri) return stashCode(`<div class="mermaid-diagram"><img src="${dataUri}" alt="diagram"></div>`)
+    }
+    return stashCode(`<pre><code class="${lang}">${code}</code></pre>`)
+  })
   html = html.replace(/`([^`]+)`/g, (_, code) => stashCode(`<code>${code}</code>`))
 
   html = convertTables(html)
@@ -232,6 +296,18 @@ export function generateHtmlDocument({
       background: none;
       padding: 0;
       color: inherit;
+    }
+
+    .mermaid-diagram {
+      text-align: center;
+      margin: 1.5em 0;
+      break-inside: avoid;
+      page-break-inside: avoid;
+    }
+
+    .mermaid-diagram img {
+      max-width: 100%;
+      height: auto;
     }
 
     ul, ol {

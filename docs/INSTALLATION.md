@@ -77,6 +77,16 @@ sudo apt install weasyprint       # Debian/Ubuntu
 
 A plain LaTeX-based pipeline (`texlive-xetex`) was tried first and rejected: it pulls in ~70 packages including a full JRE, for no benefit over WeasyPrint here. `pandoc` alone (`npm run docs:pdf:pandoc`) does **not** produce a PDF without a PDF engine like this installed too — it's kept only as a fallback for converting to other formats.
 
+### Mermaid diagrams in the PDFs
+
+Any fenced code block tagged `mermaid` gets rendered to an image and embedded when building either PDF — `@mermaid-js/mermaid-cli` (`mmdc`) is already an `npm install`ed devDependency, but it drives a headless Chrome under the hood (via `puppeteer-core`) that doesn't ship with it. One-time setup:
+
+```bash
+npx puppeteer browsers install chrome-headless-shell
+```
+
+Skip this and the PDFs still build fine — a missing `mmdc` or a missing browser just falls back to rendering the diagram's literal Mermaid source as a plain code block instead of failing the build (`scripts/lib/docs-html.js`'s `renderMermaidToImage`). The diagram still renders normally as an actual diagram wherever the `.md` file itself is viewed with Mermaid support (GitHub, VS Code with a Mermaid extension, etc.) regardless of whether this step has been done.
+
 ## Development Mode
 
 Run the app as a native window with hot-reload, instead of a browser tab:
