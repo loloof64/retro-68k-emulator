@@ -52,6 +52,10 @@ function dbccWord(cc: number, reg: number) {
   return 0x50c8 | (cc << 8) | reg
 }
 
+function sccWord(cc: number, mode: number, reg: number) {
+  return 0x50c0 | (cc << 8) | (mode << 3) | reg
+}
+
 function jsrWord(mode: number, reg: number) {
   return 0x4e80 | (mode << 3) | reg
 }
@@ -1236,6 +1240,79 @@ describe('DBcc', () => {
 
     expect(cpu.registers[Register.D0] & 0xffff).toBe(5) // untouched
     expect(cpu.pc).toBe(0x2004) // no branch
+  })
+})
+
+describe('Scc', () => {
+  it('sets the byte destination to all 1s when the condition is true, without touching the rest of Dn', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    cpu.status.Z = true
+    writeRegister(cpu, Register.D0, 0x12345678, 'long')
+    memory.write16(0x2000, sccWord(0b0111, 0b000, 0)) // SEQ D0
+
+    const cycles = step(cpu, memory, opcodeTable)
+
+    expect(cpu.registers[Register.D0]).toBe(0x123456ff)
+    expect(cycles).toBe(6)
+  })
+
+  it('sets the byte destination to all 0s when the condition is false', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    cpu.status.Z = false
+    writeRegister(cpu, Register.D0, 0x12345678, 'long')
+    memory.write16(0x2000, sccWord(0b0111, 0b000, 0)) // SEQ D0
+
+    const cycles = step(cpu, memory, opcodeTable)
+
+    expect(cpu.registers[Register.D0]).toBe(0x12345600)
+    expect(cycles).toBe(4)
+  })
+
+  it('writes to a memory destination via decodeEA, at a flat cost regardless of the condition', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    cpu.status.C = false // CC (carry clear) is true
+    writeRegister(cpu, Register.A0, 0x3000, 'long')
+    memory.write16(0x2000, sccWord(0b0100, 0b010, 0)) // SCC (A0)
+
+    const cycles = step(cpu, memory, opcodeTable)
+
+    expect(memory.read8(0x3000)).toBe(0xff)
+    expect(cycles).toBe(8)
+  })
+
+  it("doesn't touch any status flags", () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    cpu.status.Z = true
+    cpu.status.N = true
+    cpu.status.V = true
+    cpu.status.C = true
+    cpu.status.X = true
+    memory.write16(0x2000, sccWord(0b0111, 0b000, 0)) // SEQ D0
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.status.N).toBe(true)
+    expect(cpu.status.V).toBe(true)
+    expect(cpu.status.C).toBe(true)
+    expect(cpu.status.X).toBe(true)
+  })
+
+  it('mode=001 in this bit range still dispatches to DBcc, not Scc, since the two share an encoding space', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    cpu.status.Z = true // condition true -> DBcc stops immediately (12 cycles) without touching A0
+    writeRegister(cpu, Register.A0, 0x12345678, 'long')
+    memory.write16(0x2000, sccWord(0b0111, 0b001, 0)) // same bits as DBEQ D0,<disp> — mode=001 is DBcc's marker
+    memory.write16(0x2002, 0xfff0)
+
+    const cycles = step(cpu, memory, opcodeTable)
+
+    expect(cycles).toBe(12) // DBcc's condition-true cost, not Scc's (6)
+    expect(cpu.registers[Register.A0]).toBe(0x12345678) // untouched - Scc's handler never ran
   })
 })
 

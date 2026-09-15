@@ -196,6 +196,7 @@ isn't implemented.
 | `BSR` | `BSR target` | word | 18 | none | Like `JSR`, but PC-relative — pushes the return address, then always branches to `target`. |
 | `RTS` | `RTS` | word | 16 | none | Pops a return address pushed by `JSR`/`BSR` and jumps there. |
 | `DBcc` | `DBcc Dn,target` | word | 10 / 12 / 14 | none | Tests condition `cc` (same table as `Bcc`), then either stops or loops back to `target`. See [below](#how-does-dbcc-decide) for exactly how, and what the three cycle counts mean. |
+| `Scc` | `Scc dst` | byte | 4 / 6 / 8 | none | Tests condition `cc` (same table as `Bcc`) and sets `dst` to `$FF` if true, `$00` if false — no branch, no arithmetic. 4 cycles for `Dn` when false, 6 when true, 8 for a memory destination either way. `dst` can't be `An`, `#value`, or a PC-relative address. |
 
 ### System
 
@@ -229,7 +230,7 @@ See [TRAP System Calls](#trap-system-calls) below for `TRAP`.
 
 **R** — [ROL](#shift-and-rotate) · [ROR](#shift-and-rotate) · [RTS](#program-control)
 
-**S** — [SUB](#arithmetic) · [SWAP](#data-movement)
+**S** — [Scc](#program-control) · [SUB](#arithmetic) · [SWAP](#data-movement)
 
 **T** — [TST](#arithmetic)
 

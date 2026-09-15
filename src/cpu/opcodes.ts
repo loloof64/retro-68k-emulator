@@ -343,6 +343,42 @@ const DBcc: OpcodeDefinition = {
   },
 }
 
+// --- Scc <ea> ($50C0-$5FFE, mode=001 excluded — that's DBcc) ------------
+//
+// Sets the byte destination to all 1s if condition cc is true, all 0s
+// otherwise — no arithmetic, no flags touched. Shares Bcc/DBcc's
+// condition-code table (branchConditionTrue) and, at the bit level, DBcc's
+// $50C0-$5FFE range: DBcc claims mode=001 (An) as its own marker within
+// that space (An isn't a valid Scc destination anyway), so DBcc's
+// opcodeTable entry — narrower and listed first — has to keep matching
+// before Scc's broader one for that one mode to resolve correctly.
+// Destination is any data-alterable <ea>: Dn or writable memory, not An,
+// not #imm, not PC-relative — decodeEA already throws on write() for the
+// two modes it can't write to, so those get rejected without an extra
+// check here.
+
+const Scc: OpcodeDefinition = {
+  mnemonic: 'Scc',
+  encoding: '0101cccc11mmmrrr',
+  size: 'byte',
+  handler: (cpu: CPUState, memory: Memory, args: unknown[]) => {
+    const opcodeWord = opcodeWordOf(args)
+    const cc = (opcodeWord >> 8) & 0xf
+    const mode = (opcodeWord >> 3) & 0b111
+    const reg = opcodeWord & 0b111
+
+    const dest = decodeEA(cpu, memory, mode, reg, 'byte')
+    const isTrue = branchConditionTrue(cc, cpu.status)
+    dest.write(isTrue ? 0xff : 0x00)
+
+    // Real 68000: Dn destination costs less, and less still if cc turned
+    // out false (no visible-write cycle for the unaffected byte). Memory
+    // destinations are a flat cost regardless of cc.
+    if (mode === 0b000) return isTrue ? 6 : 4
+    return 8
+  },
+}
+
 // --- JSR/BSR/RTS - subroutine control ------------------------------------
 //
 // All three push/pop a return address on A7, which decodeEA's -(An)/(An)+
@@ -1111,5 +1147,6 @@ export const opcodeTable: readonly OpcodeEntry[] = [
   { mask: 0xff00, pattern: 0x6100, definition: BSR },
   { mask: 0xf000, pattern: 0x6000, definition: Bcc },
   { mask: 0xf0f8, pattern: 0x50c8, definition: DBcc },
+  { mask: 0xf0c0, pattern: 0x50c0, definition: Scc },
   { mask: 0xc000, pattern: 0x0000, definition: MOVE },
 ]

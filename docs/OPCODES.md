@@ -541,6 +541,32 @@ LOOP:
   DBEQ    D0,LOOP       ; D0--, loop unless the condition was already true (Z=1)
 ```
 
+### Scc - Set Conditionally
+```
+Scc dst
+```
+
+Tests the condition `cc` — the same 16-entry table `Bcc`/`DBcc` use — and
+sets `dst` to `$FF` if it's true, `$00` if it's false. No branch, no
+arithmetic, no flags touched; it just turns a condition into a byte value
+you can store, use as a mask, or feed to another instruction later. Valid
+`dst` modes are the same "data alterable" set `CLR`/`NOT`/`NEG`/`TST`
+accept: `Dn` or writable memory — not `An`, `#imm`, or PC-relative.
+
+`Scc` and `DBcc` share the same `$50C0`-`$5FFE` encoding range: mode
+`001` (`An`) is reserved for `DBcc` there (not a valid `Scc` destination
+anyway), so an `Scc`-shaped opcode with that mode is actually a `DBcc`.
+
+**Sizes**: B (always)
+**Cycles**: 4 (`Dn`, condition false), 6 (`Dn`, condition true), 8 (memory, either way)
+**Flags**: None
+
+**Example**:
+```asm
+CMP.L   #100,D0
+SEQ     D1             ; D1's low byte = $FF if D0 was 100, else $00
+```
+
 ## Subroutine Control
 
 ### JSR - Jump to Subroutine
@@ -624,7 +650,7 @@ Does nothing, useful for timing/padding.
 | Logical | AND, OR, XOR, NOT |
 | Bit | BTST |
 | Shift/Rotate | ASL, ASR, LSL, LSR, ROL, ROR |
-| Branches | BRA, BEQ, BNE, BLT, BLE, BGT, BGE, BHI, BLS, BCS, BCC, BVS, BVC, BPL, BMI, DBcc (DBRA/DBF, DBT, DBEQ, DBNE, ...) |
+| Branches | BRA, BEQ, BNE, BLT, BLE, BGT, BGE, BHI, BLS, BCS, BCC, BVS, BVC, BPL, BMI, DBcc (DBRA/DBF, DBT, DBEQ, DBNE, ...), Scc (SEQ, SNE, ST, SF, ...) |
 | Subroutines | JSR, BSR, RTS |
 | System | TRAP, NOP |
 
@@ -632,10 +658,12 @@ Does nothing, useful for timing/padding.
 
 Every mnemonic documented above, A-Z, linking back to its section. The
 conditional `Bcc` variants (`BEQ`, `BNE`, ...) all share the one
-[Conditional Branches](#conditional-branches) table, and the conditional
+[Conditional Branches](#conditional-branches) table, the conditional
 `DBcc` variants (`DBEQ`, `DBNE`, ...) all share the one
-[DBcc](#dbcc---decrement-and-branch-conditionally) section, rather than
-having a section each.
+[DBcc](#dbcc---decrement-and-branch-conditionally) section, and the
+conditional `Scc` variants (`SEQ`, `SNE`, ...) all share the one
+[Scc](#scc---set-conditionally) section, rather than having a section
+each.
 
 **A** — [ADD](#add---add) · [AND](#and---bitwise-and) · [ASL](#aslasr---arithmetic-shift) · [ASR](#aslasr---arithmetic-shift)
 
@@ -659,7 +687,7 @@ having a section each.
 
 **R** — [ROL](#rolror---rotate) · [ROR](#rolror---rotate) · [RTS](#rts---return-from-subroutine)
 
-**S** — [SUB](#sub---subtract) · [SWAP](#swap---swap-register-halves)
+**S** — [SCC](#scc---set-conditionally) · [SEQ](#scc---set-conditionally) · [SF](#scc---set-conditionally) · [SGE](#scc---set-conditionally) · [SGT](#scc---set-conditionally) · [SHI](#scc---set-conditionally) · [SLE](#scc---set-conditionally) · [SLS](#scc---set-conditionally) · [SLT](#scc---set-conditionally) · [SMI](#scc---set-conditionally) · [SNE](#scc---set-conditionally) · [SPL](#scc---set-conditionally) · [ST](#scc---set-conditionally) · [SUB](#sub---subtract) · [SVC](#scc---set-conditionally) · [SVS](#scc---set-conditionally) · [SWAP](#swap---swap-register-halves)
 
 **T** — [TRAP](#trap---software-trap) · [TST](#tst---test)
 
