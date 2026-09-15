@@ -800,6 +800,45 @@ MY_FUNC:
   RTS                  ; Return
 ```
 
+### LINK - Link and Allocate
+```
+LINK An,#<displacement>
+```
+
+Stack-frame prologue: pushes `An` onto the stack, points `An` at the
+pushed value (the new frame pointer), then adds the 16-bit signed
+`displacement` (an extension word right after the opcode) to `SP` —
+negative to reserve that many bytes of locals below the frame. Coded as
+Motorola's exact micro-op order (`SP-4->SP`; `An->(SP)`; `SP->An`;
+`SP+d->SP`), reading each register fresh at every step rather than
+caching `An`'s value up front, so the documented `LINK A7` special case
+— the value actually pushed is the *already-decremented* `SP`, not `A7`'s
+value before the instruction ran, since `An` and `SP` are the same
+register there — falls out for free.
+
+**Cycles**: 16
+
+**Example**:
+```asm
+LINK    A6,#-8         ; A6 = frame pointer, 8 bytes of locals
+MOVE.L  D0,-8(A6)      ; use the reserved space
+UNLK    A6             ; tear the frame back down
+RTS
+```
+
+### UNLK - Unlink
+```
+UNLK An
+```
+
+Stack-frame epilogue, `LINK`'s inverse (`SP<-An`; `An<-(SP)`; `SP<-SP+4`).
+Same register-order trick as `LINK` reproduces the `UNLK A7` special
+case automatically: `SP<-An` is a no-op there, so `An<-(SP)` overwrites
+`A7`/`SP` itself with the popped value, and the final `SP+4` is computed
+from *that* new value rather than the original frame pointer.
+
+**Cycles**: 12
+
 ## System Instructions
 
 ### TRAP - Software Trap
@@ -836,7 +875,7 @@ Does nothing, useful for timing/padding.
 | Bit | BTST |
 | Shift/Rotate | ASL, ASR, LSL, LSR, ROL, ROR |
 | Branches | BRA, BEQ, BNE, BLT, BLE, BGT, BGE, BHI, BLS, BCS, BCC, BVS, BVC, BPL, BMI, DBcc (DBRA/DBF, DBT, DBEQ, DBNE, ...), Scc (SEQ, SNE, ST, SF, ...) |
-| Subroutines | JSR, BSR, RTS |
+| Subroutines | JSR, BSR, RTS, LINK, UNLK |
 | System | TRAP, NOP |
 
 ## Alphabetical Index
@@ -862,7 +901,7 @@ each.
 
 **J** — [JSR](#jsr---jump-to-subroutine)
 
-**L** — [LEA](#lea---load-effective-address) · [LSL](#lsllsr---logical-shift) · [LSR](#lsllsr---logical-shift)
+**L** — [LEA](#lea---load-effective-address) · [LINK](#link---link-and-allocate) · [LSL](#lsllsr---logical-shift) · [LSR](#lsllsr---logical-shift)
 
 **M** — [MOVE](#move---move-data) · [MOVEA](#movea---move-address) · [MOVEQ](#moveq---move-quick) · [MULS](#mul---multiply) · [MULU](#mul---multiply)
 
@@ -877,6 +916,8 @@ each.
 **S** — [SCC](#scc---set-conditionally) · [SEQ](#scc---set-conditionally) · [SF](#scc---set-conditionally) · [SGE](#scc---set-conditionally) · [SGT](#scc---set-conditionally) · [SHI](#scc---set-conditionally) · [SLE](#scc---set-conditionally) · [SLS](#scc---set-conditionally) · [SLT](#scc---set-conditionally) · [SMI](#scc---set-conditionally) · [SNE](#scc---set-conditionally) · [SPL](#scc---set-conditionally) · [ST](#scc---set-conditionally) · [SUB](#sub---subtract) · [SUBQ](#addqsubq---addsubtract-quick) · [SVC](#scc---set-conditionally) · [SVS](#scc---set-conditionally) · [SWAP](#swap---swap-register-halves)
 
 **T** — [TRAP](#trap---software-trap) · [TST](#tst---test)
+
+**U** — [UNLK](#unlk---unlink)
 
 **X** — [XOR](#xor---bitwise-xor)
 

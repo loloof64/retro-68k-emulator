@@ -80,6 +80,14 @@ function bsrWord(disp8: number) {
 
 const RTS_WORD = 0x4e75
 
+function linkWord(reg: number) {
+  return 0x4e50 | reg
+}
+
+function unlkWord(reg: number) {
+  return 0x4e58 | reg
+}
+
 function btstWord(mode: number, reg: number) {
   return (0b0000100000 << 6) | (mode << 3) | reg
 }
@@ -2010,6 +2018,82 @@ describe('JSR/BSR/RTS', () => {
     step(cpu, memory, opcodeTable) // RTS -> pc = 0x2002
 
     expect(cpu.pc).toBe(0x2002)
+    expect(cpu.registers[Register.A7]).toBe(spBefore)
+  })
+})
+
+describe('LINK/UNLK', () => {
+  it('LINK pushes An, points An at the new frame, then moves SP by the displacement', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.A0, 0xabcd1234, 'long')
+    memory.write16(0x2000, linkWord(0)) // LINK A0,#-8
+    memory.write16(0x2002, 0xfff8) // -8
+    const spBefore = cpu.registers[Register.A7]
+
+    const cycles = step(cpu, memory, opcodeTable)
+
+    const frame = spBefore - 4
+    expect(memory.read32(frame)).toBe(0xabcd1234) // old A0 pushed
+    expect(cpu.registers[Register.A0]).toBe(frame) // A0 now points at the pushed value
+    expect(cpu.registers[Register.A7]).toBe(frame - 8) // SP moved by the displacement
+    expect(cpu.pc).toBe(0x2004)
+    expect(cycles).toBe(16)
+  })
+
+  it('LINK A7 pushes the already-decremented SP, not the pre-decrement value', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    memory.write16(0x2000, linkWord(7)) // LINK A7,#-4
+    memory.write16(0x2002, 0xfffc) // -4
+    const spBefore = cpu.registers[Register.A7]
+
+    step(cpu, memory, opcodeTable)
+
+    const frame = spBefore - 4
+    expect(memory.read32(frame)).toBe(frame) // pushed value is the decremented SP itself
+    expect(cpu.registers[Register.A7]).toBe(frame - 4)
+  })
+
+  it('UNLK restores SP from An, then pops the old An value', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.A0, 0x3000, 'long') // frame pointer
+    memory.write32(0x3000, 0x9999) // old A0 value sitting at the frame
+    memory.write16(0x2000, unlkWord(0)) // UNLK A0
+
+    const cycles = step(cpu, memory, opcodeTable)
+
+    expect(cpu.registers[Register.A0]).toBe(0x9999)
+    expect(cpu.registers[Register.A7]).toBe(0x3004)
+    expect(cycles).toBe(12)
+  })
+
+  it('UNLK A7 computes the final SP from the just-popped value, not the frame pointer', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.A7, 0x3000, 'long')
+    memory.write32(0x3000, 0x7000) // value sitting at the frame
+    memory.write16(0x2000, unlkWord(7)) // UNLK A7
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.registers[Register.A7]).toBe(0x7004) // popped value + 4, not 0x3000 + 4
+  })
+
+  it('LINK then UNLK round-trips: An and SP both end up back where they started', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.A0, 0xabcd1234, 'long')
+    memory.write16(0x2000, linkWord(0)) // LINK A0,#-8
+    memory.write16(0x2002, 0xfff8) // -8
+    memory.write16(0x2004, unlkWord(0)) // UNLK A0
+    const spBefore = cpu.registers[Register.A7]
+
+    step(cpu, memory, opcodeTable) // LINK
+    step(cpu, memory, opcodeTable) // UNLK
+
+    expect(cpu.registers[Register.A0]).toBe(0xabcd1234)
     expect(cpu.registers[Register.A7]).toBe(spBefore)
   })
 })

@@ -569,6 +569,63 @@ const RTS: OpcodeDefinition = {
   },
 }
 
+// --- LINK An,#<displacement> ($4E50-$4E57) -------------------------------
+//
+// Classic stack-frame prologue: pushes An, points An at the new frame,
+// then grows/shrinks the stack by `displacement` bytes for locals. Coded
+// as Motorola's exact micro-op sequence (SP-4->SP; An->(SP); SP->An;
+// SP+d->SP), each step reading registers fresh rather than caching An's
+// value up front, so the documented "LINK A7" quirk — the value actually
+// pushed is the *already-decremented* SP, since An and SP are the same
+// register there — falls out for free. Same trick ROXL/ROXR's count=0
+// case uses (see [[project-opcode-progress]]).
+
+const LINK: OpcodeDefinition = {
+  mnemonic: 'LINK',
+  encoding: '0100111001010rrr',
+  size: 'word',
+  handler: (cpu: CPUState, memory: Memory, args: unknown[]) => {
+    const opcodeWord = opcodeWordOf(args)
+    const reg = opcodeWord & 0b111
+    const addrReg = (Register.A0 + reg) as Register
+
+    const displacement = toSigned16(memory.read16(cpu.pc))
+    cpu.pc += 2
+
+    writeRegister(cpu, Register.A7, readRegister(cpu, Register.A7, 'long') - 4, 'long')
+    memory.write32(readRegister(cpu, Register.A7, 'long'), readRegister(cpu, addrReg, 'long'))
+    writeRegister(cpu, addrReg, readRegister(cpu, Register.A7, 'long'), 'long')
+    writeRegister(cpu, Register.A7, readRegister(cpu, Register.A7, 'long') + displacement, 'long')
+
+    return 16
+  },
+}
+
+// --- UNLK An ($4E58-$4E5F) ------------------------------------------------
+//
+// Stack-frame epilogue, LINK's inverse (SP<-An; An<-(SP); SP<-SP+4). Same
+// "sequential register ops, no caching" style reproduces the "UNLK A7"
+// quirk automatically: SP<-An is a no-op there, so An<-(SP) overwrites
+// A7/SP itself with the popped value, and the final SP+4 is computed from
+// *that* new value rather than the original frame pointer.
+
+const UNLK: OpcodeDefinition = {
+  mnemonic: 'UNLK',
+  encoding: '0100111001011rrr',
+  size: 'long',
+  handler: (cpu: CPUState, memory: Memory, args: unknown[]) => {
+    const opcodeWord = opcodeWordOf(args)
+    const reg = opcodeWord & 0b111
+    const addrReg = (Register.A0 + reg) as Register
+
+    writeRegister(cpu, Register.A7, readRegister(cpu, addrReg, 'long'), 'long')
+    writeRegister(cpu, addrReg, memory.read32(readRegister(cpu, Register.A7, 'long')), 'long')
+    writeRegister(cpu, Register.A7, readRegister(cpu, Register.A7, 'long') + 4, 'long')
+
+    return 12
+  },
+}
+
 // --- BTST #<data>,<ea> ($0800) -------------------------------------------
 //
 // Tests a single bit and sets Z accordingly (Z=1 when the bit is clear) —
@@ -1647,6 +1704,8 @@ export const opcodeTable: readonly OpcodeEntry[] = [
   { mask: 0xffb8, pattern: 0x4880, definition: EXT },
   { mask: 0xfb80, pattern: 0x4880, definition: MOVEM },
   { mask: 0xffff, pattern: 0x4e75, definition: RTS },
+  { mask: 0xfff8, pattern: 0x4e50, definition: LINK },
+  { mask: 0xfff8, pattern: 0x4e58, definition: UNLK },
   { mask: 0xffc0, pattern: 0x4e80, definition: JSR },
   { mask: 0xf1c0, pattern: 0x41c0, definition: LEA },
   { mask: 0xffc0, pattern: 0xe1c0, definition: ASL_MEM },

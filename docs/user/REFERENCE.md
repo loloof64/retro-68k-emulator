@@ -204,6 +204,8 @@ restriction, and cycle cost.
 | `RTS` | `RTS` | word | 16 | none | Pops a return address pushed by `JSR`/`BSR` and jumps there. |
 | `DBcc` | `DBcc Dn,target` | word | 10 / 12 / 14 | none | Tests condition `cc` (same table as `Bcc`), then either stops or loops back to `target`. See [below](#how-does-dbcc-decide) for exactly how, and what the three cycle counts mean. |
 | `Scc` | `Scc dst` | byte | 4 / 6 / 8 | none | Tests condition `cc` (same table as `Bcc`) and sets `dst` to `$FF` or `$00` — no branch, no arithmetic. See [below](#which-destinations-can-scc-use) for valid destinations and what the three cycle counts mean. |
+| `LINK` | `LINK An,#displacement` | word | 16 | none | Stack-frame prologue: pushes `An`, points `An` at the new frame, then moves `SP` by `displacement`. See [below](#how-do-link-and-unlk-handle-a7) for the `LINK A7`/`UNLK A7` special case. |
+| `UNLK` | `UNLK An` | word | 12 | none | Stack-frame epilogue, `LINK`'s inverse: restores `SP` from `An`, then pops the old `An` value. See [below](#how-do-link-and-unlk-handle-a7) for the `UNLK A7` special case. |
 
 ### System
 
@@ -227,7 +229,7 @@ See [TRAP System Calls](#trap-system-calls) below for `TRAP`.
 
 **J** — [JSR](#program-control)
 
-**L** — [LEA](#data-movement) · [LSL](#shift-and-rotate) · [LSR](#shift-and-rotate)
+**L** — [LEA](#data-movement) · [LINK](#program-control) · [LSL](#shift-and-rotate) · [LSR](#shift-and-rotate)
 
 **M** — [MOVE](#data-movement) · [MOVEA](#data-movement) · [MOVEM](#data-movement) · [MOVEQ](#data-movement) · [MULS](#arithmetic) · [MULU](#arithmetic)
 
@@ -242,6 +244,8 @@ See [TRAP System Calls](#trap-system-calls) below for `TRAP`.
 **S** — [Scc](#program-control) · [SUB](#arithmetic) · [SUBQ](#arithmetic) · [SWAP](#data-movement)
 
 **T** — [TST](#arithmetic)
+
+**U** — [UNLK](#program-control)
 
 **X** — [XOR](#logical)
 
@@ -311,6 +315,26 @@ The three cycle counts depend on both the destination and the outcome of testing
 ### Which addressing modes can JSR target?
 
 Any that name a memory location without a register side effect — the 68000's "control" addressing modes: `(An)`, `d16(An)`, `d8(An,Xn)`, `xxx.W`, `xxx.L`, `d16(PC)`, `d8(PC,Xn)`. Not valid: `Dn`, `An`, `(An)+`, `-(An)`, or `#imm`. See [Addressing Modes](#addressing-modes) above for what each of these means (that section covers what every other instruction's `src`/`dst` can be, too). `LEA` and `PEA` use this exact same set for their `src` — they compute the address the same way `JSR` does, just load it into `An` (`LEA`) or push it onto the stack (`PEA`) instead of jumping to it.
+
+### How do LINK and UNLK handle A7?
+
+`LINK An,#displacement` sets up a stack frame in three steps: push `An` onto the stack, point `An` at that pushed value (the new frame pointer), then move `SP` by `displacement` — a negative value reserves that many bytes of local variables below the frame. `UNLK An` tears it back down in the opposite order: `SP` is restored from `An`, and the old `An` value is popped back off the stack. Together they're the standard prologue/epilogue for a subroutine that needs local variables:
+
+```asm
+MY_FUNC:
+  LINK    A6,#-8         ; A6 = frame pointer, 8 bytes of locals
+  MOVE.L  D0,-8(A6)      ; use the locals via A6
+  ...
+  UNLK    A6             ; restore SP, pop the caller's A6 back
+  RTS
+```
+
+Both instructions are defined as an exact sequence of micro-operations, not one atomic "swap An and SP" step — `LINK`: `SP-4→SP`, `An→(SP)`, `SP→An`, `SP+displacement→SP`; `UNLK`: `SP←An`, `An←(SP)`, `SP←SP+4`. That only matters when `An` *is* `A7` (`LINK A7,#d` / `UNLK A7`), since then every step in the sequence reads or writes the same physical register the previous step just changed:
+
+- **`LINK A7,#d`**: step 1 already decremented `A7` before step 2 pushes it, so the value that lands on the stack is the *new*, already-decremented `SP` — not `A7`'s value from before the instruction ran.
+- **`UNLK A7`**: step 1 (`SP←An`) is a no-op, since `An` already *is* `SP`. Step 2 (`An←(SP)`) then overwrites `A7` with the popped value — so by the time step 3 runs, `SP←SP+4` adds 4 to the *popped* value, not to the original frame pointer.
+
+Neither case comes up in the `LINK A6,#-8` / `UNLK A6` idiom above, since a subroutine almost always frames a different register than `SP` — but hand-encoding raw opcode words makes it easy to reach for `A7` by mistake, so it's worth knowing the sequence rather than assuming "swap" semantics.
 
 ### How does MOVEM's register list work?
 

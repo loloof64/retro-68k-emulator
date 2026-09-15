@@ -14,7 +14,7 @@ This project is under active development. The table below reflects what's genuin
 | Sound (tone generator registers) | 🚧 Registers + `TRAP #6` wired up, no audio backend yet — see [Reference](./REFERENCE.md) |
 | CPU core (registers, flags, instruction execution) | ✅ Done |
 | Assembler (turns `.asm` source into runnable bytecode) | ⏳ Planned |
-| 68000 instruction set (~80 opcodes) | 🚧 40 of ~80 (`NOP`, `MOVE`, `MOVEA`, `MOVEQ`, `MOVEM`, `LEA`, `PEA`, `ADD`, `SUB`, `ADDQ`, `SUBQ`, `CMP`, `MULU`, `MULS`, `DIVU`, `DIVS`, `Bcc`/`BRA`, `DBcc`, `Scc`, `BTST`, `AND`, `OR`, `XOR`, `NOT`, `CLR`, `NEG`, `TST`, `SWAP`, `EXT`, `JSR`, `BSR`, `RTS`, `ASL`, `ASR`, `LSL`, `LSR`, `ROL`, `ROR`, `ROXL`, `ROXR`) — see [Reference](./REFERENCE.md) |
+| 68000 instruction set (~80 opcodes) | 🚧 42 of ~80 (`NOP`, `MOVE`, `MOVEA`, `MOVEQ`, `MOVEM`, `LEA`, `PEA`, `ADD`, `SUB`, `ADDQ`, `SUBQ`, `CMP`, `MULU`, `MULS`, `DIVU`, `DIVS`, `Bcc`/`BRA`, `DBcc`, `Scc`, `BTST`, `AND`, `OR`, `XOR`, `NOT`, `CLR`, `NEG`, `TST`, `SWAP`, `EXT`, `JSR`, `BSR`, `RTS`, `LINK`, `UNLK`, `ASL`, `ASR`, `LSL`, `LSR`, `ROL`, `ROR`, `ROXL`, `ROXR`) — see [Reference](./REFERENCE.md) |
 | TRAP system calls (print text, draw pixels, clear screen, read gamepad, play tone) | 🚧 3 of several (`TRAP #0` halt, `TRAP #5` read controller, `TRAP #6` set sound registers) — see [Reference](./REFERENCE.md) |
 | Gamepad UI (A/B/X/Y, D-pad, Start/Select) | ✅ On-screen buttons + real Gamepad API (takes over automatically when a controller is connected) |
 | Editor / Debugger / Screen interface | 🚧 UI shell built, not yet connected to a working emulator (Gamepad is the exception — it already writes real button state into memory, see above) |
