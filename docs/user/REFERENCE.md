@@ -543,8 +543,8 @@ sharing one CPU. This emulator runs one program at a time with nothing to
 protect it from, so the privilege boundary has no job to do here.
 Concretely, that rules out:
 
-- `MOVE` to/from `SR`, `MOVE` to/from `CCR`, `MOVE USP` — nothing to read
-  a full `SR` out of, no separate `USP` register to move.
+- `MOVE to SR`, `MOVE USP` — genuinely privileged on real hardware, and
+  there's no separate `USP` register to move either.
 - `STOP` — loads an immediate into `SR` (interrupt mask included) before
   halting; the "immediate into `SR`" part has no home.
 - `RESET` — pulses a hardware reset line to external peripherals; there's
@@ -556,6 +556,30 @@ Concretely, that rules out:
 `ILLEGAL` and `TRAPV` don't touch any of this — both are just alternate
 ways to *raise* an exception, through the exact same `PC`-only mechanism
 every other exception on this page already uses.
+
+**Correction worth being explicit about:** `MOVE from SR` and `MOVE to
+CCR` are *not* privileged on the real MC68000 this emulator targets —
+`MOVE from SR` only became privileged starting with the 68010, and `MOVE
+to CCR`/`RTR` were never privileged at all. None of the three are
+blocked by anything above; they're simply not implemented yet, along
+with a few other ordinary instructions that were never on any
+implementation list: `ADDI`/`SUBI`/`ANDI`/`ORI`/`EORI`/`CMPI` (an
+immediate value directly against `<ea>`, no register involved — a
+different opcode from `ADD #imm,Dn` and friends, already covered by
+`ADD`'s normal form), `ADDX`/`SUBX`/`NEGX` (extend-carry arithmetic for
+chaining an operation across a multi-byte value, the binary counterpart
+to `ABCD`/`SBCD`'s decimal chaining), and `CMPM` (compares two memory
+locations directly).
+
+**Hand-encoding any of those today doesn't fail cleanly** — most of them
+currently run as a *different*, unrelated instruction instead of
+raising a clean error, because they happen to share bit patterns an
+already-implemented instruction's opcode entry doesn't exclude:
+`ADDI`/`SUBI`/`ANDI`/`ORI`/`EORI`/`CMPI` and `ANDI`/`ORI`/`EORI` to
+`CCR`/`SR` all currently run as `MOVE`; `ADDX`/`SUBX`/`NEGX` run as
+`ADD`/`SUB`/`NEG`; `MOVE` to/from `CCR` runs as `NEG`. `RTR` is the one
+exception that fails loudly instead, with an "Unknown instruction"
+error. Best avoided until they land.
 
 **Example** — add two numbers and write a white pixel, using a direct absolute address:
 

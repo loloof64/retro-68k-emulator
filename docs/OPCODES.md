@@ -1289,8 +1289,8 @@ multi-program OS kernel from untrusted user code sharing one CPU. This
 emulator runs one program at a time with nothing to protect it from, so
 the privilege boundary has no job to do here. Concretely, that leaves:
 
-- `MOVE` to/from `SR`, `MOVE` to/from `CCR`, `MOVE USP` — nothing to read
-  a full `SR` out of, no separate `USP` register to move.
+- `MOVE to SR`, `MOVE USP` — genuinely privileged on real hardware, and
+  there's no separate `USP` register to move either.
 - `STOP` — loads an immediate into `SR` (interrupt mask included) before
   halting; the "immediate into `SR`" part has no home.
 - `RESET` — pulses a hardware reset line to external peripherals; there's
@@ -1302,6 +1302,50 @@ the privilege boundary has no job to do here. Concretely, that leaves:
 `ILLEGAL` and `TRAPV` don't touch any of this — both are just alternate
 ways to *raise* an exception, through the exact same PC-only mechanism
 every other exception in this emulator already uses.
+
+**Correction worth being explicit about:** `MOVE from SR` and `MOVE to
+CCR` are *not* privileged on the real MC68000 this codebase targets —
+`MOVE from SR` only became privileged starting with the 68010, and `MOVE
+to CCR`/`RTR` were never privileged on any 68000-family part. None of
+the three are blocked by anything above; they're simply not implemented
+yet, same as the instructions below.
+
+### Which opcodes aren't implemented, and what happens if you use one anyway?
+
+Beyond the privileged group above, a handful of ordinary instructions
+were never on any implementation list and aren't implemented either:
+`ADDI`/`SUBI`/`ANDI`/`ORI`/`EORI`/`CMPI` (immediate operand directly
+against `<ea>`, no register involved — distinct opcodes from `ADD`
+`#imm,Dn` and friends, which *are* implemented as part of `ADD`'s normal
+`<ea>,Dn` form), `ADDX`/`SUBX`/`NEGX` (extend-carry arithmetic, for
+chaining an operation across a multi-byte value one piece at a time —
+the counterpart `ABCD`/`SBCD`'s BCD forms already use for decimal
+numbers), `CMPM` (compares two memory locations directly, both
+post-incrementing), `RTR` (like `RTS`, but also restores the flags), and
+`MOVE` to/from `CCR`.
+
+**None of these fail cleanly.** Unlike a genuinely reserved/invalid
+encoding — which raises the catchable
+[Illegal Instruction exception](./MEMORY.md#cpu-exception-vector-table)
+the same way `ILLEGAL` does on purpose — most of these opcodes overlap
+an already-implemented instruction's `opcodeTable` entry, whose mask
+doesn't exclude them. The unimplemented opcode silently runs as whatever
+that broader entry happens to be, rather than erroring:
+
+| Real instruction | Currently runs as |
+|---|---|
+| `ADDI`/`SUBI`/`ANDI`/`ORI`/`EORI`/`CMPI` | `MOVE` |
+| `ANDI`/`ORI`/`EORI` to `CCR`/`SR` | `MOVE` |
+| `ADDX`/`SUBX`/`NEGX` | `ADD`/`SUB`/`NEG` |
+| `MOVE` to/from `CCR` | `NEG` |
+| `RTR` | throws `Unknown instruction` (the one exception that fails loudly) |
+
+This is the same root cause `ILLEGAL`'s own opcodeTable entry fixed for
+one specific case (see [ILLEGAL](#illegal---deliberately-raise-an-illegal-instruction)
+above): a broad, pre-existing entry's mask doesn't rule out a reserved
+bit pattern that real hardware assigns to something else entirely.
+**Don't hand-encode any of the opcodes in the table above** until they
+land — the failure mode is silent wrong behavior, not a clean error.
 
 ## Instruction Summary Table
 

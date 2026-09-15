@@ -98,9 +98,11 @@ RTS
 This missing supervisor-mode/`SR` concept is a deliberate simplification,
 not an oversight — see `docs/OPCODES.md`'s "Why doesn't this emulator
 implement RTE/STOP/RESET/MOVE SR?" for the full reasoning and exactly
-which instructions it rules out (`RTE`, `STOP`, `RESET`, `MOVE` to/from
-`SR`/`CCR`/`USP`). `ILLEGAL` and `TRAPV` aren't affected by it — both just
-raise an exception through this same PC-only mechanism, so they're
+which instructions it rules out (`RTE`, `STOP`, `RESET`, `MOVE to SR`,
+`MOVE USP` — `MOVE from SR`/`MOVE to CCR`/`RTR` aren't privileged on the
+real MC68000 this emulator targets, so they're just plain unimplemented,
+not blocked by this). `ILLEGAL` and `TRAPV` aren't affected by it — both
+just raise an exception through this same PC-only mechanism, so they're
 implemented like any other fault above.
 
 If a program never writes a handler address into a vector and the fault
