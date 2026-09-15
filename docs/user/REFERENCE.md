@@ -459,6 +459,8 @@ Either failure raises the [CHK exception](#exceptions) (vector `$48`) instead of
 
 `An` direct isn't a valid `<ea>` here — there's no such thing as bounds-checking against an address register — so it raises the [Illegal Instruction exception](#exceptions) instead, the same restriction `BTST` has on its destination.
 
+The `10`/`40` cycle split isn't arbitrary: `10` is just the cost of fetching and comparing, in range or not. The other `30` cycles only get spent when `CHK` actually traps — the same exception-stacking work (pushing the return state, reading the vector, jumping to the handler) every other exception here pays for. That work alone, with nothing to check first, is exactly what `TRAP`/`ILLEGAL`'s flat `34` cycles, and `TRAPV`'s `34`-cycle trap-taken case, already charge for.
+
 ### How does MOVEM's register list work?
 
 `MOVEM` moves any subset of the 16 registers (`D0`-`D7`, `A0`-`A7`) to or from memory in one instruction. The register list — written as a range/list like `D0-D2/A0`, meaning `D0`, `D1`, `D2`, and `A0` — gets packed into a 16-bit bitmask, one bit per register, that follows the opcode word. (There's no assembler yet, so today that bitmask has to be hand-encoded, the same way `Bcc`'s target does.)

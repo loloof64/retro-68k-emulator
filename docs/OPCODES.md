@@ -1102,6 +1102,14 @@ Instruction exception instead, the same as `BTST` targeting `An`.
 **Flags**: N (set if `Dn < 0`, cleared if `Dn >` bound, unaffected if in
 range); Z/V/C undefined on real hardware, so untouched here too
 
+The 10/40 split isn't arbitrary: 10 is just the fetch-and-compare cost of
+the check itself; the extra 30 cycles only get spent when it actually
+traps, covering the same exception-stacking work (pushing the return
+state, reading the vector, jumping to the handler) every other exception
+in this emulator pays for — compare the flat 34-cycle cost `TRAP`,
+`ILLEGAL`, and `TRAPV`'s trap-taken case all charge for that same work on
+its own, with nothing else to do first.
+
 **Example**:
 ```asm
 MOVE.W  #99,D0         ; array index to validate
