@@ -499,26 +499,41 @@ BGE     GTE_100        ; Branch if D0 >= 100
 DBcc Dn,label
 ```
 
+The classic "decrement and loop" instruction. As with `Bcc`, there's no
+loop construct in the CPU itself — `label` just names an earlier point
+in the code, and it's `DBcc` repeatedly branching back to it that *forms*
+the loop. Each time this instruction runs, it decides one of two things:
+jump back to `label` (the loop runs again) or fall through to whatever
+comes after (the loop is over).
+
 Tests the condition `cc` — the same 16-entry table `Bcc` uses (`T`, `F`,
 `HI`, `LS`, `CC`, `CS`, `NE`, `EQ`, `VC`, `VS`, `PL`, `MI`, `GE`, `LT`,
-`GT`, `LE`). If it's already true, the loop stops immediately and `Dn` is
-left untouched. Otherwise, decrements the low 16 bits of `Dn` (the high
-word is untouched) and branches to `label` unless the result is `-1`.
-`DBRA` (a.k.a. `DBF`) is this same instruction with `cc` fixed to `F`
-(always false), which is why it always decrements — see
-`branchConditionTrue` in `src/cpu/opcodes.ts` for the reference
-implementation, shared with `Bcc`. Unlike `Bcc`, the branch displacement
-is always a 16-bit extension word — there's no 8-bit inline form.
+`GT`, `LE`). If it's already true, that's an immediate fall-through: no
+branch, `Dn` left untouched, loop over. Otherwise, decrements the low 16
+bits of `Dn` (the high word is untouched) and branches back to `label`
+unless the result is `-1`, in which case it falls through instead — same
+end state (loop over), just reached after one last decrement. `DBRA`
+(a.k.a. `DBF`) is this same instruction with `cc` fixed to `F` (always
+false), which is why it never takes the immediate-fall-through path and
+just counts down every time — see `branchConditionTrue` in
+`src/cpu/opcodes.ts` for the reference implementation, shared with `Bcc`.
+Unlike `Bcc`, the branch displacement is always a 16-bit extension word —
+there's no 8-bit inline form.
 
 **Cycles**: 10 (branch taken), 12 (condition already true, loop stops), 14 (condition false, counter reaches `-1`)
 
 **Example**:
 ```asm
-MOVE.W  #100,D0        ; Counter = 100
+MOVE.W  #99,D0         ; body runs 100 times: Dn starts at (iterations - 1)
 LOOP:
   ADD.W   #1,D1        ; D1 += 1
   DBRA    D0,LOOP      ; D0--, loop if D0 != -1
 ```
+
+The `iterations - 1` starting value is the classic `DBcc` gotcha: the body
+always runs once before the first decrement, and the loop only stops once
+`Dn` has counted all the way down to `-1` — so `Dn = 99` (not `100`) is
+what makes the body run exactly 100 times.
 
 ```asm
 LOOP:

@@ -195,7 +195,7 @@ isn't implemented.
 | `JSR` | `JSR target` | word | 16 | none | Pushes the return address onto the stack, then jumps to `target`. Accepts any addressing mode that names a memory location without a register side effect: `(An)`, `d16(An)`, `d8(An,Xn)`, `xxx.W`, `xxx.L`, `d16(PC)`, `d8(PC,Xn)` — not `Dn`, `An`, `(An)+`, `-(An)`, or `#imm`. |
 | `BSR` | `BSR target` | word | 18 | none | Like `JSR`, but PC-relative — pushes the return address, then always branches to `target`. |
 | `RTS` | `RTS` | word | 16 | none | Pops a return address pushed by `JSR`/`BSR` and jumps there. |
-| `DBcc` | `DBcc Dn,target` | word | 10 (branch taken), 12 (condition already true), 14 (condition false, counter reaches `-1`) | none | Tests condition `cc` (same table as `Bcc`); if already true, the loop stops and `Dn` is untouched. Otherwise decrements the low 16 bits of `Dn` and jumps to `target` unless the result is `-1`. `DBRA` (a.k.a. `DBF`) is this instruction with `cc` fixed to "always false", which is why it always decrements. |
+| `DBcc` | `DBcc Dn,target` | word | 10 (branch taken), 12 (condition already true), 14 (condition false, counter reaches `-1`) | none | Tests condition `cc` (same table as `Bcc`). `target` is usually a label earlier in the code — branching back to it repeatedly is what forms a loop, the way the example below does. If `cc` is already true, no branch happens and `Dn` is untouched — the loop ends there. Otherwise decrements the low 16 bits of `Dn` and branches back to `target` unless the result is `-1`, in which case it falls through instead (same end result, just after one more decrement). `DBRA` (a.k.a. `DBF`) is this instruction with `cc` fixed to "always false", so it always takes the decrement path. |
 
 ### System
 
@@ -293,6 +293,18 @@ TRAP    #0                 ; exit
 ```
 
 *(Labels like `LOOP:` are an assembler feature — there's no assembler yet, so this example is illustrative; today `Bcc`'s target has to be hand-encoded as a byte offset.)*
+
+**Example** — the same countdown, more idiomatically, using `DBRA`:
+
+```
+MOVEQ   #4,D0             ; D0 = 4 -- one less than the iteration count, see below
+LOOP:
+ADD.W   #1,D1             ; (loop body — whatever the loop is for)
+DBRA    D0,LOOP           ; D0--, branch back to LOOP unless D0 is now -1
+TRAP    #0                 ; exit
+```
+
+`DBRA` folds the decrement, the comparison, and the branch into one instruction — this is the loop `SUB.L`/`CMP.L`/`BNE` above builds by hand, in the form real 68000 code almost always uses instead. The classic gotcha, and the reason this loads `4` where the `Bcc` version above loaded `5`: the body always runs once *before* the first decrement, and the loop only stops once `Dn` has been decremented all the way to `-1`. So for the body to run exactly `N` times, `Dn` has to start at `N - 1`, not `N` — starting it at `5` here would run the body 6 times, not 5.
 
 **Example** — calling a subroutine with `JSR`/`RTS` (again, `DOUBLE:` is illustrative — hand-encode the actual address today):
 
