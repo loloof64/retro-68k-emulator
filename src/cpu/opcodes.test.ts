@@ -32,6 +32,12 @@ function subWord(destReg: number, opmode: number, srcMode: number, srcReg: numbe
   return (0b1001 << 12) | (destReg << 9) | (opmode << 6) | (srcMode << 3) | srcReg
 }
 
+// data: 1-8 (8 encodes as 0b000). size: 0b00=byte, 0b01=word, 0b10=long.
+function addqSubqWord(sub: boolean, data: number, size: number, mode: number, reg: number) {
+  const dataBits = data === 8 ? 0 : data
+  return (0b0101 << 12) | (dataBits << 9) | ((sub ? 1 : 0) << 8) | (size << 6) | (mode << 3) | reg
+}
+
 function cmpWord(destReg: number, opmode: number, srcMode: number, srcReg: number) {
   return (0b1011 << 12) | (destReg << 9) | (opmode << 6) | (srcMode << 3) | srcReg
 }
@@ -501,6 +507,68 @@ describe('SUB', () => {
     expect(cpu.status.C).toBe(true)
     expect(cpu.status.X).toBe(true)
     expect(cpu.status.N).toBe(true)
+  })
+})
+
+describe('ADDQ/SUBQ', () => {
+  it('ADDQ adds a small immediate directly into Dn, data=0 encoding meaning 8', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.D0, 10, 'long')
+    memory.write16(0x2000, addqSubqWord(false, 8, 0b10, 0b000, 0)) // ADDQ.L #8,D0
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.registers[Register.D0]).toBe(18)
+  })
+
+  it('SUBQ subtracts a small immediate directly from Dn and updates flags', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.D0, 3, 'word')
+    memory.write16(0x2000, addqSubqWord(true, 3, 0b01, 0b000, 0)) // SUBQ.W #3,D0
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.registers[Register.D0] & 0xffff).toBe(0)
+    expect(cpu.status.Z).toBe(true)
+  })
+
+  it('operates on the full 32-bit An without touching flags, regardless of the size field', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.A0, 0x1000, 'long')
+    cpu.status.Z = true // should survive untouched
+    memory.write16(0x2000, addqSubqWord(false, 4, 0b00, 0b001, 0)) // ADDQ.B #4,A0 (size ignored for An)
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.registers[Register.A0]).toBe(0x1004)
+    expect(cpu.status.Z).toBe(true) // untouched
+  })
+
+  it('writes to a memory destination via decodeEA', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.A0, 0x3000, 'long')
+    memory.write32(0x3000, 10)
+    memory.write16(0x2000, addqSubqWord(false, 5, 0b10, 0b010, 0)) // ADDQ.L #5,(A0)
+
+    step(cpu, memory, opcodeTable)
+
+    expect(memory.read32(0x3000)).toBe(15)
+  })
+
+  it('ss=11 in this bit range still dispatches to Scc, not ADDQ, since the two share an encoding space', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    cpu.status.Z = true
+    writeRegister(cpu, Register.D0, 0x12345678, 'long')
+    memory.write16(0x2000, sccWord(0b0111, 0b000, 0)) // SEQ D0 - same bits as ADDQ with ss=11
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.registers[Register.D0]).toBe(0x123456ff) // Scc's effect, not ADDQ's
   })
 })
 

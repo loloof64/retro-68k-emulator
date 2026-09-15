@@ -193,6 +193,31 @@ SUB.L   D1,D0          ; D0 -= D1
 SUB.W   #5,D0          ; D0 -= 5
 ```
 
+### ADDQ/SUBQ - Add/Subtract Quick
+```
+ADDQ #data,dst    ; data is 1-8
+SUBQ #data,dst    ; data is 1-8
+```
+
+Adds/subtracts a small immediate (1-8) straight into `dst` — the data is
+packed into the opcode word itself, no extension word, unlike
+`ADD`/`SUB #imm`. `dst = An` is a special case: always a full 32-bit
+operation regardless of the size field, and no flags are touched — same
+rule `MOVEA`/`ADDA`/`SUBA` follow. Shares its `ss=11` size-field slot with
+`Scc`/`DBcc` (`$50C0`-`$5FFE`, reserved there since `11` isn't a real
+size), so those narrower, earlier `opcodeTable` entries have to keep
+matching first for that combination.
+
+**Sizes**: B, W, L
+**Cycles**: 4
+**Flags**: N, Z, V, C, X (`dst = An`: none)
+
+**Examples**:
+```asm
+ADDQ.L  #1,D0          ; D0 += 1
+SUBQ.W  #8,A0          ; A0 -= 8, full 32-bit, no flags
+```
+
 ### MUL - Multiply
 ```
 MULU src,Dn   ; Unsigned multiply
@@ -692,7 +717,7 @@ Does nothing, useful for timing/padding.
 | Category | Instructions |
 |----------|--------------|
 | Data Movement | MOVE, MOVEA, MOVEQ, LEA, PEA, SWAP |
-| Arithmetic | ADD, SUB, MUL, DIV, CMP, CLR, NEG, TST, EXT |
+| Arithmetic | ADD, SUB, ADDQ, SUBQ, MUL, DIV, CMP, CLR, NEG, TST, EXT |
 | Logical | AND, OR, XOR, NOT |
 | Bit | BTST |
 | Shift/Rotate | ASL, ASR, LSL, LSR, ROL, ROR |
@@ -711,7 +736,7 @@ conditional `Scc` variants (`SEQ`, `SNE`, ...) all share the one
 [Scc](#scc---set-conditionally) section, rather than having a section
 each.
 
-**A** — [ADD](#add---add) · [AND](#and---bitwise-and) · [ASL](#aslasr---arithmetic-shift) · [ASR](#aslasr---arithmetic-shift)
+**A** — [ADD](#add---add) · [ADDQ](#addqsubq---addsubtract-quick) · [AND](#and---bitwise-and) · [ASL](#aslasr---arithmetic-shift) · [ASR](#aslasr---arithmetic-shift)
 
 **B** — [BCC](#conditional-branches) · [BCS](#conditional-branches) · [BEQ](#conditional-branches) · [BGE](#conditional-branches) · [BGT](#conditional-branches) · [BHI](#conditional-branches) · [BLE](#conditional-branches) · [BLS](#conditional-branches) · [BLT](#conditional-branches) · [BMI](#conditional-branches) · [BNE](#conditional-branches) · [BPL](#conditional-branches) · [BRA](#bra---branch-always) · [BSR](#bsr---branch-to-subroutine) · [BTST](#btst---test-bit) · [BVC](#conditional-branches) · [BVS](#conditional-branches)
 
@@ -735,7 +760,7 @@ each.
 
 **R** — [ROL](#rolror---rotate) · [ROR](#rolror---rotate) · [RTS](#rts---return-from-subroutine)
 
-**S** — [SCC](#scc---set-conditionally) · [SEQ](#scc---set-conditionally) · [SF](#scc---set-conditionally) · [SGE](#scc---set-conditionally) · [SGT](#scc---set-conditionally) · [SHI](#scc---set-conditionally) · [SLE](#scc---set-conditionally) · [SLS](#scc---set-conditionally) · [SLT](#scc---set-conditionally) · [SMI](#scc---set-conditionally) · [SNE](#scc---set-conditionally) · [SPL](#scc---set-conditionally) · [ST](#scc---set-conditionally) · [SUB](#sub---subtract) · [SVC](#scc---set-conditionally) · [SVS](#scc---set-conditionally) · [SWAP](#swap---swap-register-halves)
+**S** — [SCC](#scc---set-conditionally) · [SEQ](#scc---set-conditionally) · [SF](#scc---set-conditionally) · [SGE](#scc---set-conditionally) · [SGT](#scc---set-conditionally) · [SHI](#scc---set-conditionally) · [SLE](#scc---set-conditionally) · [SLS](#scc---set-conditionally) · [SLT](#scc---set-conditionally) · [SMI](#scc---set-conditionally) · [SNE](#scc---set-conditionally) · [SPL](#scc---set-conditionally) · [ST](#scc---set-conditionally) · [SUB](#sub---subtract) · [SUBQ](#addqsubq---addsubtract-quick) · [SVC](#scc---set-conditionally) · [SVS](#scc---set-conditionally) · [SWAP](#swap---swap-register-halves)
 
 **T** — [TRAP](#trap---software-trap) · [TST](#tst---test)
 

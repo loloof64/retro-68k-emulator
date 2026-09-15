@@ -185,6 +185,69 @@ const SUB: OpcodeDefinition = {
   },
 }
 
+// --- ADDQ/SUBQ #data,<ea> ($5000-$5FFE, bit8=0 ADDQ/1 SUBQ) -------------
+//
+// Adds/subtracts a small immediate (1-8, encoded in 3 bits with 0 = 8)
+// straight into <ea> — no extension word for the operand, unlike ADD/SUB's
+// #imm form. `<ea>` = `An` is a hardware special case: always a full
+// 32-bit op regardless of the size field, and it touches no flags — the
+// same rule MOVEA/ADDA/SUBA already follow, so it's handled separately
+// here rather than routed through decodeEA/addWithFlags like every other
+// destination.
+//
+// Shares its `ss=11` subspace with Scc/DBcc ($50C0-$5FFE) the same way
+// PEA shares SWAP's opcode: `ss=11` isn't a valid ADDQ/SUBQ size, so
+// Scc/DBcc's narrower, already-earlier opcodeTable entries have to keep
+// matching first for that reserved combination to resolve correctly.
+
+function decodeQuickData(bits: number): number {
+  return bits === 0 ? 8 : bits
+}
+
+function addqSubqHandler(sign: 1 | -1): OpcodeDefinition['handler'] {
+  return (cpu: CPUState, memory: Memory, args: unknown[]) => {
+    const opcodeWord = opcodeWordOf(args)
+    const data = decodeQuickData((opcodeWord >> 9) & 0b111)
+    const mode = (opcodeWord >> 3) & 0b111
+    const reg = opcodeWord & 0b111
+
+    if (mode === 0b001) {
+      const addrReg = (Register.A0 + reg) as Register
+      const current = readRegister(cpu, addrReg, 'long')
+      writeRegister(cpu, addrReg, current + sign * data, 'long')
+      return 8
+    }
+
+    const size = decodeByteWordLongSize((opcodeWord >> 6) & 0b11)
+    const ea = decodeEA(cpu, memory, mode, reg, size)
+    const { result, flags } =
+      sign === 1 ? addWithFlags(ea.read(), data, size) : subWithFlags(ea.read(), data, size)
+    ea.write(result)
+
+    cpu.status.N = flags.N
+    cpu.status.Z = flags.Z
+    cpu.status.V = flags.V
+    cpu.status.C = flags.C
+    cpu.status.X = flags.X
+
+    return 4
+  }
+}
+
+const ADDQ: OpcodeDefinition = {
+  mnemonic: 'ADDQ',
+  encoding: '0101ddd0ssmmmrrr',
+  size: 'variable',
+  handler: addqSubqHandler(1),
+}
+
+const SUBQ: OpcodeDefinition = {
+  mnemonic: 'SUBQ',
+  encoding: '0101ddd1ssmmmrrr',
+  size: 'variable',
+  handler: addqSubqHandler(-1),
+}
+
 // --- CMP <ea>,Dn (opmode bits 8-6 = 0xx: Dn - EA, result discarded) -----
 
 const CMP: OpcodeDefinition = {
@@ -1200,5 +1263,7 @@ export const opcodeTable: readonly OpcodeEntry[] = [
   { mask: 0xf000, pattern: 0x6000, definition: Bcc },
   { mask: 0xf0f8, pattern: 0x50c8, definition: DBcc },
   { mask: 0xf0c0, pattern: 0x50c0, definition: Scc },
+  { mask: 0xf100, pattern: 0x5000, definition: ADDQ },
+  { mask: 0xf100, pattern: 0x5100, definition: SUBQ },
   { mask: 0xc000, pattern: 0x0000, definition: MOVE },
 ]

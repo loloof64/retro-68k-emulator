@@ -145,6 +145,7 @@ A first handful of real instructions is wired in, grouped below the way Motorola
 |---|---|---|---|---|---|
 | `ADD` | `ADD.size src,Dn` | byte, word, long | 4 | N, Z, V, C, X | Adds `src` to a data register, in place. |
 | `SUB` | `SUB.size src,Dn` | byte, word, long | 4 | N, Z, V, C, X | Subtracts `src` from a data register, in place. |
+| `ADDQ`/`SUBQ` | `ADDQ #data,dst` / `SUBQ #data,dst` | byte, word, long | 4 | N, Z, V, C, X (`An`: none) | Adds/subtracts a small immediate (`1`-`8`) straight into `dst`, packed into the opcode itself. `dst = An` is always a full 32-bit op with no flags touched, regardless of size — same rule `MOVEA` follows. |
 | `CMP` | `CMP.size src,Dn` | byte, word, long | 4 | N, Z, V, C | Subtracts `src` from a data register like `SUB`, but only sets flags — the register itself is unchanged. Typically followed by a `Bcc`. |
 | `CLR` | `CLR.size dst` | byte, word, long | 4 | N, Z, V (0), C (0) | Sets `dst` to `0`. |
 | `NEG` | `NEG.size dst` | byte, word, long | 4 | N, Z, V, C, X | Negates `dst` in place (two's complement: `dst = 0 - dst`). |
@@ -210,7 +211,7 @@ See [TRAP System Calls](#trap-system-calls) below for `TRAP`.
 
 ### Alphabetical Index
 
-**A** — [ADD](#arithmetic) · [AND](#logical) · [ASL](#shift-and-rotate) · [ASR](#shift-and-rotate)
+**A** — [ADD](#arithmetic) · [ADDQ](#arithmetic) · [AND](#logical) · [ASL](#shift-and-rotate) · [ASR](#shift-and-rotate)
 
 **B** — [Bcc](#program-control) · [BRA](#program-control) · [BSR](#program-control) · [BTST](#bit-manipulation)
 
@@ -234,7 +235,7 @@ See [TRAP System Calls](#trap-system-calls) below for `TRAP`.
 
 **R** — [ROL](#shift-and-rotate) · [ROR](#shift-and-rotate) · [RTS](#program-control)
 
-**S** — [Scc](#program-control) · [SUB](#arithmetic) · [SWAP](#data-movement)
+**S** — [Scc](#program-control) · [SUB](#arithmetic) · [SUBQ](#arithmetic) · [SWAP](#data-movement)
 
 **T** — [TST](#arithmetic)
 
