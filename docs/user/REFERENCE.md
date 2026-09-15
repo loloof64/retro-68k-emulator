@@ -40,8 +40,11 @@ An addressing mode is how an instruction says where an operand lives — a regis
 | Immediate | `#value` | `MOVE.L #100,D0` | A constant baked into the instruction (source only — can't be a destination) |
 | Absolute short | `xxx.W` | `MOVE.L $100.W,D0` | A 16-bit address, sign-extended — reaches `$0000`-`$7FFF` (or, on real hardware, the top of memory too; this emulator's address space doesn't extend that far) |
 | Absolute long | `xxx.L` | `MOVE.L $40000.L,D0` | A full 32-bit address, written directly into the instruction |
+| Indexed | `d8(An,Xn)` | `MOVE.L $10(A0,D1.W),D0` | `An` plus an index register (`Dn` or `An`, `.W` sign-extended or `.L`) plus an 8-bit displacement |
+| PC displacement | `d16(PC)` | `MOVE.L $10(PC),D0` | The program counter (at the displacement's own extension word) plus a 16-bit displacement — source only, can't be a destination |
+| PC indexed | `d8(PC,Xn)` | `MOVE.L $10(PC,D1.W),D0` | Like Indexed, but based on the program counter instead of an address register — source only |
 
-Not implemented yet: indexed addressing (`$1000(A0,D0)`) and PC-relative modes. Absolute addressing works either as shown above or, for an address you'll reuse, by loading it into an address register first with `MOVEA` (e.g. `MOVEA.L #$40000,A0` then `(A0)`) — most examples on this page still use the `MOVEA` style since it's what the addressing modes actually looked like before absolute addressing landed, but either works today.
+Absolute addressing works either as shown above or, for an address you'll reuse, by loading it into an address register first with `MOVEA` (e.g. `MOVEA.L #$40000,A0` then `(A0)`) — most examples on this page still use the `MOVEA` style since it's what the addressing modes actually looked like before absolute addressing landed, but either works today.
 
 ## Memory Map
 
@@ -303,7 +306,7 @@ ADD.L   D0,D0              ; D0 += D0
 RTS                        ; back to the caller
 ```
 
-The rest of the ~80-instruction set (indexed/PC-relative addressing, the full conditional `DBcc` family, ...) lands in upcoming sessions — each one gets its own entry here as it becomes real.
+The rest of the ~80-instruction set (the full conditional `DBcc` family, ...) lands in upcoming sessions — each one gets its own entry here as it becomes real.
 
 ## TRAP System Calls
 

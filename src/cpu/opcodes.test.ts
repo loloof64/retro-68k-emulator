@@ -304,6 +304,72 @@ describe('MOVE', () => {
 
     expect(memory.read32(0x40000)).toBe(0x00ff00ff)
   })
+
+  it('d8(An,Dn.W) reads via address register indirect with a word index', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.A0, 0x1000, 'long')
+    writeRegister(cpu, Register.D1, 0x0010, 'long')
+    memory.write32(0x1020, 0x11223344) // 0x1000 (A0) + 0x10 (D1) + 0x10 (d8)
+    memory.write16(0x2000, moveWord(MOVE_L_IMM_TO_Dn, 0b000, 0, 0b110, 0)) // MOVE.L $10(A0,D1.W),D0
+    memory.write16(0x2002, 0x1010) // Xn=D1, word index, d8=$10
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.registers[Register.D0]).toBe(0x11223344)
+    expect(cpu.pc).toBe(0x2004)
+  })
+
+  it('d8(An,An.L) writes via address register indirect with a long index and a negative displacement', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.D0, 0xcafebabe, 'long')
+    writeRegister(cpu, Register.A0, 0x1000, 'long')
+    writeRegister(cpu, Register.A1, 0x0020, 'long')
+    memory.write16(0x2000, moveWord(MOVE_L_IMM_TO_Dn, 0b110, 0, 0b000, 0)) // MOVE.L D0,-8(A0,A1.L)
+    memory.write16(0x2002, 0x9800 | (0xf8 & 0xff)) // Xn=A1, long index, d8=-8
+
+    step(cpu, memory, opcodeTable)
+
+    // 0x1000 (A0) + 0x20 (A1) - 8 (d8) = 0x1018
+    expect(memory.read32(0x1018)).toBe(0xcafebabe)
+  })
+
+  it('d16(PC) reads via PC-relative addressing with a 16-bit displacement', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    memory.write32(0x2010, 0x11223344)
+    memory.write16(0x2000, moveWord(MOVE_L_IMM_TO_Dn, 0b000, 0, 0b111, 0b010)) // MOVE.L $10(PC),D0
+    memory.write16(0x2002, 0x000e) // extension word is at 0x2002; +0xe = 0x2010
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.registers[Register.D0]).toBe(0x11223344)
+    expect(cpu.pc).toBe(0x2004)
+  })
+
+  it('d16(PC) cannot be used as a write destination', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    memory.write16(0x2000, moveWord(MOVE_L_IMM_TO_Dn, 0b111, 0b010, 0b000, 0)) // MOVE.L D0,$10(PC)
+    memory.write16(0x2002, 0x0010)
+
+    expect(() => step(cpu, memory, opcodeTable)).toThrow('Cannot write to a PC-relative operand')
+  })
+
+  it('d8(PC,Xn) reads via PC-relative indexed addressing', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.D1, 0x0004, 'long')
+    memory.write32(0x2010, 0x55667788) // extension word at 0x2002 + 0x04 (D1) + 0x0a (d8) = 0x2010
+    memory.write16(0x2000, moveWord(MOVE_L_IMM_TO_Dn, 0b000, 0, 0b111, 0b011)) // MOVE.L $a(PC,D1.W),D0
+    memory.write16(0x2002, 0x100a) // Xn=D1, word index, d8=$0a
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.registers[Register.D0]).toBe(0x55667788)
+    expect(cpu.pc).toBe(0x2004)
+  })
 })
 
 describe('ADD', () => {
