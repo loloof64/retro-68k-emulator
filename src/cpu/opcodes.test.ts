@@ -60,6 +60,10 @@ function jsrWord(mode: number, reg: number) {
   return 0x4e80 | (mode << 3) | reg
 }
 
+function leaWord(destReg: number, mode: number, reg: number) {
+  return 0x41c0 | (destReg << 9) | (mode << 3) | reg
+}
+
 function bsrWord(disp8: number) {
   return 0x6100 | (disp8 & 0xff)
 }
@@ -1313,6 +1317,52 @@ describe('Scc', () => {
 
     expect(cycles).toBe(12) // DBcc's condition-true cost, not Scc's (6)
     expect(cpu.registers[Register.A0]).toBe(0x12345678) // untouched - Scc's handler never ran
+  })
+})
+
+describe('LEA', () => {
+  it('loads the address from (An) into a destination address register', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.A0, 0x3000, 'long')
+    memory.write16(0x2000, leaWord(1, 0b010, 0)) // LEA (A0),A1
+
+    const cycles = step(cpu, memory, opcodeTable)
+
+    expect(cpu.registers[Register.A1]).toBe(0x3000)
+    expect(cycles).toBe(4)
+  })
+
+  it('loads an address computed from d16(An)', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.A0, 0x3000, 'long')
+    memory.write16(0x2000, leaWord(1, 0b101, 0)) // LEA $10(A0),A1
+    memory.write16(0x2002, 0x0010)
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.registers[Register.A1]).toBe(0x3010)
+    expect(cpu.pc).toBe(0x2004)
+  })
+
+  it('loads a full 32-bit absolute address', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    memory.write16(0x2000, leaWord(0, 0b111, 0b001)) // LEA $40000.L,A0
+    memory.write32(0x2002, 0x00040000)
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.registers[Register.A0]).toBe(0x40000)
+  })
+
+  it('rejects a non-control addressing mode', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    memory.write16(0x2000, leaWord(0, 0b000, 0)) // LEA D0,A0 - not a valid control mode
+
+    expect(() => step(cpu, memory, opcodeTable)).toThrow(/not a control addressing mode/)
   })
 })
 

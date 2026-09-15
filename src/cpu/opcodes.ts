@@ -379,6 +379,28 @@ const Scc: OpcodeDefinition = {
   },
 }
 
+// --- LEA <ea>,An ($41C0-$4FFE) - control addressing modes only, same set
+// decodeControlAddress validates. Loads the *address* itself into An —
+// same reason JSR needs decodeControlAddress rather than decodeEA: an
+// address is what's wanted, not a value read through it.
+
+const LEA: OpcodeDefinition = {
+  mnemonic: 'LEA',
+  encoding: '0100aaa111mmmrrr',
+  size: 'long',
+  handler: (cpu: CPUState, memory: Memory, args: unknown[]) => {
+    const opcodeWord = opcodeWordOf(args)
+    const destReg = (Register.A0 + ((opcodeWord >> 9) & 0b111)) as Register
+    const mode = (opcodeWord >> 3) & 0b111
+    const reg = opcodeWord & 0b111
+
+    const address = decodeControlAddress(cpu, memory, mode, reg)
+    writeRegister(cpu, destReg, address, 'long')
+
+    return 4
+  },
+}
+
 // --- JSR/BSR/RTS - subroutine control ------------------------------------
 //
 // All three push/pop a return address on A7, which decodeEA's -(An)/(An)+
@@ -1127,6 +1149,7 @@ export const opcodeTable: readonly OpcodeEntry[] = [
   { mask: 0xffb8, pattern: 0x4880, definition: EXT },
   { mask: 0xffff, pattern: 0x4e75, definition: RTS },
   { mask: 0xffc0, pattern: 0x4e80, definition: JSR },
+  { mask: 0xf1c0, pattern: 0x41c0, definition: LEA },
   { mask: 0xf118, pattern: 0xe100, definition: ASL },
   { mask: 0xf118, pattern: 0xe000, definition: ASR },
   { mask: 0xf118, pattern: 0xe108, definition: LSL },

@@ -135,6 +135,7 @@ A first handful of real instructions is wired in, grouped below the way Motorola
 | `MOVE` | `MOVE.size src,dst` | byte, word, long | 4 | N, Z, V (0), C (0) | Copies a value from `src` to `dst`. |
 | `MOVEA` | `MOVEA.size src,An` | word, long | 4 | none | Loads an address register. Not a separate opcode — a `MOVE` whose destination is `An` *is* `MOVEA`, bit-for-bit, which is exactly why it skips the flags a plain `MOVE` would set. Byte size raises the [Illegal Instruction exception](#exceptions). |
 | `MOVEQ` | `MOVEQ #data,Dn` | long | 4 | N, Z, V (0), C (0) | Loads a small immediate (-128 to 127) into a data register. Faster/shorter than `MOVE.L #imm,Dn`. |
+| `LEA` | `LEA src,An` | long | 4 | none | Computes an address and loads it into `An`, without reading what's stored there. Same addressing modes as `JSR` — see [below](#which-addressing-modes-can-jsr-target). |
 | `SWAP` | `SWAP Dn` | long | 4 | N, Z, V (0), C (0) | Swaps the high and low 16-bit halves of `Dn`. |
 
 ### Arithmetic
@@ -220,7 +221,7 @@ See [TRAP System Calls](#trap-system-calls) below for `TRAP`.
 
 **J** — [JSR](#program-control)
 
-**L** — [LSL](#shift-and-rotate) · [LSR](#shift-and-rotate)
+**L** — [LEA](#data-movement) · [LSL](#shift-and-rotate) · [LSR](#shift-and-rotate)
 
 **M** — [MOVE](#data-movement) · [MOVEA](#data-movement) · [MOVEQ](#data-movement) · [MULS](#arithmetic) · [MULU](#arithmetic)
 
@@ -301,7 +302,7 @@ The three cycle counts depend on both the destination and the outcome of testing
 
 ### Which addressing modes can JSR target?
 
-Any that name a memory location without a register side effect — the 68000's "control" addressing modes: `(An)`, `d16(An)`, `d8(An,Xn)`, `xxx.W`, `xxx.L`, `d16(PC)`, `d8(PC,Xn)`. Not valid: `Dn`, `An`, `(An)+`, `-(An)`, or `#imm`. See [Addressing Modes](#addressing-modes) above for what each of these means (that section covers what every other instruction's `src`/`dst` can be, too).
+Any that name a memory location without a register side effect — the 68000's "control" addressing modes: `(An)`, `d16(An)`, `d8(An,Xn)`, `xxx.W`, `xxx.L`, `d16(PC)`, `d8(PC,Xn)`. Not valid: `Dn`, `An`, `(An)+`, `-(An)`, or `#imm`. See [Addressing Modes](#addressing-modes) above for what each of these means (that section covers what every other instruction's `src`/`dst` can be, too). `LEA` uses this exact same set for its `src` — it computes the address the same way JSR does, just loads it into `An` instead of jumping to it.
 
 **Example** — add two numbers and write a white pixel, using a direct absolute address:
 

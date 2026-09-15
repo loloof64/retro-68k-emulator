@@ -80,6 +80,28 @@ MOVEA.L #$1000,A0      ; A0 = $1000
 MOVEA.L D0,A1          ; A1 = D0
 ```
 
+### LEA - Load Effective Address
+```
+LEA <ea>,An
+```
+
+Computes the address `<ea>` names and loads it into `An` — no
+dereferencing, so this never reads the memory at that address, only
+computes where it *is*. Same "control" addressing modes as `JSR`:
+`(An)`, `d16(An)`, `d8(An,Xn)`, `xxx.W`, `xxx.L`, `d16(PC)`, `d8(PC,Xn)`.
+Not `Dn`, `An`, `(An)+`, `-(An)`, or `#imm` — see `decodeControlAddress`
+in `src/cpu/addressing.ts`, shared with `JSR`. No flags updated.
+
+**Sizes**: L (always)
+**Cycles**: 4
+**Flags**: None
+
+**Example**:
+```asm
+LEA     $40000.L,A0    ; A0 = address of the framebuffer
+MOVE.L  #$FFFFFF,(A0)  ; first pixel = white
+```
+
 ### MOVEQ - Move Quick
 ```
 MOVEQ #value,Dn
@@ -645,7 +667,7 @@ Does nothing, useful for timing/padding.
 
 | Category | Instructions |
 |----------|--------------|
-| Data Movement | MOVE, MOVEA, MOVEQ, SWAP |
+| Data Movement | MOVE, MOVEA, MOVEQ, LEA, SWAP |
 | Arithmetic | ADD, SUB, MUL, DIV, CMP, CLR, NEG, TST, EXT |
 | Logical | AND, OR, XOR, NOT |
 | Bit | BTST |
@@ -677,7 +699,7 @@ each.
 
 **J** — [JSR](#jsr---jump-to-subroutine)
 
-**L** — [LSL](#lsllsr---logical-shift) · [LSR](#lsllsr---logical-shift)
+**L** — [LEA](#lea---load-effective-address) · [LSL](#lsllsr---logical-shift) · [LSR](#lsllsr---logical-shift)
 
 **M** — [MOVE](#move---move-data) · [MOVEA](#movea---move-address) · [MOVEQ](#moveq---move-quick) · [MULS](#mul---multiply) · [MULU](#mul---multiply)
 
