@@ -234,6 +234,45 @@ MOVEM.L D0-D2/A0,-(A7)     ; push D0,D1,D2,A0 onto the stack
 MOVEM.L (A7)+,D0-D2/A0     ; pop them back, same order pushed
 ```
 
+### MOVEP - Move Peripheral Data
+```
+MOVEP.size Dx,(d16,Ay)
+MOVEP.size (d16,Ay),Dx
+```
+
+Transfers 2 (`.W`) or 4 (`.L`) bytes between `Dx` and alternating bytes of
+memory starting at `(d16,Ay)`, stepping the address by 2 each byte, most
+significant byte first. Built for wiring an 8-bit peripheral onto the
+68000's 16-bit data bus — the classic case is a memory-mapped chip that
+only decodes every other address.
+
+**Addressing**: always exactly `(d16,Ay)` — there's no addressing-mode
+field to decode, unlike every other data-movement instruction. Reuses
+`decodeControlAddress`'s `d16(An)` case (mode `0b101`) directly for the
+address rather than hand-rolling the displacement extension word.
+`.W` only touches `Dx`'s low word (upper word untouched on load, same
+merge rule a plain word `MOVE` into `Dn` follows); `.L` overwrites the
+full register.
+
+**Opcode space**: shares its top-nibble/bit-8 space with `BTST`/`BCHG`/
+`BCLR`/`BSET`'s dynamic `Dn,<ea>` form (never implemented in this
+codebase — see the [Bit Instructions](#bit-instructions) section). Mode
+field bits 5-3 fixed to `001` is the one combination that form can never
+produce for a valid destination (`001` is `An` direct, invalid for a bit
+destination), which is exactly the slot real 68000 hardware repurposes
+for `MOVEP`.
+
+**Sizes**: W, L
+**Cycles**: 16 (W), 24 (L) — same either direction
+**Flags**: None
+
+**Example**:
+```asm
+LEA     PERIPHERAL,A0
+MOVEP.W D0,$0(A0)          ; write D0's low word, byte by byte
+MOVEP.W $0(A0),D1          ; read it back the same way
+```
+
 ## Arithmetic Operations
 
 ### ADD - Add
@@ -1194,7 +1233,7 @@ Does nothing, useful for timing/padding.
 
 | Category | Instructions |
 |----------|--------------|
-| Data Movement | MOVE, MOVEA, MOVEQ, LEA, PEA, SWAP, EXG |
+| Data Movement | MOVE, MOVEA, MOVEQ, MOVEM, MOVEP, LEA, PEA, SWAP, EXG |
 | Arithmetic | ADD, ADDA, SUB, SUBA, ADDQ, SUBQ, MUL, DIV, CMP, CMPA, CLR, NEG, TST, TAS, EXT |
 | BCD | ABCD, SBCD, NBCD |
 | Logical | AND, OR, XOR, NOT |
@@ -1229,7 +1268,7 @@ each.
 
 **L** — [LEA](#lea---load-effective-address) · [LINK](#link---link-and-allocate) · [LSL](#lsllsr---logical-shift) · [LSR](#lsllsr---logical-shift)
 
-**M** — [MOVE](#move---move-data) · [MOVEA](#movea---move-address) · [MOVEQ](#moveq---move-quick) · [MULS](#mul---multiply) · [MULU](#mul---multiply)
+**M** — [MOVE](#move---move-data) · [MOVEA](#movea---move-address) · [MOVEM](#movem---move-multiple-registers) · [MOVEP](#movep---move-peripheral-data) · [MOVEQ](#moveq---move-quick) · [MULS](#mul---multiply) · [MULU](#mul---multiply)
 
 **N** — [NBCD](#nbcd---negate-decimal-with-extend) · [NEG](#neg---negate) · [NOP](#nop---no-operation) · [NOT](#not---bitwise-not)
 

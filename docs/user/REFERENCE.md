@@ -140,6 +140,7 @@ A first handful of real instructions is wired in, grouped below the way Motorola
 | `SWAP` | `SWAP Dn` | long | 4 | N, Z, V (0), C (0) | Swaps the high and low 16-bit halves of `Dn`. |
 | `EXG` | `EXG Dx,Dy` / `EXG Ax,Ay` / `EXG Dx,Ay` | long | 6 | none | Swaps two full 32-bit registers — any mix of data and address registers. |
 | `MOVEM` | `MOVEM.size list,dst` / `MOVEM.size src,list` | word, long | see below | none | Moves any subset of the 16 registers to or from memory at once, picked by a bitmask. See [below](#how-does-movems-register-list-work) for the addressing modes, the bitmask order, and the cycle formula. |
+| `MOVEP` | `MOVEP.size Dx,(d16,Ay)` / `MOVEP.size (d16,Ay),Dx` | word, long | 16 (word), 24 (long) | none | Transfers a data register to/from alternating bytes of memory, for talking to an 8-bit peripheral over the 16-bit bus. See [below](#how-does-movep-transfer-alternating-bytes) for exactly which bytes and in what order. |
 
 ### Arithmetic
 
@@ -249,7 +250,7 @@ See [TRAP System Calls](#trap-system-calls) below for `TRAP`.
 
 **L** — [LEA](#data-movement) · [LINK](#program-control) · [LSL](#shift-and-rotate) · [LSR](#shift-and-rotate)
 
-**M** — [MOVE](#data-movement) · [MOVEA](#data-movement) · [MOVEM](#data-movement) · [MOVEQ](#data-movement) · [MULS](#arithmetic) · [MULU](#arithmetic)
+**M** — [MOVE](#data-movement) · [MOVEA](#data-movement) · [MOVEM](#data-movement) · [MOVEP](#data-movement) · [MOVEQ](#data-movement) · [MULS](#arithmetic) · [MULU](#arithmetic)
 
 **N** — [NBCD](#binary-coded-decimal) · [NEG](#arithmetic) · [NOP](#system) · [NOT](#logical)
 
@@ -467,6 +468,24 @@ Two quirks worth knowing before hand-encoding one:
 2. **Word-size loads sign-extend.** `MOVEM.W src,list` sign-extends each 16-bit value it reads to the full 32 bits of its register — unlike `MOVE.W`, which only overwrites the low word and leaves the high word alone. `MOVEM.W list,dst` (storing) just writes each register's low 16 bits, no extension involved.
 
 **Cycles**: `8 + 4n` (register→memory, word) / `8 + 8n` (long); `12 + 4n` (memory→register, word) / `12 + 8n` (long) — `n` is the number of registers actually transferred, not 16.
+
+### How does MOVEP transfer alternating bytes?
+
+`MOVEP` moves data between `Dx` and a byte-oriented peripheral wired onto the 68000's 16-bit data bus at every *other* address — a hardware detail this emulator doesn't need to model (it's flat byte-addressable memory), but the instruction still transfers the bytes in the same order and positions real hardware would, in case a program relies on it.
+
+Starting at `(d16,Ay)`, it reads/writes one byte, steps the address by `2`, reads/writes the next byte, and so on — `2` (`.W`) or `4` (`.L`) bytes total, most-significant byte first:
+
+```
+MOVEP.L D0,$0(A0)
+; byte 0 (D0 bits 31-24) -> Memory[A0+0]
+; byte 1 (D0 bits 23-16) -> Memory[A0+2]
+; byte 2 (D0 bits 15-8)  -> Memory[A0+4]
+; byte 3 (D0 bits 7-0)   -> Memory[A0+6]
+```
+
+`.W` only ever touches `Dx`'s low 16 bits — loading leaves the high word alone (same merge rule a plain word `MOVE` into `Dn` follows), storing only reads the low word out.
+
+Unlike every other data-movement instruction, there's no addressing-mode field to pick from: `(d16,Ay)` is the only form `MOVEP` supports, always with a displacement (even `$0`, as above) — there's no `(An)`-only shorthand.
 
 ### How does the memory-operand shift and rotate form work?
 

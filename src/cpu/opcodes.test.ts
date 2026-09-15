@@ -132,6 +132,15 @@ function bsetWord(mode: number, reg: number) {
   return (0b0000100011 << 6) | (mode << 3) | reg
 }
 
+const MOVEP_W_LOAD = 0b00
+const MOVEP_L_LOAD = 0b01
+const MOVEP_W_STORE = 0b10
+const MOVEP_L_STORE = 0b11
+
+function movepWord(dataReg: number, opmode: number, addrReg: number) {
+  return 0x0108 | (dataReg << 9) | (opmode << 6) | addrReg
+}
+
 function andWord(destReg: number, opmode: number, srcMode: number, srcReg: number) {
   return (0b1100 << 12) | (destReg << 9) | (opmode << 6) | (srcMode << 3) | srcReg
 }
@@ -3143,6 +3152,95 @@ describe('BCHG/BCLR/BSET', () => {
 
       expect(cpu.pc).toBe(0x2002)
     }
+  })
+})
+
+describe('MOVEP', () => {
+  it('MOVEP.W loads a data register\'s low word from two alternating bytes, MSB first', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.A0, 0x4000, 'long')
+    writeRegister(cpu, Register.D0, 0x11112222, 'long')
+    memory.write8(0x4010, 0x34) // high byte of the low word
+    memory.write8(0x4012, 0x56) // low byte
+    memory.write16(0x2000, movepWord(0, MOVEP_W_LOAD, 0)) // MOVEP.W $10(A0),D0
+    memory.write16(0x2002, 0x0010)
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.registers[Register.D0]).toBe(0x11113456) // upper word untouched
+  })
+
+  it('MOVEP.L loads a full 32-bit register from four alternating bytes, MSB first', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.A0, 0x4000, 'long')
+    memory.write8(0x4000, 0x11)
+    memory.write8(0x4002, 0x22)
+    memory.write8(0x4004, 0x33)
+    memory.write8(0x4006, 0x44)
+    memory.write16(0x2000, movepWord(0, MOVEP_L_LOAD, 0)) // MOVEP.L $0(A0),D0
+    memory.write16(0x2002, 0x0000)
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.registers[Register.D0]).toBe(0x11223344)
+  })
+
+  it('MOVEP.W stores a data register\'s low word as two alternating bytes, MSB first', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.A0, 0x4000, 'long')
+    writeRegister(cpu, Register.D0, 0x12345678, 'long')
+    memory.write16(0x2000, movepWord(0, MOVEP_W_STORE, 0)) // MOVEP.W D0,$10(A0)
+    memory.write16(0x2002, 0x0010)
+
+    step(cpu, memory, opcodeTable)
+
+    expect(memory.read8(0x4010)).toBe(0x56)
+    expect(memory.read8(0x4012)).toBe(0x78)
+  })
+
+  it('MOVEP.L stores a full 32-bit register as four alternating bytes, MSB first', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.A0, 0x4000, 'long')
+    writeRegister(cpu, Register.D0, 0x12345678, 'long')
+    memory.write16(0x2000, movepWord(0, MOVEP_L_STORE, 0)) // MOVEP.L D0,$0(A0)
+    memory.write16(0x2002, 0x0000)
+
+    step(cpu, memory, opcodeTable)
+
+    expect(memory.read8(0x4000)).toBe(0x12)
+    expect(memory.read8(0x4002)).toBe(0x34)
+    expect(memory.read8(0x4004)).toBe(0x56)
+    expect(memory.read8(0x4006)).toBe(0x78)
+  })
+
+  it('the address is An plus a signed 16-bit displacement, negative included', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.A0, 0x4010, 'long')
+    writeRegister(cpu, Register.D0, 0x0000abcd, 'long')
+    memory.write16(0x2000, movepWord(0, MOVEP_W_STORE, 0)) // MOVEP.W D0,-$10(A0)
+    memory.write16(0x2002, 0xfff0) // -16
+
+    step(cpu, memory, opcodeTable)
+
+    expect(memory.read8(0x4000)).toBe(0xab)
+    expect(memory.read8(0x4002)).toBe(0xcd)
+  })
+
+  it('advances pc past the displacement extension word', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.A0, 0x4000, 'long')
+    memory.write16(0x2000, movepWord(0, MOVEP_W_LOAD, 0))
+    memory.write16(0x2002, 0x0000)
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.pc).toBe(0x2004)
   })
 })
 

@@ -933,6 +933,54 @@ const BSET: OpcodeDefinition = {
   handler: bitOpHandler((value, mask) => value | mask, 12),
 }
 
+// --- MOVEP Dx,(d16,Ay) / (d16,Ay),Dx ($0108) ------------------------------
+//
+// Transfers 2 (.W) or 4 (.L) bytes between a data register and alternating
+// bytes of memory starting at (d16,Ay), stepping the address by 2 each
+// byte, most-significant byte first — built for wiring an 8-bit peripheral
+// onto the 16-bit data bus. Always this one fixed addressing form, never
+// any of decodeEA's regular modes, but it's exactly `decodeControlAddress`'s
+// d16(An) case (mode 0b101), so it's reused directly for the address rather
+// than hand-rolling the displacement extension word again.
+//
+// Shares its top-nibble/bit-8 opcode space with BTST/BCHG/BCLR/BSET's
+// (never-implemented) dynamic Dn,<ea> form: mode field bits 5-3 fixed to
+// `001` is the one combination that form can never produce for a valid
+// destination (`001` is An direct, invalid for a bit destination), which is
+// exactly the slot real 68000 hardware repurposes for MOVEP.
+
+const MOVEP: OpcodeDefinition = {
+  mnemonic: 'MOVEP',
+  encoding: '0000ddd1oo001aaa',
+  size: 'variable',
+  handler: (cpu: CPUState, memory: Memory, args: unknown[]) => {
+    const opcodeWord = opcodeWordOf(args)
+    const dataReg = (Register.D0 + ((opcodeWord >> 9) & 0b111)) as Register
+    const opmode = (opcodeWord >> 6) & 0b11
+    const isLong = (opmode & 0b01) === 0b01
+    const isStore = (opmode & 0b10) === 0b10
+
+    const address = decodeControlAddress(cpu, memory, 0b101, opcodeWord & 0b111)
+    const byteCount = isLong ? 4 : 2
+
+    if (isStore) {
+      const value = readRegister(cpu, dataReg, 'long')
+      for (let i = 0; i < byteCount; i++) {
+        const shift = (byteCount - 1 - i) * 8
+        memory.write8(address + i * 2, (value >>> shift) & 0xff)
+      }
+    } else {
+      let value = 0
+      for (let i = 0; i < byteCount; i++) {
+        value = (value << 8) | memory.read8(address + i * 2)
+      }
+      writeRegister(cpu, dataReg, value, isLong ? 'long' : 'word')
+    }
+
+    return isLong ? 24 : 16
+  },
+}
+
 // --- MULU/MULS <ea>,Dn ($C0C0/$C1C0) - word x word -> long -------------
 //
 // Bits 7-6 = 11 is a reserved opmode in the ADD/SUB/CMP/AND/OR/XOR family
@@ -2276,6 +2324,7 @@ export const opcodeTable: readonly OpcodeEntry[] = [
   { mask: 0xffc0, pattern: 0x0840, definition: BCHG },
   { mask: 0xffc0, pattern: 0x0880, definition: BCLR },
   { mask: 0xffc0, pattern: 0x08c0, definition: BSET },
+  { mask: 0xf138, pattern: 0x0108, definition: MOVEP },
   { mask: 0xff00, pattern: 0x4600, definition: NOT },
   { mask: 0xff00, pattern: 0x4200, definition: CLR },
   { mask: 0xff00, pattern: 0x4400, definition: NEG },
