@@ -472,4 +472,4 @@ A few habits worth having, some of them straight from gotchas this emulator's ow
 
 ---
 
-Back to [Presentation](./PRESENTATION.md) · [Downloads](./DOWNLOAD.md)
+Back to [Presentation](./PRESENTATION.md) · [Downloads](./DOWNLOAD.md) · [Troubleshooting](./TROUBLESHOOTING.md)

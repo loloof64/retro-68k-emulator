@@ -41,4 +41,4 @@ Most ways to learn assembly language either require real, aging hardware or a fa
 
 ---
 
-Next: [Downloads](./DOWNLOAD.md) · [Opcode & TRAP Reference](./REFERENCE.md)
+Next: [Downloads](./DOWNLOAD.md) · [Opcode & TRAP Reference](./REFERENCE.md) · [Troubleshooting](./TROUBLESHOOTING.md)

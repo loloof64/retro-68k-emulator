@@ -486,7 +486,15 @@ export function generateHtmlDocument({
 
     if (fs.existsSync(filePath)) {
       const content = fs.readFileSync(filePath, 'utf-8')
-      const htmlContent = markdownToHtml(content, filenameToId)
+      // Every docs/*.md file opens with its own `# Title` line, redundant
+      // with the <h1>{section.title}</h1> this loop already injects below.
+      // Left in, markdownToHtml turns it into a *second* <h1>, which isn't
+      // just visual duplication: since it's not the section div's first
+      // child, h1's `page-break-before: always` rule (further up in this
+      // file) fires on it too, forcing an extra near-blank page before
+      // every single section's real content.
+      const strippedContent = content.replace(/^# .*\r?\n+/, '')
+      const htmlContent = markdownToHtml(strippedContent, filenameToId)
 
       html += `
   <div class="section" id="${section.id}">
