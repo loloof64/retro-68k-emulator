@@ -90,6 +90,10 @@ function jsrWord(mode: number, reg: number) {
   return 0x4e80 | (mode << 3) | reg
 }
 
+function jmpWord(mode: number, reg: number) {
+  return 0x4ec0 | (mode << 3) | reg
+}
+
 function leaWord(destReg: number, mode: number, reg: number) {
   return 0x41c0 | (destReg << 9) | (mode << 3) | reg
 }
@@ -2724,6 +2728,88 @@ describe('JSR/BSR/RTS', () => {
 
     expect(cpu.pc).toBe(0x2002)
     expect(cpu.registers[Register.A7]).toBe(spBefore)
+  })
+})
+
+describe('JMP', () => {
+  it('JMP (An) jumps to the register, without touching the stack', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.A0, 0x3000, 'long')
+    memory.write16(0x2000, jmpWord(0b010, 0)) // JMP (A0)
+    const spBefore = cpu.registers[Register.A7]
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.pc).toBe(0x3000)
+    expect(cpu.registers[Register.A7]).toBe(spBefore) // no return address pushed
+  })
+
+  it('JMP rejects an addressing mode that is not a control mode', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    memory.write16(0x2000, jmpWord(0b000, 0)) // JMP Dn - not a valid control mode
+
+    expect(() => step(cpu, memory, opcodeTable)).toThrow(/not a control addressing mode/)
+  })
+
+  it('JMP d16(An) jumps to a base register plus a 16-bit displacement', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.A0, 0x3000, 'long')
+    memory.write16(0x2000, jmpWord(0b101, 0)) // JMP $10(A0)
+    memory.write16(0x2002, 0x0010)
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.pc).toBe(0x3010)
+  })
+
+  it('JMP d8(An,Xn) jumps to a base register plus an index and an 8-bit displacement', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.A0, 0x3000, 'long')
+    writeRegister(cpu, Register.D1, 0x0004, 'long')
+    memory.write16(0x2000, jmpWord(0b110, 0)) // JMP $6(A0,D1.W)
+    memory.write16(0x2002, 0x1006) // Xn=D1, word index, d8=$06
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.pc).toBe(0x300a) // 0x3000 + 0x4 (D1) + 0x6 (d8)
+  })
+
+  it('JMP xxx.L jumps to a full 32-bit absolute address', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    memory.write16(0x2000, jmpWord(0b111, 0b001)) // JMP $40000.L
+    memory.write32(0x2002, 0x00040000)
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.pc).toBe(0x40000)
+  })
+
+  it('JMP d16(PC) jumps relative to the address of its extension word', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    memory.write16(0x2000, jmpWord(0b111, 0b010)) // JMP $10(PC)
+    memory.write16(0x2002, 0x0010)
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.pc).toBe(0x2012) // 0x2002 (extension word address) + 0x10
+  })
+
+  it('JMP d8(PC,Xn) jumps relative to the extension word plus an index', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.D1, 0x0004, 'long')
+    memory.write16(0x2000, jmpWord(0b111, 0b011)) // JMP $6(PC,D1.W)
+    memory.write16(0x2002, 0x1006) // Xn=D1, word index, d8=$06
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.pc).toBe(0x200c) // 0x2002 (extension word address) + 0x4 (D1) + 0x6 (d8)
   })
 })
 

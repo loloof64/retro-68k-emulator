@@ -212,6 +212,7 @@ restriction, and cycle cost.
 |---|---|---|---|---|---|
 | `BRA` | `BRA target` | word | 10 | none | Always jumps to `target`. |
 | `Bcc` | see below | word | 10 | none (reads flags, doesn't set them) | Jumps to `target` only if the named condition on the current flags holds. |
+| `JMP` | `JMP target` | word | 8 | none | Jumps to `target` unconditionally — no return address is pushed. See [below](#which-addressing-modes-can-jsr-target) for which addressing modes are valid. |
 | `JSR` | `JSR target` | word | 16 | none | Pushes the return address onto the stack, then jumps to `target`. See [below](#which-addressing-modes-can-jsr-target) for which addressing modes are valid. |
 | `BSR` | `BSR target` | word | 18 | none | Like `JSR`, but PC-relative — pushes the return address, then always branches to `target`. |
 | `RTS` | `RTS` | word | 16 | none | Pops a return address pushed by `JSR`/`BSR` and jumps there. |
@@ -241,7 +242,7 @@ See [TRAP System Calls](#trap-system-calls) below for `TRAP`.
 
 **E** — [EXG](#data-movement) · [EXT](#arithmetic)
 
-**J** — [JSR](#program-control)
+**J** — [JMP](#program-control) · [JSR](#program-control)
 
 **L** — [LEA](#data-movement) · [LINK](#program-control) · [LSL](#shift-and-rotate) · [LSR](#shift-and-rotate)
 
@@ -384,7 +385,7 @@ The three cycle counts depend on both the destination and the outcome of testing
 
 ### Which addressing modes can JSR target?
 
-Any that name a memory location without a register side effect — the 68000's "control" addressing modes: `(An)`, `d16(An)`, `d8(An,Xn)`, `xxx.W`, `xxx.L`, `d16(PC)`, `d8(PC,Xn)`. Not valid: `Dn`, `An`, `(An)+`, `-(An)`, or `#imm`. See [Addressing Modes](#addressing-modes) above for what each of these means (that section covers what every other instruction's `src`/`dst` can be, too). `LEA` and `PEA` use this exact same set for their `src` — they compute the address the same way `JSR` does, just load it into `An` (`LEA`) or push it onto the stack (`PEA`) instead of jumping to it.
+Any that name a memory location without a register side effect — the 68000's "control" addressing modes: `(An)`, `d16(An)`, `d8(An,Xn)`, `xxx.W`, `xxx.L`, `d16(PC)`, `d8(PC,Xn)`. Not valid: `Dn`, `An`, `(An)+`, `-(An)`, or `#imm`. See [Addressing Modes](#addressing-modes) above for what each of these means (that section covers what every other instruction's `src`/`dst` can be, too). `JMP`, `LEA`, and `PEA` all use this exact same set for their `target`/`src` — they compute the address the same way `JSR` does, just jump to it directly (`JMP`, without pushing a return address), load it into `An` (`LEA`), or push it onto the stack (`PEA`) instead.
 
 ### How do LINK and UNLK handle A7?
 

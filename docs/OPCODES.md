@@ -888,6 +888,26 @@ Unconditional branch to label.
 BRA     LOOP           ; Jump to LOOP
 ```
 
+### JMP - Jump
+```
+JMP target
+```
+
+Unconditional jump to `target` — no return address is pushed, unlike
+`JSR`.
+
+**Addressing**: all control addressing modes — `(An)`, `d16(An)`,
+`d8(An,Xn)`, `xxx.W`, `xxx.L`, `d16(PC)`, `d8(PC,Xn)`. Not `Dn`, `An`,
+`(An)+`, `-(An)`, or `#imm`, which the 68000 doesn't allow here either.
+Same set `JSR`/`LEA`/`PEA` validate via `decodeControlAddress`.
+**Cycles**: 8
+**Flags**: None
+
+**Example**:
+```asm
+JMP     (A0)           ; Jump to the address held in A0
+```
+
 ### Conditional Branches
 
 `BLT`/`BLE`/`BGT`/`BGE` and `BHI`/`BLS`/`BCC`/`BCS` are two *separate* families for "is it bigger/smaller" — signed vs. unsigned — not synonyms. They can disagree on the same bit pattern: comparing `$FFFFFFFF` to `1`, `BLT` is true (signed: `-1 < 1`) but `BHI` is true too (unsigned: huge `> 1`). Use the signed family for values that can be negative, the unsigned family for plain counts/addresses.
@@ -1152,8 +1172,8 @@ Does nothing, useful for timing/padding.
 | BCD | ABCD, SBCD, NBCD |
 | Logical | AND, OR, XOR, NOT |
 | Bit | BTST |
-| Shift/Rotate | ASL, ASR, LSL, LSR, ROL, ROR |
-| Branches | BRA, BEQ, BNE, BLT, BLE, BGT, BGE, BHI, BLS, BCS, BCC, BVS, BVC, BPL, BMI, DBcc (DBRA/DBF, DBT, DBEQ, DBNE, ...), Scc (SEQ, SNE, ST, SF, ...), CHK |
+| Shift/Rotate | ASL, ASR, LSL, LSR, ROL, ROR, ROXL, ROXR |
+| Branches | BRA, JMP, BEQ, BNE, BLT, BLE, BGT, BGE, BHI, BLS, BCS, BCC, BVS, BVC, BPL, BMI, DBcc (DBRA/DBF, DBT, DBEQ, DBNE, ...), Scc (SEQ, SNE, ST, SF, ...), CHK |
 | Subroutines | JSR, BSR, RTS, LINK, UNLK |
 | System | TRAP, NOP |
 
@@ -1178,7 +1198,7 @@ each.
 
 **E** — [EXG](#exg---exchange-registers) · [EXT](#ext---sign-extend)
 
-**J** — [JSR](#jsr---jump-to-subroutine)
+**J** — [JMP](#jmp---jump) · [JSR](#jsr---jump-to-subroutine)
 
 **L** — [LEA](#lea---load-effective-address) · [LINK](#link---link-and-allocate) · [LSL](#lsllsr---logical-shift) · [LSR](#lsllsr---logical-shift)
 
@@ -1190,7 +1210,7 @@ each.
 
 **P** — [PEA](#pea---push-effective-address)
 
-**R** — [ROL](#rolror---rotate) · [ROR](#rolror---rotate) · [RTS](#rts---return-from-subroutine)
+**R** — [ROL](#rolror---rotate) · [ROR](#rolror---rotate) · [ROXL](#roxlroxr---rotate-through-extend) · [ROXR](#roxlroxr---rotate-through-extend) · [RTS](#rts---return-from-subroutine)
 
 **S** — [SBCD](#sbcd---subtract-decimal-with-extend) · [SCC](#scc---set-conditionally) · [SEQ](#scc---set-conditionally) · [SF](#scc---set-conditionally) · [SGE](#scc---set-conditionally) · [SGT](#scc---set-conditionally) · [SHI](#scc---set-conditionally) · [SLE](#scc---set-conditionally) · [SLS](#scc---set-conditionally) · [SLT](#scc---set-conditionally) · [SMI](#scc---set-conditionally) · [SNE](#scc---set-conditionally) · [SPL](#scc---set-conditionally) · [ST](#scc---set-conditionally) · [SUB](#sub---subtract) · [SUBA](#suba---subtract-address) · [SUBQ](#addqsubq---addsubtract-quick) · [SVC](#scc---set-conditionally) · [SVS](#scc---set-conditionally) · [SWAP](#swap---swap-register-halves)
 

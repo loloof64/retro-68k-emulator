@@ -710,6 +710,24 @@ const JSR: OpcodeDefinition = {
   },
 }
 
+// --- JMP <ea> ($4EC0) - like JSR but no return address is pushed - just
+// an unconditional jump to <ea>, same control addressing modes as JSR.
+
+const JMP: OpcodeDefinition = {
+  mnemonic: 'JMP',
+  encoding: '0100111011mmmrrr',
+  size: 'long',
+  handler: (cpu: CPUState, memory: Memory, args: unknown[]) => {
+    const opcodeWord = opcodeWordOf(args)
+    const mode = (opcodeWord >> 3) & 0b111
+    const reg = opcodeWord & 0b111
+
+    cpu.pc = decodeControlAddress(cpu, memory, mode, reg)
+
+    return 8
+  },
+}
+
 // --- BSR <disp> ($6100) - like Bcc's BRA, but pushes the return address --
 
 const BSR: OpcodeDefinition = {
@@ -2208,6 +2226,7 @@ export const opcodeTable: readonly OpcodeEntry[] = [
   { mask: 0xfff8, pattern: 0x4e50, definition: LINK },
   { mask: 0xfff8, pattern: 0x4e58, definition: UNLK },
   { mask: 0xffc0, pattern: 0x4e80, definition: JSR },
+  { mask: 0xffc0, pattern: 0x4ec0, definition: JMP },
   { mask: 0xf1c0, pattern: 0x41c0, definition: LEA },
   { mask: 0xf1c0, pattern: 0x4180, definition: CHK },
   { mask: 0xffc0, pattern: 0xe1c0, definition: ASL_MEM },
