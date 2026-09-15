@@ -1149,6 +1149,55 @@ const TST: OpcodeDefinition = {
   },
 }
 
+// --- TAS <ea> ($4AC0-$4AFF) - test and set an operand -------------------
+//
+// Reads a byte, sets flags exactly like TST.B would (N/Z from the value,
+// V/C cleared, X untouched), then writes the value back with bit 7 forced
+// to 1 - a "busy" flag other code can poll via a plain TST/BTST later. On
+// real 68000 hardware the read-modify-write is one indivisible bus cycle
+// (the whole point, for a multiprocessor mutex/semaphore); this emulator
+// has no concurrency to race against, so a plain read-then-write already
+// behaves identically.
+//
+// Shares TST's `$4A00`-`$4AFF` byte, reusing the size=11 bits TST's own
+// byte/word/long encoding never produces (decodeByteWordLongSize only
+// defines 00/01/10) - same "reserved size slot" trick EXT/MOVEM and the
+// `<ea>` shift/rotate memory form use, so this narrower entry has to be
+// listed before TST's broader one in opcodeTable.
+//
+// `An` direct is a genuinely reserved encoding here (there's no such
+// thing as test-and-setting an address register), rejected the same way
+// BTST/CHK reject it. `#imm` and PC-relative aren't excluded explicitly -
+// decodeEA's own write()-throws already catches those, same as every
+// other memory-alterable instruction in this file.
+
+const TAS: OpcodeDefinition = {
+  mnemonic: 'TAS',
+  encoding: '0100101011mmmrrr',
+  size: 'byte',
+  handler: (cpu: CPUState, memory: Memory, args: unknown[]) => {
+    const opcodeWord = opcodeWordOf(args)
+    const mode = (opcodeWord >> 3) & 0b111
+    const reg = opcodeWord & 0b111
+
+    if (mode === 0b001) {
+      raiseException(cpu, memory, ILLEGAL_INSTRUCTION_VECTOR, 'Illegal Instruction')
+      return 34
+    }
+
+    const ea = decodeEA(cpu, memory, mode, reg, 'byte')
+    const value = ea.read()
+
+    updateFlags(cpu, value, 'byte')
+    cpu.status.V = false
+    cpu.status.C = false
+
+    ea.write(value | 0x80)
+
+    return mode === 0b000 ? 4 : 14
+  },
+}
+
 // --- ASL/ASR/LSL/LSR/ROL/ROR/ROXL/ROXR ($E000-$E1FF) - register form ----
 //
 // Shifts/rotates a Dn in place by an immediate 1-8 count or a dynamic
@@ -1752,6 +1801,7 @@ export const opcodeTable: readonly OpcodeEntry[] = [
   { mask: 0xff00, pattern: 0x4600, definition: NOT },
   { mask: 0xff00, pattern: 0x4200, definition: CLR },
   { mask: 0xff00, pattern: 0x4400, definition: NEG },
+  { mask: 0xffc0, pattern: 0x4ac0, definition: TAS },
   { mask: 0xff00, pattern: 0x4a00, definition: TST },
   { mask: 0xfff8, pattern: 0x4840, definition: SWAP },
   { mask: 0xffc0, pattern: 0x4840, definition: PEA },

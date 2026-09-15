@@ -147,6 +147,10 @@ function tstWord(size: 0b00 | 0b01 | 0b10, mode: number, reg: number) {
   return (0b0100101000000000) | (size << 6) | (mode << 3) | reg
 }
 
+function tasWord(mode: number, reg: number) {
+  return 0x4ac0 | (mode << 3) | reg
+}
+
 // dr: 1=left 0=right. tt: 0b00=ASx 0b01=LSx 0b11=ROx. isRegisterCount:
 // false -> countOrReg is the immediate count (1-7, 0 means 8); true ->
 // countOrReg is the Dn holding the dynamic count.
@@ -1260,6 +1264,86 @@ describe('TST', () => {
     expect(cpu.status.Z).toBe(true)
     expect(cpu.status.V).toBe(false)
     expect(cpu.status.C).toBe(false)
+  })
+})
+
+describe('TAS', () => {
+  it('sets flags from the original value and forces bit 7 to 1, on a data register', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.D0, 0x12340005, 'long')
+    memory.write16(0x2000, tasWord(0b000, 0)) // TAS D0
+
+    const cycles = step(cpu, memory, opcodeTable)
+
+    expect(cpu.registers[Register.D0]).toBe(0x12340085) // low byte: 0x05 -> 0x85
+    expect(cpu.status.N).toBe(false) // flags reflect the *original* value (0x05)
+    expect(cpu.status.Z).toBe(false)
+    expect(cycles).toBe(4)
+  })
+
+  it('sets N and Z from a zero-valued operand, then still sets bit 7', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    cpu.status.V = true
+    cpu.status.C = true
+    writeRegister(cpu, Register.D0, 0, 'long')
+    memory.write16(0x2000, tasWord(0b000, 0)) // TAS D0
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.status.Z).toBe(true)
+    expect(cpu.status.N).toBe(false)
+    expect(cpu.status.V).toBe(false)
+    expect(cpu.status.C).toBe(false)
+    expect(cpu.registers[Register.D0] & 0xff).toBe(0x80)
+  })
+
+  it('sets N when the original value is already negative (bit 7 set)', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.D0, 0x80, 'byte')
+    memory.write16(0x2000, tasWord(0b000, 0)) // TAS D0
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.status.N).toBe(true)
+    expect(cpu.registers[Register.D0] & 0xff).toBe(0x80) // already set, unchanged
+  })
+
+  it('reads/writes a memory destination, at the flat memory cost', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.A0, 0x3000, 'long')
+    memory.write8(0x3000, 0x05)
+    memory.write16(0x2000, tasWord(0b010, 0)) // TAS (A0)
+
+    const cycles = step(cpu, memory, opcodeTable)
+
+    expect(memory.read8(0x3000)).toBe(0x85)
+    expect(cycles).toBe(14)
+  })
+
+  it('rejects An direct as a reserved encoding', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    memory.write32(ILLEGAL_INSTRUCTION_VECTOR, 0x3000)
+    memory.write16(0x2000, tasWord(0b001, 0)) // TAS A0
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.pc).toBe(0x3000)
+  })
+
+  it('mode=000 in this bit range still dispatches to TAS, not TST, since the two share an opcode', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.D0, 0x05, 'byte')
+    memory.write16(0x2000, tasWord(0b000, 0)) // same reserved size=11 bits as a byte/word/long TST would use
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.registers[Register.D0] & 0xff).toBe(0x85) // TAS's effect, not TST's (which wouldn't write back)
   })
 })
 

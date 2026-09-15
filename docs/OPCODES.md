@@ -379,6 +379,39 @@ TST.L   D0             ; set flags from D0
 BEQ     IS_ZERO
 ```
 
+### TAS - Test and Set an Operand
+```
+TAS dst
+```
+
+Reads `dst` as a byte, sets flags exactly like `TST.B` would (`N`/`Z`
+from the value read, `V`/`C` cleared), then writes the value back with
+bit 7 forced to `1` — a "busy" flag other code can poll later with a
+plain `TST`/`BTST`. On real 68000 hardware the read-modify-write is one
+indivisible bus cycle, meant for a multiprocessor mutex/semaphore; this
+emulator has no concurrency to race against, so a plain read-then-write
+already behaves identically.
+
+Shares `TST`'s `$4A00`-`$4AFF` byte: `TAS` reuses the size `11` bits
+`TST`'s own byte/word/long encoding never produces, the same "reserved
+size slot" trick `EXT`/`MOVEM` and the `<ea>` shift/rotate memory form
+use, so `TAS`'s narrower `opcodeTable` entry has to stay listed before
+`TST`'s broader one. `An` direct is a genuinely reserved encoding here
+(there's no such thing as test-and-setting an address register) —
+rejected the same way `BTST`/`CHK` reject it.
+
+**Sizes**: B (always)
+**Cycles**: 4 (`Dn`), 14 (memory)
+**Flags**: N, Z (from the value read), V (0), C (0)
+
+**Example**:
+```asm
+LOOP:
+  TAS     FLAG           ; N = old bit 7, then sets FLAG's bit 7
+  BMI     LOOP           ; N set: was already busy - spin
+  ; N clear: lock acquired, critical section entered
+```
+
 ### EXT - Sign Extend
 ```
 EXT.W Dn    ; byte -> word
@@ -906,7 +939,7 @@ Does nothing, useful for timing/padding.
 | Category | Instructions |
 |----------|--------------|
 | Data Movement | MOVE, MOVEA, MOVEQ, LEA, PEA, SWAP |
-| Arithmetic | ADD, SUB, ADDQ, SUBQ, MUL, DIV, CMP, CLR, NEG, TST, EXT |
+| Arithmetic | ADD, SUB, ADDQ, SUBQ, MUL, DIV, CMP, CLR, NEG, TST, TAS, EXT |
 | Logical | AND, OR, XOR, NOT |
 | Bit | BTST |
 | Shift/Rotate | ASL, ASR, LSL, LSR, ROL, ROR |
@@ -951,7 +984,7 @@ each.
 
 **S** — [SCC](#scc---set-conditionally) · [SEQ](#scc---set-conditionally) · [SF](#scc---set-conditionally) · [SGE](#scc---set-conditionally) · [SGT](#scc---set-conditionally) · [SHI](#scc---set-conditionally) · [SLE](#scc---set-conditionally) · [SLS](#scc---set-conditionally) · [SLT](#scc---set-conditionally) · [SMI](#scc---set-conditionally) · [SNE](#scc---set-conditionally) · [SPL](#scc---set-conditionally) · [ST](#scc---set-conditionally) · [SUB](#sub---subtract) · [SUBQ](#addqsubq---addsubtract-quick) · [SVC](#scc---set-conditionally) · [SVS](#scc---set-conditionally) · [SWAP](#swap---swap-register-halves)
 
-**T** — [TRAP](#trap---software-trap) · [TST](#tst---test)
+**T** — [TAS](#tas---test-and-set-an-operand) · [TRAP](#trap---software-trap) · [TST](#tst---test)
 
 **U** — [UNLK](#unlk---unlink)
 

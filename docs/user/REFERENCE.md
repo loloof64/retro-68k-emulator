@@ -151,6 +151,7 @@ A first handful of real instructions is wired in, grouped below the way Motorola
 | `CLR` | `CLR.size dst` | byte, word, long | 4 | N, Z, V (0), C (0) | Sets `dst` to `0`. |
 | `NEG` | `NEG.size dst` | byte, word, long | 4 | N, Z, V, C, X | Negates `dst` in place (two's complement: `dst = 0 - dst`). |
 | `TST` | `TST.size dst` | byte, word, long | 4 | N, Z, V (0), C (0) | Sets flags from `dst`, like `CMP.size #0,dst` — doesn't modify it. |
+| `TAS` | `TAS dst` | byte | 4 (`Dn`), 14 (memory) | N, Z (from the value read), V (0), C (0) | Like `TST.B`, but also sets `dst`'s bit 7 to `1` afterward — a "busy" flag for a spinlock. See [below](#how-does-tas-work-as-a-lock) for the idiom. |
 | `EXT` | `EXT.size Dn` | word, long | 4 | N, Z, V (0), C (0) | Sign-extends `Dn`: `.W` extends the low byte into the low word (high word untouched); `.L` extends the low word into the full long. |
 | `MULU` | `MULU.W src,Dn` | word (source) | 70 | N, Z, V (0), C (0) | Unsigned multiply: `Dn = src × Dn.W`, full 32-bit result in `Dn`. |
 | `MULS` | `MULS.W src,Dn` | word (source) | 71 | N, Z, V (0), C (0) | Signed multiply: `Dn = src × Dn.W`, full 32-bit result in `Dn`. |
@@ -244,11 +245,30 @@ See [TRAP System Calls](#trap-system-calls) below for `TRAP`.
 
 **S** — [Scc](#program-control) · [SUB](#arithmetic) · [SUBQ](#arithmetic) · [SWAP](#data-movement)
 
-**T** — [TST](#arithmetic)
+**T** — [TAS](#arithmetic) · [TST](#arithmetic)
 
 **U** — [UNLK](#program-control)
 
 **X** — [XOR](#logical)
+
+### How does TAS work as a lock?
+
+`TAS dst` does two things in one instruction: it sets flags from `dst` exactly like `TST.B dst` would (`N` from the value's sign bit, `Z` if it was `0`), then — regardless of what it just read — forces `dst`'s bit 7 to `1` and writes that back. Reading the old value and setting the new one happen as a single indivisible step on real 68000 hardware, which is the entire point: it's the classic building block for a *spinlock*, a busy-wait flag that only one caller can ever "win":
+
+```asm
+LOOP:
+  TAS     FLAG           ; N = old bit 7, then sets FLAG's bit 7
+  BMI     LOOP           ; N set: was already busy - spin
+  ; N clear: lock acquired, critical section entered
+  ...
+  CLR.B   FLAG           ; release the lock for the next caller
+```
+
+If `FLAG`'s bit 7 was already `1`, `N` comes out set and the loop spins — someone else holds the lock. If it was `0`, `N` comes out clear, execution falls through, and `TAS` has *already* set the bit on its way out — no other caller can slip in between the test and the set, because they were never two separate steps to begin with.
+
+This emulator has no concurrency (no threads, no interrupts preempting mid-instruction) to actually race against, so a plain read followed by a plain write already behaves identically to the indivisible version — the idiom above works the same way it would on real hardware, just without anything else that could ever contend for the lock.
+
+`An` direct isn't a valid `dst` — there's no such thing as test-and-setting an address register — so it raises the [Illegal Instruction exception](#exceptions) instead, the same restriction `BTST`/`CHK` have on their own `<ea>`.
 
 ### Which Bcc do I want?
 
