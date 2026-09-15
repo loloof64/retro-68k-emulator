@@ -24,7 +24,7 @@ On reset, every register is `0` except `A7`, which starts at `$03FFF` (the top o
 | `C` | Carry | Set on unsigned carry/borrow |
 | `X` | Extend | Mirrors `C` for most operations; used in multi-precision arithmetic |
 
-Which flags a given instruction touches is listed per-instruction below.
+Which flags a given instruction touches is listed per-instruction below, in the "Flags affected" column, using three notations: a flag on its own (e.g. `N, Z`) is set or cleared to reflect what the instruction actually produced; a flag followed by `(0)` (e.g. `V (0)`) is unconditionally cleared to `0`, regardless of the result — real hardware does this where the flag has no meaningful value for that instruction (multiply/divide can't overflow the way add/sub can, so `MULU`/`MULS` always clear `V`); and a flag missing from the list entirely is left untouched, keeping whatever value it had before the instruction ran.
 
 ## Addressing Modes
 
@@ -132,10 +132,10 @@ A first handful of real instructions is wired in, grouped below the way Motorola
 
 | Mnemonic | Syntax | Sizes | Cycles | Flags affected | Description |
 |---|---|---|---|---|---|
-| `MOVE` | `MOVE.size src,dst` | byte, word, long | 4 | N, Z (V and C always cleared) | Copies a value from `src` to `dst`. |
+| `MOVE` | `MOVE.size src,dst` | byte, word, long | 4 | N, Z, V (0), C (0) | Copies a value from `src` to `dst`. |
 | `MOVEA` | `MOVEA.size src,An` | word, long | 4 | none | Loads an address register. Not a separate opcode — a `MOVE` whose destination is `An` *is* `MOVEA`, bit-for-bit, which is exactly why it skips the flags a plain `MOVE` would set. Byte size raises the [Illegal Instruction exception](#exceptions). |
-| `MOVEQ` | `MOVEQ #data,Dn` | long | 4 | N, Z (V and C always cleared) | Loads a small immediate (-128 to 127) into a data register. Faster/shorter than `MOVE.L #imm,Dn`. |
-| `SWAP` | `SWAP Dn` | long | 4 | N, Z (V and C always cleared) | Swaps the high and low 16-bit halves of `Dn`. |
+| `MOVEQ` | `MOVEQ #data,Dn` | long | 4 | N, Z, V (0), C (0) | Loads a small immediate (-128 to 127) into a data register. Faster/shorter than `MOVE.L #imm,Dn`. |
+| `SWAP` | `SWAP Dn` | long | 4 | N, Z, V (0), C (0) | Swaps the high and low 16-bit halves of `Dn`. |
 
 ### Arithmetic
 
@@ -144,10 +144,10 @@ A first handful of real instructions is wired in, grouped below the way Motorola
 | `ADD` | `ADD.size src,Dn` | byte, word, long | 4 | N, Z, V, C, X | Adds `src` to a data register, in place. |
 | `SUB` | `SUB.size src,Dn` | byte, word, long | 4 | N, Z, V, C, X | Subtracts `src` from a data register, in place. |
 | `CMP` | `CMP.size src,Dn` | byte, word, long | 4 | N, Z, V, C | Subtracts `src` from a data register like `SUB`, but only sets flags — the register itself is unchanged. Typically followed by a `Bcc`. |
-| `CLR` | `CLR.size dst` | byte, word, long | 4 | N, Z (V and C always cleared) | Sets `dst` to `0`. |
+| `CLR` | `CLR.size dst` | byte, word, long | 4 | N, Z, V (0), C (0) | Sets `dst` to `0`. |
 | `NEG` | `NEG.size dst` | byte, word, long | 4 | N, Z, V, C, X | Negates `dst` in place (two's complement: `dst = 0 - dst`). |
-| `TST` | `TST.size dst` | byte, word, long | 4 | N, Z (V and C always cleared) | Sets flags from `dst`, like `CMP.size #0,dst` — doesn't modify it. |
-| `EXT` | `EXT.size Dn` | word, long | 4 | N, Z (V and C always cleared) | Sign-extends `Dn`: `.W` extends the low byte into the low word (high word untouched); `.L` extends the low word into the full long. |
+| `TST` | `TST.size dst` | byte, word, long | 4 | N, Z, V (0), C (0) | Sets flags from `dst`, like `CMP.size #0,dst` — doesn't modify it. |
+| `EXT` | `EXT.size Dn` | word, long | 4 | N, Z, V (0), C (0) | Sign-extends `Dn`: `.W` extends the low byte into the low word (high word untouched); `.L` extends the low word into the full long. |
 | `MULU` | `MULU.W src,Dn` | word (source) | 70 | N, Z, V (0), C (0) | Unsigned multiply: `Dn = src × Dn.W`, full 32-bit result in `Dn`. |
 | `MULS` | `MULS.W src,Dn` | word (source) | 71 | N, Z, V (0), C (0) | Signed multiply: `Dn = src × Dn.W`, full 32-bit result in `Dn`. |
 | `DIVU` | `DIVU.W src,Dn` | word (source) | 138 (10 on overflow, 38 on zero divide) | N, Z, V, C (0) | Unsigned divide: `Dn` (32-bit) ÷ `src` (16-bit) → quotient in `Dn`'s low word, remainder in the high word. If the quotient doesn't fit in 16 bits, `V` is set and `Dn` is left unmodified. Dividing by zero raises the [Zero Divide exception](#exceptions) instead. |
@@ -157,10 +157,10 @@ A first handful of real instructions is wired in, grouped below the way Motorola
 
 | Mnemonic | Syntax | Sizes | Cycles | Flags affected | Description |
 |---|---|---|---|---|---|
-| `AND` | `AND.size src,Dn` | byte, word, long | 4 | N, Z (V and C always cleared) | Bitwise ANDs `src` into a data register, in place. |
-| `OR` | `OR.size src,Dn` | byte, word, long | 4 | N, Z (V and C always cleared) | Bitwise ORs `src` into a data register, in place. |
-| `XOR` | `XOR.size Dn,dst` | byte, word, long | 4 | N, Z (V and C always cleared) | Bitwise XORs a data register into `dst` — the one bitwise op where the *source* is always `Dn` and `dst` can be memory. |
-| `NOT` | `NOT.size dst` | byte, word, long | 4 | N, Z (V and C always cleared) | Bitwise inverts `dst` in place (one's complement: `dst = ~dst`). |
+| `AND` | `AND.size src,Dn` | byte, word, long | 4 | N, Z, V (0), C (0) | Bitwise ANDs `src` into a data register, in place. |
+| `OR` | `OR.size src,Dn` | byte, word, long | 4 | N, Z, V (0), C (0) | Bitwise ORs `src` into a data register, in place. |
+| `XOR` | `XOR.size Dn,dst` | byte, word, long | 4 | N, Z, V (0), C (0) | Bitwise XORs a data register into `dst` — the one bitwise op where the *source* is always `Dn` and `dst` can be memory. |
+| `NOT` | `NOT.size dst` | byte, word, long | 4 | N, Z, V (0), C (0) | Bitwise inverts `dst` in place (one's complement: `dst = ~dst`). |
 
 ### Bit Manipulation
 

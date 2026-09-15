@@ -30,6 +30,13 @@ Where:
 | PC Displacement | `d16(PC)` | `MOVE.L $10(PC),D0` | PC (address of the extension word) + 16-bit displacement — source only |
 | PC Indexed | `d8(PC,Xn)` | `MOVE.L $10(PC,D0.W),D0` | Like Indexed, but based on PC instead of `An` — source only |
 
+## Flag Notation
+
+Each instruction below has a **Flags** line naming which of the status flags (`N`, `Z`, `V`, `C`, `X` — see [Architecture](./ARCHITECTURE.md#status-flags)) it touches. Three notations appear there:
+- A flag listed on its own (e.g. `N, Z`) is set or cleared to reflect what the instruction actually produced.
+- A flag followed by `(0)` (e.g. `V (0)`) is unconditionally cleared to `0`, regardless of the result — real 68000 hardware does this where the flag has no meaningful value for that instruction (multiply/divide, for instance, can't overflow the way add/sub can, so `MULU`/`MULS` always clear `V`; `AND`/`OR`/`XOR`/`NOT`/shifts and rotates without a genuine carry out always clear `C` and/or `V` the same way).
+- A flag missing from the list entirely is left untouched — its value carries over from whatever it was before the instruction ran.
+
 ## Data Movement
 
 ### MOVE - Move Data
@@ -150,7 +157,7 @@ Multiplies Dn by source, stores 32-bit result in Dn.
 
 **Sizes**: W (source)
 **Cycles**: 70 (MULU), 71 (MULS)
-**Flags**: N, Z, V (always 0), C (always 0)
+**Flags**: N, Z, V (0), C (0)
 
 **Examples**:
 ```asm
@@ -214,7 +221,7 @@ Sets `dst` to zero.
 
 **Sizes**: B, W, L
 **Cycles**: 4
-**Flags**: N, Z (always set/clear accordingly), V (0), C (0)
+**Flags**: N, Z, V (0), C (0)
 
 **Examples**:
 ```asm
@@ -284,7 +291,7 @@ Performs bitwise AND: `dst = dst & src`
 
 **Sizes**: B, W, L
 **Cycles**: 4-6
-**Flags**: N, Z, C (always 0), V (always 0)
+**Flags**: N, Z, C (0), V (0)
 
 **Examples**:
 ```asm
@@ -407,7 +414,7 @@ Logical shifts don't preserve sign — both directions fill with `0`. Only
 the register form is implemented, same as `ASL`/`ASR`.
 
 **Cycles**: 6 + 2*n
-**Flags**: N, Z, V (always 0), C, X (a dynamic count of 0 clears C but
+**Flags**: N, Z, V (0), C, X (a dynamic count of 0 clears C but
 leaves X untouched)
 
 **Examples**:
@@ -429,7 +436,7 @@ back in the other. Only the register form is implemented. Unlike the
 shifts above, `X` is never affected by a rotate on real 68000 hardware.
 
 **Cycles**: 6 + 2*n
-**Flags**: N, Z, V (0), C (X untouched)
+**Flags**: N, Z, V (0), C
 
 **Examples**:
 ```asm
