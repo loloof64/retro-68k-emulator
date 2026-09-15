@@ -193,6 +193,30 @@ function negWord(size: 0b00 | 0b01 | 0b10, mode: number, reg: number) {
   return (0b0100010000000000) | (size << 6) | (mode << 3) | reg
 }
 
+function oriWord(size: 0b00 | 0b01 | 0b10, mode: number, reg: number) {
+  return 0x0000 | (size << 6) | (mode << 3) | reg
+}
+
+function andiWord(size: 0b00 | 0b01 | 0b10, mode: number, reg: number) {
+  return 0x0200 | (size << 6) | (mode << 3) | reg
+}
+
+function subiWord(size: 0b00 | 0b01 | 0b10, mode: number, reg: number) {
+  return 0x0400 | (size << 6) | (mode << 3) | reg
+}
+
+function addiWord(size: 0b00 | 0b01 | 0b10, mode: number, reg: number) {
+  return 0x0600 | (size << 6) | (mode << 3) | reg
+}
+
+function eoriWord(size: 0b00 | 0b01 | 0b10, mode: number, reg: number) {
+  return 0x0a00 | (size << 6) | (mode << 3) | reg
+}
+
+function cmpiWord(size: 0b00 | 0b01 | 0b10, mode: number, reg: number) {
+  return 0x0c00 | (size << 6) | (mode << 3) | reg
+}
+
 function swapWord(reg: number) {
   return 0x4840 | reg
 }
@@ -1475,6 +1499,130 @@ describe('ADD/SUB/AND/OR to memory (Dn,<ea>)', () => {
     step(cpu, memory, opcodeTable)
 
     expect(cpu.registers[Register.D1] & 0xff).toBe(0x09) // SBCD's effect, not OR's
+  })
+})
+
+describe('ADDI/SUBI/ANDI/ORI/EORI/CMPI', () => {
+  it('ADDI adds an immediate word into a data register', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.D0, 10, 'word')
+    memory.write16(0x2000, addiWord(0b01, 0b000, 0)) // ADDI.W #5,D0
+    memory.write16(0x2002, 5)
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.registers[Register.D0] & 0xffff).toBe(15)
+  })
+
+  it('ADDI writes back to a memory destination, past the immediate extension word', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.A0, 0x3000, 'long')
+    memory.write8(0x3000, 10)
+    memory.write16(0x2000, addiWord(0b00, 0b010, 0)) // ADDI.B #5,(A0)
+    memory.write16(0x2002, 5)
+
+    step(cpu, memory, opcodeTable)
+
+    expect(memory.read8(0x3000)).toBe(15)
+    expect(cpu.pc).toBe(0x2004)
+  })
+
+  it('ADDI.L reads a full 32-bit immediate (long, two extension words)', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.D0, 0x00000001, 'long')
+    memory.write16(0x2000, addiWord(0b10, 0b000, 0)) // ADDI.L #$10000,D0
+    memory.write32(0x2002, 0x00010000)
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.registers[Register.D0]).toBe(0x00010001)
+    expect(cpu.pc).toBe(0x2006)
+  })
+
+  it('SUBI subtracts an immediate from a data register, setting flags like SUB', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.D0, 5, 'word')
+    memory.write16(0x2000, subiWord(0b01, 0b000, 0)) // SUBI.W #10,D0
+    memory.write16(0x2002, 10)
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.registers[Register.D0] & 0xffff).toBe(0xfffb) // 5 - 10 = -5
+    expect(cpu.status.N).toBe(true)
+    expect(cpu.status.C).toBe(true) // borrow occurred
+  })
+
+  it('ANDI combines an immediate into a data register and clears V/C', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.D0, 0b1111, 'byte')
+    memory.write16(0x2000, andiWord(0b00, 0b000, 0)) // ANDI.B #%1010,D0
+    memory.write16(0x2002, 0b1010)
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.registers[Register.D0] & 0xff).toBe(0b1010)
+    expect(cpu.status.V).toBe(false)
+    expect(cpu.status.C).toBe(false)
+  })
+
+  it('ORI combines an immediate into a memory destination', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.A0, 0x3000, 'long')
+    memory.write8(0x3000, 0b0001)
+    memory.write16(0x2000, oriWord(0b00, 0b010, 0)) // ORI.B #%1000,(A0)
+    memory.write16(0x2002, 0b1000)
+
+    step(cpu, memory, opcodeTable)
+
+    expect(memory.read8(0x3000)).toBe(0b1001)
+  })
+
+  it('EORI toggles bits via an immediate', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.D0, 0b1100, 'byte')
+    memory.write16(0x2000, eoriWord(0b00, 0b000, 0)) // EORI.B #%1010,D0
+    memory.write16(0x2002, 0b1010)
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.registers[Register.D0] & 0xff).toBe(0b0110)
+  })
+
+  it('CMPI sets flags from the comparison without writing back or touching X', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.D0, 100, 'word')
+    cpu.status.X = true
+    memory.write16(0x2000, cmpiWord(0b01, 0b000, 0)) // CMPI.W #100,D0
+    memory.write16(0x2002, 100)
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.registers[Register.D0] & 0xffff).toBe(100) // untouched
+    expect(cpu.status.Z).toBe(true)
+    expect(cpu.status.X).toBe(true) // CMPI never touches X
+  })
+
+  it('none of the six silently decode as MOVE any more (real opcode words resolve to themselves)', () => {
+    const cases: Array<[number, string]> = [
+      [addiWord(0b01, 0b000, 0), 'ADDI'],
+      [subiWord(0b01, 0b000, 0), 'SUBI'],
+      [andiWord(0b01, 0b000, 0), 'ANDI'],
+      [oriWord(0b01, 0b000, 0), 'ORI'],
+      [eoriWord(0b01, 0b000, 0), 'EORI'],
+      [cmpiWord(0b01, 0b000, 0), 'CMPI'],
+    ]
+    for (const [word, mnemonic] of cases) {
+      const entry = opcodeTable.find((e) => (word & e.mask) === e.pattern)
+      expect(entry?.definition.mnemonic).toBe(mnemonic)
+    }
   })
 })
 

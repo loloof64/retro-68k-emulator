@@ -147,11 +147,14 @@ A first handful of real instructions is wired in, grouped below the way Motorola
 | Mnemonic | Syntax | Sizes | Cycles | Flags affected | Description |
 |---|---|---|---|---|---|
 | `ADD` | `ADD.size src,Dn` / `ADD.size Dn,dst` | byte, word, long | 4 (Dn), 8/12 byte-word/long (mem) | N, Z, V, C, X | Adds `src` into a data register, or a data register into memory — see [below](#how-does-the-memory-destination-direction-work) for the second form's addressing restriction and why the cycle count is higher. |
+| `ADDI` | `ADDI.size #data,dst` | byte, word, long | 8/16 byte-word/long (`Dn`), 16/28 (mem) | N, Z, V, C, X | A different opcode from `ADD #imm,Dn` above — adds an immediate directly into `dst` (`Dn` or memory) with no register on the source side at all. See [below](#why-doesnt-this-emulator-implement-rtestopresetmove-sr) for the family of related immediate opcodes this codebase doesn't implement yet. |
 | `ADDA` | `ADDA.size src,An` | word, long | 8 (word), 6 (long) | none | `ADD`'s `An`-destination form: always a full 32-bit add, word `src` sign-extended first. Same relationship `MOVEA` has to `MOVE` — no flags touched at all, not even the ones a same-size `ADD` would set. |
 | `SUB` | `SUB.size src,Dn` / `SUB.size Dn,dst` | byte, word, long | 4 (Dn), 8/12 byte-word/long (mem) | N, Z, V, C, X | Subtracts `src` from a data register, or a data register from memory — same two directions `ADD` has, see [below](#how-does-the-memory-destination-direction-work). |
+| `SUBI` | `SUBI.size #data,dst` | byte, word, long | 8/16 byte-word/long (`Dn`), 16/28 (mem) | N, Z, V, C, X | `ADDI`'s subtraction counterpart, same relationship `SUB` has to `ADD` — subtracts an immediate directly from `dst`, no register on the source side. |
 | `SUBA` | `SUBA.size src,An` | word, long | 8 (word), 6 (long) | none | `SUB`'s `An`-destination form — same rules `ADDA` follows. |
 | `ADDQ`/`SUBQ` | `ADDQ #data,dst` / `SUBQ #data,dst` | byte, word, long | 4 | N, Z, V, C, X (`An`: none) | Adds/subtracts a small immediate (`1`-`8`) straight into `dst`, packed into the opcode itself. `dst = An` is always a full 32-bit op with no flags touched, regardless of size — same rule `MOVEA` follows. |
 | `CMP` | `CMP.size src,Dn` | byte, word, long | 4 | N, Z, V, C | Subtracts `src` from a data register like `SUB`, but only sets flags — the register itself is unchanged. Typically followed by a `Bcc`. |
+| `CMPI` | `CMPI.size #data,dst` | byte, word, long | 8/14 byte-word/long (`Dn`), 12/20 (mem) | N, Z, V, C | `CMP`'s immediate counterpart — compares an immediate directly against `dst` (`Dn` or memory), only sets flags, same as `CMP`. `X` untouched. |
 | `CMPA` | `CMPA.size src,An` | word, long | 6 | N, Z, V, C | `CMP`'s `An`-destination form: compares the full 32-bit `An` against `src` (sign-extended if word), without modifying `An`. |
 | `CLR` | `CLR.size dst` | byte, word, long | 4 | N, Z, V (0), C (0) | Sets `dst` to `0`. |
 | `NEG` | `NEG.size dst` | byte, word, long | 4 | N, Z, V, C, X | Negates `dst` in place (two's complement: `dst = 0 - dst`). |
@@ -176,8 +179,11 @@ A first handful of real instructions is wired in, grouped below the way Motorola
 | Mnemonic | Syntax | Sizes | Cycles | Flags affected | Description |
 |---|---|---|---|---|---|
 | `AND` | `AND.size src,Dn` / `AND.size Dn,dst` | byte, word, long | 4 (Dn), 8/12 byte-word/long (mem) | N, Z, V (0), C (0) | Bitwise ANDs `src` into a data register, or a data register into memory — see [below](#how-does-the-memory-destination-direction-work). |
+| `ANDI` | `ANDI.size #data,dst` | byte, word, long | 8/16 byte-word/long (`Dn`), 16/28 (mem) | N, Z, V (0), C (0) | A different opcode from `AND #imm,Dn` above — ANDs an immediate directly into `dst` (`Dn` or memory) with no register on the source side. |
 | `OR` | `OR.size src,Dn` / `OR.size Dn,dst` | byte, word, long | 4 (Dn), 8/12 byte-word/long (mem) | N, Z, V (0), C (0) | Bitwise ORs `src` into a data register, or a data register into memory — see [below](#how-does-the-memory-destination-direction-work). |
+| `ORI` | `ORI.size #data,dst` | byte, word, long | 8/16 byte-word/long (`Dn`), 16/28 (mem) | N, Z, V (0), C (0) | `ANDI`'s OR counterpart — ORs an immediate directly into `dst`, no register on the source side. |
 | `XOR` | `XOR.size Dn,dst` | byte, word, long | 4 | N, Z, V (0), C (0) | Bitwise XORs a data register into `dst` — the one bitwise op where the *source* is always `Dn` and `dst` can be memory. |
+| `EORI` | `EORI.size #data,dst` | byte, word, long | 8/16 byte-word/long (`Dn`), 16/28 (mem) | N, Z, V (0), C (0) | `XOR`'s immediate counterpart (real mnemonic `EOR`) — XORs an immediate directly into `dst`, no register on the source side. |
 | `NOT` | `NOT.size dst` | byte, word, long | 4 | N, Z, V (0), C (0) | Bitwise inverts `dst` in place (one's complement: `dst = ~dst`). |
 
 ### Bit Manipulation
@@ -240,15 +246,15 @@ See [TRAP System Calls](#trap-system-calls) below for `TRAP`, and
 
 ### Alphabetical Index
 
-**A** — [ABCD](#binary-coded-decimal) · [ADD](#arithmetic) · [ADDA](#arithmetic) · [ADDQ](#arithmetic) · [AND](#logical) · [ASL](#shift-and-rotate) · [ASR](#shift-and-rotate)
+**A** — [ABCD](#binary-coded-decimal) · [ADD](#arithmetic) · [ADDA](#arithmetic) · [ADDI](#arithmetic) · [ADDQ](#arithmetic) · [AND](#logical) · [ANDI](#logical) · [ASL](#shift-and-rotate) · [ASR](#shift-and-rotate)
 
 **B** — [Bcc](#program-control) · [BCHG](#bit-manipulation) · [BCLR](#bit-manipulation) · [BRA](#program-control) · [BSET](#bit-manipulation) · [BSR](#program-control) · [BTST](#bit-manipulation)
 
-**C** — [CHK](#program-control) · [CLR](#arithmetic) · [CMP](#arithmetic) · [CMPA](#arithmetic)
+**C** — [CHK](#program-control) · [CLR](#arithmetic) · [CMP](#arithmetic) · [CMPA](#arithmetic) · [CMPI](#arithmetic)
 
 **D** — [DBcc](#program-control) · [DIVS](#arithmetic) · [DIVU](#arithmetic)
 
-**E** — [EXG](#data-movement) · [EXT](#arithmetic)
+**E** — [EORI](#logical) · [EXG](#data-movement) · [EXT](#arithmetic)
 
 **I** — [ILLEGAL](#system)
 
@@ -260,13 +266,13 @@ See [TRAP System Calls](#trap-system-calls) below for `TRAP`, and
 
 **N** — [NBCD](#binary-coded-decimal) · [NEG](#arithmetic) · [NOP](#system) · [NOT](#logical)
 
-**O** — [OR](#logical)
+**O** — [OR](#logical) · [ORI](#logical)
 
 **P** — [PEA](#data-movement)
 
 **R** — [ROL](#shift-and-rotate) · [ROR](#shift-and-rotate) · [ROXL](#shift-and-rotate) · [ROXR](#shift-and-rotate) · [RTS](#program-control)
 
-**S** — [SBCD](#binary-coded-decimal) · [Scc](#program-control) · [SUB](#arithmetic) · [SUBA](#arithmetic) · [SUBQ](#arithmetic) · [SWAP](#data-movement)
+**S** — [SBCD](#binary-coded-decimal) · [Scc](#program-control) · [SUB](#arithmetic) · [SUBA](#arithmetic) · [SUBI](#arithmetic) · [SUBQ](#arithmetic) · [SWAP](#data-movement)
 
 **T** — [TAS](#arithmetic) · [TRAPV](#system) · [TST](#arithmetic)
 
@@ -563,23 +569,29 @@ CCR` are *not* privileged on the real MC68000 this emulator targets —
 to CCR`/`RTR` were never privileged at all. None of the three are
 blocked by anything above; they're simply not implemented yet, along
 with a few other ordinary instructions that were never on any
-implementation list: `ADDI`/`SUBI`/`ANDI`/`ORI`/`EORI`/`CMPI` (an
-immediate value directly against `<ea>`, no register involved — a
-different opcode from `ADD #imm,Dn` and friends, already covered by
-`ADD`'s normal form), `ADDX`/`SUBX`/`NEGX` (extend-carry arithmetic for
+implementation list: `ADDX`/`SUBX`/`NEGX` (extend-carry arithmetic for
 chaining an operation across a multi-byte value, the binary counterpart
 to `ABCD`/`SBCD`'s decimal chaining), and `CMPM` (compares two memory
 locations directly).
 
-**Hand-encoding any of those today doesn't fail cleanly** — most of them
-currently run as a *different*, unrelated instruction instead of
-raising a clean error, because they happen to share bit patterns an
+`ADDI`/`SUBI`/`ANDI`/`ORI`/`EORI`/`CMPI` — an immediate value directly
+against `<ea>`, no register involved, a different opcode from `ADD
+#imm,Dn` and friends — *are* implemented now, see the
+[Arithmetic](#arithmetic)/[Logical](#logical) tables above. Their own
+`#imm,CCR`/`#imm,SR` special-case sub-forms (`ANDI`/`ORI`/`EORI` only)
+are still missing, folded into the list below since they're a narrower
+version of the same gap.
+
+**Hand-encoding any of the remaining gaps today doesn't fail cleanly** —
+most run as a *different*, unrelated instruction instead of raising a
+clean error, because they happen to share bit patterns an
 already-implemented instruction's opcode entry doesn't exclude:
-`ADDI`/`SUBI`/`ANDI`/`ORI`/`EORI`/`CMPI` and `ANDI`/`ORI`/`EORI` to
-`CCR`/`SR` all currently run as `MOVE`; `ADDX`/`SUBX`/`NEGX` run as
-`ADD`/`SUB`/`NEG`; `MOVE` to/from `CCR` runs as `NEG`. `RTR` is the one
-exception that fails loudly instead, with an "Unknown instruction"
-error. Best avoided until they land.
+`ADDX`/`SUBX`/`NEGX` run as `ADD`/`SUB`/`NEG`; `MOVE` to/from `CCR` runs
+as `NEG`. `ANDI`/`ORI`/`EORI` to `CCR`/`SR` now reach `ANDI`/`ORI`/`EORI`'s
+own general form (no longer silently `MOVE`), which then throws a
+generic error rather than doing anything meaningful — an improvement,
+but still not a clean, catchable exception. `RTR` fails loudly too, with
+an "Unknown instruction" error. Best avoided until they land.
 
 **Example** — add two numbers and write a white pixel, using a direct absolute address:
 

@@ -1386,6 +1386,147 @@ function decodeByteWordLongSize(bits: number): Size {
   throw new Error(`Unsupported size bits: ${bits.toString(2)}`)
 }
 
+// --- ADDI/SUBI/ANDI/ORI/EORI/CMPI #<data>,<ea> ($0000-$0CFF) -------------
+//
+// The immediate-operand siblings of ADD/SUB/AND/OR/EOR/CMP: the value to
+// combine is an extension word (or longword) read straight out of the
+// instruction stream, not another register or memory operand. `<ea>` can
+// be `Dn` or any of the usual writable memory modes - unlike ADD_MEM/
+// SUB_MEM/etc. above, `Dn` *is* valid here (there's no separate register
+// form to collide with the way there is for ADD/SUB/AND/OR), so this
+// reuses plain `decodeEA` rather than `decodeMemAlterableEA`. `An` direct
+// isn't a valid destination on real hardware, but - like CLR/NEG/NOT/TST
+// above - that isn't explicitly guarded here either; decodeEA treats it
+// as an ordinary writable register regardless of which instruction called
+// it, the same pre-existing gap those four share.
+//
+// The immediate is read *before* `<ea>` is decoded, matching real
+// hardware's instruction layout: opcode word, then the immediate data,
+// then any `<ea>` extension words (a displacement, an absolute address)
+// only after that.
+//
+// Real hardware also repurposes `<ea>` = `#imm` (mode 111, reg 100) as a
+// completely different instruction here - `ORI`/`ANDI`/`EORI #imm,CCR`
+// or `,SR` - which this doesn't implement. Left unhandled rather than
+// silently misdecoded: decodeEA's own #imm case still consumes an
+// extension word and then throws on `ea.write()`, the same "genuinely
+// invalid destination raises a plain error, not a clean CPU exception"
+// gap CLR/NEG/NOT/TST already have for their own `An` case above - not
+// silently wrong, just not yet a catchable Illegal Instruction either.
+
+function decodeImmediateAndEa(cpu: CPUState, memory: Memory, opcodeWord: number) {
+  const size = decodeByteWordLongSize((opcodeWord >> 6) & 0b11)
+  const mode = (opcodeWord >> 3) & 0b111
+  const reg = opcodeWord & 0b111
+
+  const raw = size === 'long' ? memory.read32(cpu.pc) : memory.read16(cpu.pc)
+  cpu.pc += size === 'long' ? 4 : 2
+  const immediate = size === 'byte' ? raw & 0xff : raw
+
+  const ea = decodeEA(cpu, memory, mode, reg, size)
+  const isRegisterDest = mode === 0b000
+  return { immediate, ea, size, isRegisterDest }
+}
+
+const ADDI: OpcodeDefinition = {
+  mnemonic: 'ADDI',
+  encoding: '00000110ssmmmrrr',
+  size: 'variable',
+  handler: (cpu: CPUState, memory: Memory, args: unknown[]) => {
+    const { immediate, ea, size, isRegisterDest } = decodeImmediateAndEa(cpu, memory, opcodeWordOf(args))
+
+    const { result, flags } = addWithFlags(ea.read(), immediate, size)
+    ea.write(result)
+
+    cpu.status.N = flags.N
+    cpu.status.Z = flags.Z
+    cpu.status.V = flags.V
+    cpu.status.C = flags.C
+    cpu.status.X = flags.X
+
+    if (isRegisterDest) return size === 'long' ? 16 : 8
+    return size === 'long' ? 28 : 16
+  },
+}
+
+const SUBI: OpcodeDefinition = {
+  mnemonic: 'SUBI',
+  encoding: '00000100ssmmmrrr',
+  size: 'variable',
+  handler: (cpu: CPUState, memory: Memory, args: unknown[]) => {
+    const { immediate, ea, size, isRegisterDest } = decodeImmediateAndEa(cpu, memory, opcodeWordOf(args))
+
+    const { result, flags } = subWithFlags(ea.read(), immediate, size)
+    ea.write(result)
+
+    cpu.status.N = flags.N
+    cpu.status.Z = flags.Z
+    cpu.status.V = flags.V
+    cpu.status.C = flags.C
+    cpu.status.X = flags.X
+
+    if (isRegisterDest) return size === 'long' ? 16 : 8
+    return size === 'long' ? 28 : 16
+  },
+}
+
+function immediateLogicalHandler(op: (dest: number, imm: number) => number): OpcodeDefinition['handler'] {
+  return (cpu: CPUState, memory: Memory, args: unknown[]) => {
+    const { immediate, ea, size, isRegisterDest } = decodeImmediateAndEa(cpu, memory, opcodeWordOf(args))
+
+    const result = op(ea.read(), immediate)
+    ea.write(result)
+
+    updateFlags(cpu, result, size)
+    cpu.status.V = false
+    cpu.status.C = false
+
+    if (isRegisterDest) return size === 'long' ? 16 : 8
+    return size === 'long' ? 28 : 16
+  }
+}
+
+const ANDI: OpcodeDefinition = {
+  mnemonic: 'ANDI',
+  encoding: '00000010ssmmmrrr',
+  size: 'variable',
+  handler: immediateLogicalHandler((dest, imm) => dest & imm),
+}
+
+const ORI: OpcodeDefinition = {
+  mnemonic: 'ORI',
+  encoding: '00000000ssmmmrrr',
+  size: 'variable',
+  handler: immediateLogicalHandler((dest, imm) => dest | imm),
+}
+
+const EORI: OpcodeDefinition = {
+  mnemonic: 'EORI',
+  encoding: '00001010ssmmmrrr',
+  size: 'variable',
+  handler: immediateLogicalHandler((dest, imm) => dest ^ imm),
+}
+
+const CMPI: OpcodeDefinition = {
+  mnemonic: 'CMPI',
+  encoding: '00001100ssmmmrrr',
+  size: 'variable',
+  handler: (cpu: CPUState, memory: Memory, args: unknown[]) => {
+    const { immediate, ea, size, isRegisterDest } = decodeImmediateAndEa(cpu, memory, opcodeWordOf(args))
+
+    const { flags } = subWithFlags(ea.read(), immediate, size)
+
+    cpu.status.N = flags.N
+    cpu.status.Z = flags.Z
+    cpu.status.V = flags.V
+    cpu.status.C = flags.C
+    // Real 68000 CMPI leaves X untouched, same as CMP.
+
+    if (isRegisterDest) return size === 'long' ? 14 : 8
+    return size === 'long' ? 20 : 12
+  },
+}
+
 const NOT: OpcodeDefinition = {
   mnemonic: 'NOT',
   encoding: '01000110ssmmmrrr',
@@ -2375,6 +2516,12 @@ export const opcodeTable: readonly OpcodeEntry[] = [
   { mask: 0xffc0, pattern: 0x0880, definition: BCLR },
   { mask: 0xffc0, pattern: 0x08c0, definition: BSET },
   { mask: 0xf138, pattern: 0x0108, definition: MOVEP },
+  { mask: 0xff00, pattern: 0x0000, definition: ORI },
+  { mask: 0xff00, pattern: 0x0200, definition: ANDI },
+  { mask: 0xff00, pattern: 0x0400, definition: SUBI },
+  { mask: 0xff00, pattern: 0x0600, definition: ADDI },
+  { mask: 0xff00, pattern: 0x0a00, definition: EORI },
+  { mask: 0xff00, pattern: 0x0c00, definition: CMPI },
   { mask: 0xff00, pattern: 0x4600, definition: NOT },
   { mask: 0xff00, pattern: 0x4200, definition: CLR },
   { mask: 0xff00, pattern: 0x4400, definition: NEG },
