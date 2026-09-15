@@ -150,6 +150,11 @@ function dnToMemWord(
   return (topNibble << 12) | (srcReg << 9) | ((0b100 | opmode) << 6) | (destMode << 3) | destReg
 }
 
+// opmode: 0b01000=Dx,Dy 0b01001=Ax,Ay 0b10001=Dx,Ay
+function exgWord(rx: number, opmode: 0b01000 | 0b01001 | 0b10001, ry: number) {
+  return 0xc100 | (rx << 9) | (opmode << 3) | ry
+}
+
 function notWord(size: 0b00 | 0b01 | 0b10, mode: number, reg: number) {
   return (0b0100011000000000) | (size << 6) | (mode << 3) | reg
 }
@@ -1246,6 +1251,82 @@ describe('XOR', () => {
     step(cpu, memory, opcodeTable)
 
     expect(memory.read32(0x2000 + 4)).toBe(0xffff0000)
+  })
+})
+
+describe('EXG', () => {
+  it('exchanges two data registers', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.D0, 0x11111111, 'long')
+    writeRegister(cpu, Register.D1, 0x22222222, 'long')
+    memory.write16(0x2000, exgWord(0, 0b01000, 1)) // EXG D0,D1
+
+    const cycles = step(cpu, memory, opcodeTable)
+
+    expect(cpu.registers[Register.D0]).toBe(0x22222222)
+    expect(cpu.registers[Register.D1]).toBe(0x11111111)
+    expect(cycles).toBe(6)
+  })
+
+  it('exchanges two address registers', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.A0, 0x3000, 'long')
+    writeRegister(cpu, Register.A1, 0x4000, 'long')
+    memory.write16(0x2000, exgWord(0, 0b01001, 1)) // EXG A0,A1
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.registers[Register.A0]).toBe(0x4000)
+    expect(cpu.registers[Register.A1]).toBe(0x3000)
+  })
+
+  it('exchanges a data register and an address register', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.D0, 0xaaaaaaaa, 'long')
+    writeRegister(cpu, Register.A1, 0x5000, 'long')
+    memory.write16(0x2000, exgWord(0, 0b10001, 1)) // EXG D0,A1
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.registers[Register.D0]).toBe(0x5000)
+    expect(cpu.registers[Register.A1]).toBe(0xaaaaaaaa)
+  })
+
+  it('touches no flags at all', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    cpu.status.N = true
+    cpu.status.Z = true
+    cpu.status.V = true
+    cpu.status.C = true
+    cpu.status.X = true
+    writeRegister(cpu, Register.D0, 0, 'long')
+    writeRegister(cpu, Register.D1, 0, 'long')
+    memory.write16(0x2000, exgWord(0, 0b01000, 1)) // EXG D0,D1
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.status.N).toBe(true)
+    expect(cpu.status.Z).toBe(true)
+    expect(cpu.status.V).toBe(true)
+    expect(cpu.status.C).toBe(true)
+    expect(cpu.status.X).toBe(true)
+  })
+
+  it("does not get shadowed by AND's memory-destination form, which shares its top nibble", () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.D0, 1, 'long')
+    writeRegister(cpu, Register.D1, 2, 'long')
+    memory.write16(0x2000, exgWord(0, 0b01000, 1)) // EXG D0,D1
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.registers[Register.D0]).toBe(2) // EXG's effect, not a wrongly-decoded AND
+    expect(cpu.registers[Register.D1]).toBe(1)
   })
 })
 

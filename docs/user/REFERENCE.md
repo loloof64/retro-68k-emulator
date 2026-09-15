@@ -138,6 +138,7 @@ A first handful of real instructions is wired in, grouped below the way Motorola
 | `LEA` | `LEA src,An` | long | 4 | none | Computes an address and loads it into `An`, without reading what's stored there. Same addressing modes as `JSR` — see [below](#which-addressing-modes-can-jsr-target). |
 | `PEA` | `PEA src` | long | 12 | none | Like `LEA`, but pushes the address onto the stack instead of loading it into a register. Same addressing modes as `JSR` — see [below](#which-addressing-modes-can-jsr-target). |
 | `SWAP` | `SWAP Dn` | long | 4 | N, Z, V (0), C (0) | Swaps the high and low 16-bit halves of `Dn`. |
+| `EXG` | `EXG Dx,Dy` / `EXG Ax,Ay` / `EXG Dx,Ay` | long | 6 | none | Swaps two full 32-bit registers — any mix of data and address registers. |
 | `MOVEM` | `MOVEM.size list,dst` / `MOVEM.size src,list` | word, long | see below | none | Moves any subset of the 16 registers to or from memory at once, picked by a bitmask. See [below](#how-does-movems-register-list-work) for the addressing modes, the bitmask order, and the cycle formula. |
 
 ### Arithmetic
@@ -238,7 +239,7 @@ See [TRAP System Calls](#trap-system-calls) below for `TRAP`.
 
 **D** — [DBcc](#program-control) · [DIVS](#arithmetic) · [DIVU](#arithmetic)
 
-**E** — [EXT](#arithmetic)
+**E** — [EXG](#data-movement) · [EXT](#arithmetic)
 
 **J** — [JSR](#program-control)
 

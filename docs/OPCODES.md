@@ -156,6 +156,38 @@ Exchanges the high and low 16-bit words of a data register.
 SWAP    D0              ; D0's high and low words trade places
 ```
 
+### EXG - Exchange Registers
+```
+EXG Dx,Dy
+EXG Ax,Ay
+EXG Dx,Ay
+```
+
+Swaps two full 32-bit registers in one instruction — any combination of
+data and address registers, in either order (`EXG Ax,Dy` assembles to
+the same `Dx,Ay` encoding with the operands swapped). No flags touched.
+
+Shares its top nibble (`$C1xx`) with `ABCD` (bit 8 = `1` there too), but
+`ABCD`'s fixed `0000`/`0001` opmode never overlaps `EXG`'s three exact
+opmode values (`01000`/`01001`/`10001`), so the two never collide with
+each other directly. `EXG` *does* collide with `AND`'s `Dn,<ea>`
+memory-destination form (below, under Logical Operations), though —
+that entry's mask only fixes bit 8, wildcarding the rest, so it would
+otherwise swallow `EXG`'s words too. `EXG`'s three narrower
+`opcodeTable` entries (mask `0xf1f8`, one exact pattern each) have to
+be listed before it for that reason.
+
+**Sizes**: L (always)
+**Cycles**: 6
+**Flags**: None
+
+**Examples**:
+```asm
+EXG     D0,D1            ; D0 and D1 trade places
+EXG     A0,A1            ; A0 and A1 trade places
+EXG     D0,A0            ; D0 and A0 trade places
+```
+
 ### MOVEM - Move Multiple Registers
 ```
 MOVEM.size <register list>,<ea>
@@ -1115,7 +1147,7 @@ Does nothing, useful for timing/padding.
 
 | Category | Instructions |
 |----------|--------------|
-| Data Movement | MOVE, MOVEA, MOVEQ, LEA, PEA, SWAP |
+| Data Movement | MOVE, MOVEA, MOVEQ, LEA, PEA, SWAP, EXG |
 | Arithmetic | ADD, ADDA, SUB, SUBA, ADDQ, SUBQ, MUL, DIV, CMP, CMPA, CLR, NEG, TST, TAS, EXT |
 | BCD | ABCD, SBCD, NBCD |
 | Logical | AND, OR, XOR, NOT |
@@ -1144,7 +1176,7 @@ each.
 
 **D** — [DBCC](#dbcc---decrement-and-branch-conditionally) · [DBCS](#dbcc---decrement-and-branch-conditionally) · [DBEQ](#dbcc---decrement-and-branch-conditionally) · [DBGE](#dbcc---decrement-and-branch-conditionally) · [DBGT](#dbcc---decrement-and-branch-conditionally) · [DBHI](#dbcc---decrement-and-branch-conditionally) · [DBLE](#dbcc---decrement-and-branch-conditionally) · [DBLS](#dbcc---decrement-and-branch-conditionally) · [DBLT](#dbcc---decrement-and-branch-conditionally) · [DBMI](#dbcc---decrement-and-branch-conditionally) · [DBNE](#dbcc---decrement-and-branch-conditionally) · [DBPL](#dbcc---decrement-and-branch-conditionally) · [DBRA](#dbcc---decrement-and-branch-conditionally) · [DBT](#dbcc---decrement-and-branch-conditionally) · [DBVC](#dbcc---decrement-and-branch-conditionally) · [DBVS](#dbcc---decrement-and-branch-conditionally) · [DIVS](#div---divide) · [DIVU](#div---divide)
 
-**E** — [EXT](#ext---sign-extend)
+**E** — [EXG](#exg---exchange-registers) · [EXT](#ext---sign-extend)
 
 **J** — [JSR](#jsr---jump-to-subroutine)
 

@@ -1063,6 +1063,53 @@ const XOR: OpcodeDefinition = {
   },
 }
 
+// --- EXG Rx,Ry ($C140/$C148/$C188) - exchange two registers -------------
+//
+// Swaps two full 32-bit registers in one instruction - `Dx,Dy`, `Ax,Ay`,
+// or `Dx,Ay` (never `Ax,Dy`; the assembler picks the encoding that
+// matches which operand is which). No flags touched, flat 6 cycles
+// regardless of which pair. Three exact opmode values (5 bits, bits
+// 7-3) pick the register-file combination - `01000`/`01001`/`10001` -
+// with nothing else valid in between, so this is three narrow
+// opcodeTable entries (mask `0xf1f8`, one exact pattern each) sharing
+// one handler, rather than one entry decoding a variable field.
+//
+// All three share the `AND`/`ABCD` top nibble (`$C000`) with bit 8 = 1,
+// same as `ABCD`'s own reserved slot - but `EXG`'s opmode values (bit 6
+// or bit 7 always set) never overlap `ABCD`'s fixed `0000`/`0001`
+// opmode, so the two never collide with each other. They *do* collide
+// with `AND`'s new `Dn,<ea>` memory-destination form above, though:
+// that entry's mask only fixes bit 8, wildcarding the rest, so it would
+// otherwise swallow `EXG`'s words too. `EXG`'s narrower entries have to
+// be listed first in opcodeTable for that reason - same trick, new
+// instance of it.
+
+const EXG_DATA = 0b01000
+const EXG_ADDRESS = 0b01001
+const EXG_DATA_ADDRESS = 0b10001
+
+const EXG: OpcodeDefinition = {
+  mnemonic: 'EXG',
+  encoding: '1100rrr1ooooosss',
+  size: 'long',
+  handler: (cpu: CPUState, _memory: Memory, args: unknown[]) => {
+    const opcodeWord = opcodeWordOf(args)
+    const rx = (opcodeWord >> 9) & 0b111
+    const opmode = (opcodeWord >> 3) & 0b11111
+    const ry = opcodeWord & 0b111
+
+    const regX = (opmode === EXG_ADDRESS ? Register.A0 : Register.D0) + rx
+    const regY = (opmode === EXG_DATA ? Register.D0 : Register.A0) + ry
+
+    const valueX = readRegister(cpu, regX as Register, 'long')
+    const valueY = readRegister(cpu, regY as Register, 'long')
+    writeRegister(cpu, regX as Register, valueY, 'long')
+    writeRegister(cpu, regY as Register, valueX, 'long')
+
+    return 6
+  },
+}
+
 // --- ADD/SUB/AND/OR Dn,<ea> - the missing memory-destination direction --
 //
 // `ADD`/`SUB`/`AND`/`OR` above only cover `<ea>,Dn -> Dn` (opmode `0xx`);
@@ -2196,6 +2243,9 @@ export const opcodeTable: readonly OpcodeEntry[] = [
   { mask: 0xf100, pattern: 0x8000, definition: OR },
   { mask: 0xf1f0, pattern: 0xc100, definition: ABCD },
   { mask: 0xf1f0, pattern: 0x8100, definition: SBCD },
+  { mask: 0xf1f8, pattern: 0xc100 | (EXG_DATA << 3), definition: EXG },
+  { mask: 0xf1f8, pattern: 0xc100 | (EXG_ADDRESS << 3), definition: EXG },
+  { mask: 0xf1f8, pattern: 0xc100 | (EXG_DATA_ADDRESS << 3), definition: EXG },
   { mask: 0xf100, pattern: 0xc100, definition: AND_MEM },
   { mask: 0xf100, pattern: 0x8100, definition: OR_MEM },
   { mask: 0xf100, pattern: 0x7000, definition: MOVEQ },
