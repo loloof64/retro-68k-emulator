@@ -60,14 +60,82 @@ function decodeIndexedAddress(cpu: CPUState, memory: Memory, base: number): numb
   return (base + xnValue + displacement) >>> 0
 }
 
+// Decodes a "control" addressing mode — the modes that resolve to a plain
+// memory address with no register side effect: (An), d16(An), d8(An,Xn),
+// xxx.W, xxx.L, d16(PC), and d8(PC,Xn). This is exactly the <ea> subset the
+// 68000 allows for JSR/JMP/LEA/PEA-style instructions (no Dn/An direct, no
+// (An)+/-(An), no #imm). decodeEA below calls this for its own memory modes
+// and then wraps the address in a read/write pair; callers that need the
+// raw address itself (JSR) use it directly.
+export function decodeControlAddress(cpu: CPUState, memory: Memory, mode: number, reg: number): number {
+  switch (mode) {
+    case 0b010: // (An)
+      return readRegister(cpu, (Register.A0 + reg) as Register, 'long')
+
+    case 0b101: {
+      // Address Register Indirect with Displacement: d16(An).
+      const base = readRegister(cpu, (Register.A0 + reg) as Register, 'long')
+      const raw = memory.read16(cpu.pc)
+      cpu.pc += 2
+      const displacement = (raw << 16) >> 16
+      return (base + displacement) >>> 0
+    }
+
+    case 0b110: {
+      // Address Register Indirect with Index (8-Bit Displacement Mode): d8(An,Xn).
+      const base = readRegister(cpu, (Register.A0 + reg) as Register, 'long')
+      return decodeIndexedAddress(cpu, memory, base)
+    }
+
+    case 0b111:
+      if (reg === 0b000) {
+        // Absolute Short: 16-bit extension word, sign-extended to a full
+        // address — reaches only $0000-$7FFF (or, on real hardware, the
+        // very top of the address space via the negative half; this
+        // emulator's memory is far smaller than that, so a negative value
+        // here just means "out of bounds").
+        const raw = memory.read16(cpu.pc)
+        cpu.pc += 2
+        return (raw << 16) >> 16
+      }
+      if (reg === 0b001) {
+        // Absolute Long: a full 32-bit extension address, unsigned.
+        const address = memory.read32(cpu.pc)
+        cpu.pc += 4
+        return address
+      }
+      if (reg === 0b010) {
+        // PC Indirect with Displacement: d16(PC) — the displacement is
+        // relative to the address of the extension word itself, per the
+        // 68000's definition of "PC" in this mode.
+        const base = cpu.pc
+        const raw = memory.read16(cpu.pc)
+        cpu.pc += 2
+        const displacement = (raw << 16) >> 16
+        return (base + displacement) >>> 0
+      }
+      if (reg === 0b011) {
+        // PC Indirect with Index (8-Bit Displacement Mode): d8(PC,Xn).
+        // Same brief extension word as mode 6, but based on PC instead of An.
+        return decodeIndexedAddress(cpu, memory, cpu.pc)
+      }
+      throw new Error(`mode=7 reg=${reg} is not a control addressing mode`)
+
+    default:
+      throw new Error(`mode=${mode} is not a control addressing mode`)
+  }
+}
+
+const PC_RELATIVE_MODE_7_REGS = new Set([0b010, 0b011])
+
 // Decodes a standard 6-bit effective address (3-bit mode + 3-bit register),
 // consuming any extension words it needs from memory at cpu.pc as it goes —
 // so callers just decode source then destination, in that order, and PC
 // ends up past everything by the time the instruction is done.
 //
 // Supported so far: Dn, An, (An), (An)+, -(An), #imm (source only),
-// absolute short/long, indexed (An,Xn), and PC-relative (d16(PC) and
-// (PC,Xn)).
+// d16(An), indexed (An,Xn), absolute short/long, and PC-relative (d16(PC)
+// and (PC,Xn)).
 export function decodeEA(cpu: CPUState, memory: Memory, mode: number, reg: number, size: Size): EffectiveAddress {
   switch (mode) {
     case 0b000: {
@@ -86,10 +154,10 @@ export function decodeEA(cpu: CPUState, memory: Memory, mode: number, reg: numbe
       }
     }
 
-    case 0b010: {
-      const addrReg = (Register.A0 + reg) as Register
-      return memoryEA(memory, readRegister(cpu, addrReg, 'long'), size)
-    }
+    case 0b010:
+    case 0b101:
+    case 0b110:
+      return decodeMemoryEA(cpu, memory, mode, reg, size)
 
     case 0b011: {
       const addrReg = (Register.A0 + reg) as Register
@@ -106,52 +174,7 @@ export function decodeEA(cpu: CPUState, memory: Memory, mode: number, reg: numbe
       return memoryEA(memory, address, size)
     }
 
-    case 0b110: {
-      // Address Register Indirect with Index (8-Bit Displacement Mode):
-      // d8(An,Xn) — a normal, writable memory operand.
-      const addrReg = (Register.A0 + reg) as Register
-      const base = readRegister(cpu, addrReg, 'long')
-      const address = decodeIndexedAddress(cpu, memory, base)
-      return memoryEA(memory, address, size)
-    }
-
     case 0b111:
-      if (reg === 0b000) {
-        // Absolute Short: 16-bit extension word, sign-extended to a full
-        // address — reaches only $0000-$7FFF (or, on real hardware, the
-        // very top of the address space via the negative half; this
-        // emulator's memory is far smaller than that, so a negative value
-        // here just means "out of bounds").
-        const raw = memory.read16(cpu.pc)
-        cpu.pc += 2
-        const address = (raw << 16) >> 16
-        return memoryEA(memory, address, size)
-      }
-      if (reg === 0b001) {
-        // Absolute Long: a full 32-bit extension address, unsigned.
-        const address = memory.read32(cpu.pc)
-        cpu.pc += 4
-        return memoryEA(memory, address, size)
-      }
-      if (reg === 0b010) {
-        // PC Indirect with Displacement: d16(PC) — the displacement is
-        // relative to the address of the extension word itself, per the
-        // 68000's definition of "PC" in this mode. Read-only, like every
-        // PC-relative mode.
-        const base = cpu.pc
-        const raw = memory.read16(cpu.pc)
-        cpu.pc += 2
-        const displacement = (raw << 16) >> 16
-        const address = (base + displacement) >>> 0
-        return readOnlyEA(memory, address, size)
-      }
-      if (reg === 0b011) {
-        // PC Indirect with Index (8-Bit Displacement Mode): d8(PC,Xn).
-        // Same brief extension word as mode 6, but based on PC instead of An.
-        const base = cpu.pc
-        const address = decodeIndexedAddress(cpu, memory, base)
-        return readOnlyEA(memory, address, size)
-      }
       if (reg === 0b100) {
         // #imm — byte immediates are still stored as a full word, low byte used.
         const raw = size === 'long' ? memory.read32(cpu.pc) : memory.read16(cpu.pc)
@@ -164,9 +187,17 @@ export function decodeEA(cpu: CPUState, memory: Memory, mode: number, reg: numbe
           },
         }
       }
-      throw new Error(`Unsupported addressing mode: mode=7 reg=${reg}`)
+      return decodeMemoryEA(cpu, memory, mode, reg, size)
 
     default:
       throw new Error(`Unsupported addressing mode: mode=${mode} reg=${reg}`)
   }
+}
+
+// Every decodeEA mode that's a control address underneath, wrapped as a
+// read/write pair — writable normally, read-only for the PC-relative modes.
+function decodeMemoryEA(cpu: CPUState, memory: Memory, mode: number, reg: number, size: Size): EffectiveAddress {
+  const address = decodeControlAddress(cpu, memory, mode, reg)
+  const isPcRelative = mode === 0b111 && PC_RELATIVE_MODE_7_REGS.has(reg)
+  return isPcRelative ? readOnlyEA(memory, address, size) : memoryEA(memory, address, size)
 }

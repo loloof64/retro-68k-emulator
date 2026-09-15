@@ -37,6 +37,7 @@ An addressing mode is how an instruction says where an operand lives — a regis
 | Register indirect | `(An)` | `MOVE.L (A0),D0` | The value in memory at the address held in `An` |
 | Post-increment | `(An)+` | `MOVE.L (A0)+,D0` | Like indirect, then `An` is bumped by the operand's size |
 | Pre-decrement | `-(An)` | `MOVE.L D0,-(A0)` | `An` is decremented by the operand's size first, then used as the address |
+| Displacement | `d16(An)` | `MOVE.L $10(A0),D0` | `An` plus a 16-bit displacement |
 | Immediate | `#value` | `MOVE.L #100,D0` | A constant baked into the instruction (source only — can't be a destination) |
 | Absolute short | `xxx.W` | `MOVE.L $100.W,D0` | A 16-bit address, sign-extended — reaches `$0000`-`$7FFF` (or, on real hardware, the top of memory too; this emulator's address space doesn't extend that far) |
 | Absolute long | `xxx.L` | `MOVE.L $40000.L,D0` | A full 32-bit address, written directly into the instruction |
@@ -191,7 +192,7 @@ isn't implemented.
 |---|---|---|---|---|---|
 | `BRA` | `BRA target` | word | 10 | none | Always jumps to `target`. |
 | `Bcc` | see below | word | 10 | none (reads flags, doesn't set them) | Jumps to `target` only if the named condition on the current flags holds. |
-| `JSR` | `JSR (An)` | word | 16 | none | Pushes the return address onto the stack, then jumps to the address held in `An`. Only `(An)` indirect is supported so far — absolute/indexed/PC-relative targets aren't implemented yet. |
+| `JSR` | `JSR target` | word | 16 | none | Pushes the return address onto the stack, then jumps to `target`. Accepts any addressing mode that names a memory location without a register side effect: `(An)`, `d16(An)`, `d8(An,Xn)`, `xxx.W`, `xxx.L`, `d16(PC)`, `d8(PC,Xn)` — not `Dn`, `An`, `(An)+`, `-(An)`, or `#imm`. |
 | `BSR` | `BSR target` | word | 18 | none | Like `JSR`, but PC-relative — pushes the return address, then always branches to `target`. |
 | `RTS` | `RTS` | word | 16 | none | Pops a return address pushed by `JSR`/`BSR` and jumps there. |
 | `DBRA` | `DBRA Dn,target` | word | 10 (branch), 12 (no branch) | none | Decrements the low 16 bits of `Dn` and jumps to `target` unless the result is `-1`. Only this "always decrement" form is implemented, not the full conditional `DBcc` family. |

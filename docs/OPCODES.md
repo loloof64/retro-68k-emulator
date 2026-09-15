@@ -23,6 +23,7 @@ Where:
 | Indirect | `(An)` | `MOVE.L (A0),D0` | Memory at address in An |
 | Post-Inc | `(An)+` | `MOVE.L (A0)+,D0` | Load then increment An |
 | Pre-Dec | `-(An)` | `MOVE.L -(A0),D0` | Decrement An then load |
+| Displacement | `d16(An)` | `MOVE.L $10(A0),D0` | `An` + 16-bit displacement |
 | Absolute Short | `xxx.W` | `MOVE.L $100.W,D0` | 16-bit address, sign-extended (reaches `$0000`-`$7FFF`) |
 | Absolute Long | `xxx.L` | `MOVE.L D0,$40000.L` | Full 32-bit address, direct |
 | Indexed | `d8(An,Xn)` | `MOVE.L $10(A0,D0.W),D0` | `An` + index register (`.W` sign-extended or `.L`) + 8-bit displacement |
@@ -518,11 +519,12 @@ JSR label
 
 Push PC onto stack and jump to label.
 
-**Addressing**: only `(An)` indirect is supported so far. `JSR` needs the
-*address itself* (to jump to), not a value read through it, so it doesn't
-reuse the general `decodeEA` used elsewhere — extending it to absolute
-targets is separate follow-up work, not something the addressing-mode
-work elsewhere on this page unlocks automatically.
+**Addressing**: all control addressing modes — `(An)`, `d16(An)`,
+`d8(An,Xn)`, `xxx.W`, `xxx.L`, `d16(PC)`, `d8(PC,Xn)`. Not `Dn`, `An`,
+`(An)+`, `-(An)`, or `#imm`, which the 68000 doesn't allow here either.
+`JSR` needs the *address itself* (to jump to), not a value read through
+it, so it uses `decodeControlAddress` rather than the general `decodeEA`
+used elsewhere.
 **Cycles**: 16
 
 **Example**:

@@ -305,6 +305,33 @@ describe('MOVE', () => {
     expect(memory.read32(0x40000)).toBe(0x00ff00ff)
   })
 
+  it('d16(An) reads via address register indirect with a 16-bit displacement', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.A0, 0x1000, 'long')
+    memory.write32(0x1010, 0x11223344)
+    memory.write16(0x2000, moveWord(MOVE_L_IMM_TO_Dn, 0b000, 0, 0b101, 0)) // MOVE.L $10(A0),D0
+    memory.write16(0x2002, 0x0010)
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.registers[Register.D0]).toBe(0x11223344)
+    expect(cpu.pc).toBe(0x2004)
+  })
+
+  it('d16(An) writes via address register indirect with a negative 16-bit displacement', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.D0, 0xdeadbeef, 'long')
+    writeRegister(cpu, Register.A0, 0x1010, 'long')
+    memory.write16(0x2000, moveWord(MOVE_L_IMM_TO_Dn, 0b101, 0, 0b000, 0)) // MOVE.L D0,-4(A0)
+    memory.write16(0x2002, 0xfffc) // -4
+
+    step(cpu, memory, opcodeTable)
+
+    expect(memory.read32(0x100c)).toBe(0xdeadbeef)
+  })
+
   it('d8(An,Dn.W) reads via address register indirect with a word index', () => {
     const cpu = createCPU(0x2000)
     const memory = new SystemMemory()
@@ -1161,12 +1188,73 @@ describe('JSR/BSR/RTS', () => {
     expect(memory.read32(spBefore - 4)).toBe(0x2002) // return address, right after the opcode word
   })
 
-  it('JSR rejects an addressing mode other than (An)', () => {
+  it('JSR rejects an addressing mode that is not a control mode', () => {
     const cpu = createCPU(0x2000)
     const memory = new SystemMemory()
     memory.write16(0x2000, jsrWord(0b000, 0)) // JSR Dn - not a valid control mode
 
-    expect(() => step(cpu, memory, opcodeTable)).toThrow(/JSR only supports \(An\)/)
+    expect(() => step(cpu, memory, opcodeTable)).toThrow(/not a control addressing mode/)
+  })
+
+  it('JSR d16(An) jumps to a base register plus a 16-bit displacement', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.A0, 0x3000, 'long')
+    memory.write16(0x2000, jsrWord(0b101, 0)) // JSR $10(A0)
+    memory.write16(0x2002, 0x0010)
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.pc).toBe(0x3010)
+    expect(memory.read32(cpu.registers[Register.A7])).toBe(0x2004) // return address, past the extension word
+  })
+
+  it('JSR d8(An,Xn) jumps to a base register plus an index and an 8-bit displacement', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.A0, 0x3000, 'long')
+    writeRegister(cpu, Register.D1, 0x0004, 'long')
+    memory.write16(0x2000, jsrWord(0b110, 0)) // JSR $6(A0,D1.W)
+    memory.write16(0x2002, 0x1006) // Xn=D1, word index, d8=$06
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.pc).toBe(0x300a) // 0x3000 + 0x4 (D1) + 0x6 (d8)
+  })
+
+  it('JSR xxx.L jumps to a full 32-bit absolute address', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    memory.write16(0x2000, jsrWord(0b111, 0b001)) // JSR $40000.L
+    memory.write32(0x2002, 0x00040000)
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.pc).toBe(0x40000)
+    expect(memory.read32(cpu.registers[Register.A7])).toBe(0x2006)
+  })
+
+  it('JSR d16(PC) jumps relative to the address of its extension word', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    memory.write16(0x2000, jsrWord(0b111, 0b010)) // JSR $10(PC)
+    memory.write16(0x2002, 0x0010)
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.pc).toBe(0x2012) // 0x2002 (extension word address) + 0x10
+  })
+
+  it('JSR d8(PC,Xn) jumps relative to the extension word plus an index', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.D1, 0x0004, 'long')
+    memory.write16(0x2000, jsrWord(0b111, 0b011)) // JSR $6(PC,D1.W)
+    memory.write16(0x2002, 0x1006) // Xn=D1, word index, d8=$06
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.pc).toBe(0x200c) // 0x2002 (extension word address) + 0x4 (D1) + 0x6 (d8)
   })
 
   it('BSR pushes the return address and branches, using an 8-bit displacement', () => {

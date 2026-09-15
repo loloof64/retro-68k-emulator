@@ -1,7 +1,7 @@
 import { Register, type CPUState, type Memory, type OpcodeDefinition, type StatusFlags } from '../types/cpu'
 import type { OpcodeEntry } from './index'
 import { readRegister, updateFlags, writeRegister } from './index'
-import { decodeEA, type Size } from './addressing'
+import { decodeEA, decodeControlAddress, type Size } from './addressing'
 import { addWithFlags, subWithFlags } from './arithmetic'
 import {
   ILLEGAL_INSTRUCTION_VECTOR,
@@ -335,8 +335,9 @@ const DBRA: OpcodeDefinition = {
 // a plain readRegister/writeRegister pair around a memory.write32/read32 is
 // enough — no need to route through decodeEA for the stack slot itself.
 
-// --- JSR <ea> ($4E80) - only (An) indirect supported so far, like decodeEA
-// itself (absolute/indexed/PC-relative modes aren't implemented yet).
+// --- JSR <ea> ($4E80) - control addressing modes only: (An), d16(An),
+// d8(An,Xn), xxx.W, xxx.L, d16(PC), d8(PC,Xn) - same set decodeControlAddress
+// validates (no Dn/An direct, no (An)+/-(An), no #imm).
 
 const JSR: OpcodeDefinition = {
   mnemonic: 'JSR',
@@ -347,11 +348,7 @@ const JSR: OpcodeDefinition = {
     const mode = (opcodeWord >> 3) & 0b111
     const reg = opcodeWord & 0b111
 
-    if (mode !== 0b010) {
-      throw new Error(`JSR only supports (An) addressing so far, got mode ${mode.toString(2)}`)
-    }
-
-    const target = readRegister(cpu, (Register.A0 + reg) as Register, 'long')
+    const target = decodeControlAddress(cpu, memory, mode, reg)
 
     const sp = readRegister(cpu, Register.A7, 'long') - 4
     memory.write32(sp, cpu.pc)
