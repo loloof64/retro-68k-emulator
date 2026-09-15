@@ -66,6 +66,17 @@ $7E80C └─────────────────┘
 - **C** (Carry): Set if unsigned carry/borrow occurred
 - **X** (Extend): Extended bit, used in multi-precision arithmetic
 
+These five flags are real 68000's Status Register (`SR`) low byte — its
+Condition Code Register (`CCR`). This codebase never models `SR`'s high
+byte: no supervisor-mode bit, no interrupt priority mask, no trace bit,
+and no separate supervisor stack pointer alongside the one `A7`. A
+deliberate simplification, not an oversight — this emulator runs one
+program at a time, so the user/supervisor privilege boundary that byte
+exists to enforce has nothing to protect here. See
+`docs/OPCODES.md`'s "Why doesn't this emulator implement
+RTE/STOP/RESET/MOVE SR?" for the full reasoning and exactly which
+instructions it rules out.
+
 ## CPU Execution Cycle
 
 1. **Fetch**: Read opcode from memory at PC

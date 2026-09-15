@@ -24,8 +24,8 @@ Reserved for interrupt vectors and system-level data:
 
 ```
 $00000-$0003F    64 bytes   TRAP vector table (16 vectors x 4 bytes)
-$00040-$0004B    12 bytes   CPU exception vector table (3 vectors so far)
-$0004C-$01FFF    8 KB-76B   Reserved for future use
+$00040-$0004F    16 bytes   CPU exception vector table (4 vectors so far)
+$00050-$01FFF    8 KB-80B   Reserved for future use
 ```
 
 ### TRAP Vector Table
@@ -69,8 +69,9 @@ nothing to do with its actual exception model.
 Offset   Exception            Raised by
 ────────────────────────────────────────────────────────
 $40      Zero Divide          DIVU / DIVS with a zero divisor
-$44      Illegal Instruction  MOVE.B to An; BTST targeting An; CHK targeting An
+$44      Illegal Instruction  MOVE.B to An; BTST targeting An; CHK targeting An; ILLEGAL
 $48      CHK                  CHK's bounds check failed (Dn < 0 or Dn > <ea>)
+$4C      TRAPV                TRAPV executed with V set
 ```
 
 Real 68000 hardware pushes the status register and PC onto a *supervisor*
@@ -93,6 +94,14 @@ RTS
 ```
 
 *(`HANDLER:` is illustrative — there's no assembler yet, so its address has to be hand-encoded, same as every other label on this page.)*
+
+This missing supervisor-mode/`SR` concept is a deliberate simplification,
+not an oversight — see `docs/OPCODES.md`'s "Why doesn't this emulator
+implement RTE/STOP/RESET/MOVE SR?" for the full reasoning and exactly
+which instructions it rules out (`RTE`, `STOP`, `RESET`, `MOVE` to/from
+`SR`/`CCR`/`USP`). `ILLEGAL` and `TRAPV` aren't affected by it — both just
+raise an exception through this same PC-only mechanism, so they're
+implemented like any other fault above.
 
 If a program never writes a handler address into a vector and the fault
 happens anyway, the emulator throws a JS error naming the missing vector

@@ -1220,7 +1220,40 @@ TRAP    #0             ; Exit program
 TRAP    #1             ; Print string
 ```
 
-## NOP - No Operation
+### ILLEGAL - Deliberately Raise an Illegal Instruction
+```
+ILLEGAL
+```
+
+A reserved opcode ($4AFC) that always raises the
+[Illegal Instruction exception](./MEMORY.md#cpu-exception-vector-table) —
+a portable, explicit "trap here" marker, rather than relying on whatever
+an actually-unassigned opcode happens to do (this emulator's own decoder
+rejects those with a plain JS error instead, not a catchable CPU
+exception).
+
+**Cycles**: 34
+**Flags**: None
+
+### TRAPV - Trap on Overflow
+```
+TRAPV
+```
+
+Raises the [TRAPV exception](./MEMORY.md#cpu-exception-vector-table) if
+`V` is set, otherwise falls through as a no-op — checks for overflow
+right after an `ADD`/`SUB` without hand-coding a separate `BVC`/`TRAP`
+pair.
+
+**Cycles**: 4 (V clear), 34 (V set)
+**Flags**: None (reads V, doesn't set it)
+
+See
+[Why doesn't this emulator implement RTE/STOP/RESET/MOVE SR?](#why-doesnt-this-emulator-implement-rtestopresetmove-sr)
+for why `ILLEGAL`/`TRAPV` made the cut but the rest of the real 68000's
+system/privileged group didn't.
+
+### NOP - No Operation
 ```
 NOP
 ```
@@ -1228,6 +1261,39 @@ NOP
 Does nothing, useful for timing/padding.
 
 **Cycles**: 4
+
+### Why doesn't this emulator implement RTE/STOP/RESET/MOVE SR?
+
+Real 68000 hardware has two privilege levels, user and supervisor,
+controlled by a bit in the Status Register (`SR`) — a 16-bit register
+this emulator only partially models. `SR`'s low byte is the
+[Status Flags](#flag-notation) every arithmetic/logic instruction on this
+page reads or sets (`N`/`Z`/`V`/`C`, plus `X`). `SR`'s high byte — the
+supervisor bit, an interrupt priority mask, a trace bit — doesn't exist
+in `CPUState` at all, and neither does the separate supervisor stack
+pointer (`SSP`) hardware switches to alongside it. See `raiseException` in
+`src/cpu/opcodes.ts` and `docs/MEMORY.md`'s
+[CPU Exception Vector Table](./MEMORY.md#cpu-exception-vector-table)
+section for the resulting "push PC only, no SR" exception model.
+
+That's a deliberate simplification: supervisor mode exists to protect a
+multi-program OS kernel from untrusted user code sharing one CPU. This
+emulator runs one program at a time with nothing to protect it from, so
+the privilege boundary has no job to do here. Concretely, that leaves:
+
+- `MOVE` to/from `SR`, `MOVE` to/from `CCR`, `MOVE USP` — nothing to read
+  a full `SR` out of, no separate `USP` register to move.
+- `STOP` — loads an immediate into `SR` (interrupt mask included) before
+  halting; the "immediate into `SR`" part has no home.
+- `RESET` — pulses a hardware reset line to external peripherals; there's
+  no peripheral bus to reset.
+- `RTE` — pops `SR` and `PC` off the supervisor stack, possibly returning
+  to user mode; `raiseException` only ever pushes `PC`, so there's no
+  `SR` for `RTE` to pop either.
+
+`ILLEGAL` and `TRAPV` don't touch any of this — both are just alternate
+ways to *raise* an exception, through the exact same PC-only mechanism
+every other exception in this emulator already uses.
 
 ## Instruction Summary Table
 
@@ -1241,7 +1307,7 @@ Does nothing, useful for timing/padding.
 | Shift/Rotate | ASL, ASR, LSL, LSR, ROL, ROR, ROXL, ROXR |
 | Branches | BRA, JMP, BEQ, BNE, BLT, BLE, BGT, BGE, BHI, BLS, BCS, BCC, BVS, BVC, BPL, BMI, DBcc (DBRA/DBF, DBT, DBEQ, DBNE, ...), Scc (SEQ, SNE, ST, SF, ...), CHK |
 | Subroutines | JSR, BSR, RTS, LINK, UNLK |
-| System | TRAP, NOP |
+| System | TRAP, NOP, ILLEGAL, TRAPV |
 
 ## Alphabetical Index
 
@@ -1264,6 +1330,8 @@ each.
 
 **E** — [EXG](#exg---exchange-registers) · [EXT](#ext---sign-extend)
 
+**I** — [ILLEGAL](#illegal---deliberately-raise-an-illegal-instruction)
+
 **J** — [JMP](#jmp---jump) · [JSR](#jsr---jump-to-subroutine)
 
 **L** — [LEA](#lea---load-effective-address) · [LINK](#link---link-and-allocate) · [LSL](#lsllsr---logical-shift) · [LSR](#lsllsr---logical-shift)
@@ -1280,7 +1348,7 @@ each.
 
 **S** — [SBCD](#sbcd---subtract-decimal-with-extend) · [SCC](#scc---set-conditionally) · [SEQ](#scc---set-conditionally) · [SF](#scc---set-conditionally) · [SGE](#scc---set-conditionally) · [SGT](#scc---set-conditionally) · [SHI](#scc---set-conditionally) · [SLE](#scc---set-conditionally) · [SLS](#scc---set-conditionally) · [SLT](#scc---set-conditionally) · [SMI](#scc---set-conditionally) · [SNE](#scc---set-conditionally) · [SPL](#scc---set-conditionally) · [ST](#scc---set-conditionally) · [SUB](#sub---subtract) · [SUBA](#suba---subtract-address) · [SUBQ](#addqsubq---addsubtract-quick) · [SVC](#scc---set-conditionally) · [SVS](#scc---set-conditionally) · [SWAP](#swap---swap-register-halves)
 
-**T** — [TAS](#tas---test-and-set-an-operand) · [TRAP](#trap---software-trap) · [TST](#tst---test)
+**T** — [TAS](#tas---test-and-set-an-operand) · [TRAP](#trap---software-trap) · [TRAPV](#trapv---trap-on-overflow) · [TST](#tst---test)
 
 **U** — [UNLK](#unlk---unlink)
 

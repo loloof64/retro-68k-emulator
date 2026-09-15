@@ -231,8 +231,12 @@ restriction, and cycle cost.
 | Mnemonic | Syntax | Sizes | Cycles | Flags affected | Description |
 |---|---|---|---|---|---|
 | `NOP` | `NOP` | word | 4 | none | Does nothing. Useful for timing/padding. |
+| `ILLEGAL` | `ILLEGAL` | word | 34 | none | Deliberately raises the [Illegal Instruction exception](#exceptions) — a reserved opcode, useful as a portable, explicit "trap here" marker. |
+| `TRAPV` | `TRAPV` | word | 4 (V clear), 34 (V set) | none (reads V, doesn't set it) | Raises the [TRAPV exception](#exceptions) if `V` is set, otherwise falls through — checks for overflow after an `ADD`/`SUB` without a separate `BVC`/`TRAP` pair. |
 
-See [TRAP System Calls](#trap-system-calls) below for `TRAP`.
+See [TRAP System Calls](#trap-system-calls) below for `TRAP`, and
+[below](#why-doesnt-this-emulator-implement-rtestopresetmove-sr) for why
+`ILLEGAL`/`TRAPV` are here but `RTE`/`STOP`/`RESET`/`MOVE SR` aren't.
 
 ### Alphabetical Index
 
@@ -245,6 +249,8 @@ See [TRAP System Calls](#trap-system-calls) below for `TRAP`.
 **D** — [DBcc](#program-control) · [DIVS](#arithmetic) · [DIVU](#arithmetic)
 
 **E** — [EXG](#data-movement) · [EXT](#arithmetic)
+
+**I** — [ILLEGAL](#system)
 
 **J** — [JMP](#program-control) · [JSR](#program-control)
 
@@ -262,7 +268,7 @@ See [TRAP System Calls](#trap-system-calls) below for `TRAP`.
 
 **S** — [SBCD](#binary-coded-decimal) · [Scc](#program-control) · [SUB](#arithmetic) · [SUBA](#arithmetic) · [SUBQ](#arithmetic) · [SWAP](#data-movement)
 
-**T** — [TAS](#arithmetic) · [TST](#arithmetic)
+**T** — [TAS](#arithmetic) · [TRAPV](#system) · [TST](#arithmetic)
 
 **U** — [UNLK](#program-control)
 
@@ -516,6 +522,39 @@ ROL     #1,D0        ; -> %0000_0100 (bit 7 wraps in)
 ROXL    #1,D0        ; -> %0000_0101 (old X wraps in)
 ```
 
+### Why doesn't this emulator implement RTE/STOP/RESET/MOVE SR?
+
+Real 68000 hardware has two privilege levels, user and supervisor,
+controlled by a bit in the Status Register (`SR`) — a 16-bit register
+this emulator only partially models. `SR`'s low byte is the
+[Status Flags](#status-flags) every arithmetic/logic instruction on this
+page reads or sets (`N`/`Z`/`V`/`C`, plus `X`). `SR`'s high byte — the
+supervisor bit, an interrupt priority mask, a trace bit — doesn't exist
+here at all, and neither does the separate supervisor stack pointer
+(`SSP`) real hardware switches to alongside it: raising an
+[exception](#exceptions) here only ever pushes `PC`, onto the one stack
+there is, `A7`.
+
+That's a deliberate simplification, not an oversight: supervisor mode
+exists to protect a multi-program OS kernel from untrusted user code
+sharing one CPU. This emulator runs one program at a time with nothing to
+protect it from, so the privilege boundary has no job to do here.
+Concretely, that rules out:
+
+- `MOVE` to/from `SR`, `MOVE` to/from `CCR`, `MOVE USP` — nothing to read
+  a full `SR` out of, no separate `USP` register to move.
+- `STOP` — loads an immediate into `SR` (interrupt mask included) before
+  halting; the "immediate into `SR`" part has no home.
+- `RESET` — pulses a hardware reset line to external peripherals; there's
+  no peripheral bus to reset.
+- `RTE` — pops `SR` and `PC` off the supervisor stack, possibly returning
+  to user mode; this emulator's exceptions only ever push `PC`, so
+  there's no `SR` for `RTE` to pop either.
+
+`ILLEGAL` and `TRAPV` don't touch any of this — both are just alternate
+ways to *raise* an exception, through the exact same `PC`-only mechanism
+every other exception on this page already uses.
+
 **Example** — add two numbers and write a white pixel, using a direct absolute address:
 
 ```
@@ -607,8 +646,9 @@ hasn't implemented yet, which would run fine on real hardware.
 | Vector | Address | Raised by | Description |
 |---|---|---|---|
 | Zero Divide | `$40` | `DIVU`/`DIVS` with a zero divisor | Jumps to the handler address stored at `$40`. |
-| Illegal Instruction | `$44` | `MOVE.B` to an address register; `BTST`/`CHK` targeting one | Jumps to the handler address stored at `$44`. All are reserved/undefined encodings on real 68000 hardware, not missing features. |
+| Illegal Instruction | `$44` | `MOVE.B` to an address register; `BTST`/`CHK` targeting one; `ILLEGAL` | Jumps to the handler address stored at `$44`. The first three are reserved/undefined encodings on real 68000 hardware, not missing features; `ILLEGAL` raises this same one deliberately — see [System](#system) above. |
 | CHK | `$48` | `CHK`'s bounds check failing (`Dn < 0` or `Dn >` the upper bound) | Jumps to the handler address stored at `$48`. See [CHK](#program-control) above. |
+| TRAPV | `$4C` | `TRAPV` executed with `V` set | Jumps to the handler address stored at `$4C`. See [System](#system) above. |
 
 Your program installs a handler by writing its address into the vector
 *before* the fault can happen:
@@ -624,7 +664,10 @@ Real 68000 hardware pushes the status register and PC onto a *supervisor*
 stack on any exception; this emulator has no supervisor-mode/status
 register concept, so only PC is pushed — onto `A7`, exactly like `JSR`.
 So a handler ends with `RTS`, not the real `RTE`, to resume right after
-the faulting instruction. If no handler was installed when the fault
+the faulting instruction — see
+[above](#why-doesnt-this-emulator-implement-rtestopresetmove-sr) for why
+`RTE` itself, and the rest of the real 68000's system/privileged group,
+aren't implemented here. If no handler was installed when the fault
 happens, the emulator throws a clear error instead of jumping to address
 `$0` the way real (misconfigured) hardware would.
 

@@ -12,6 +12,7 @@ import {
   SOUND_TRIGGER,
   SOUND_VOLUME,
   SOUND_WAVEFORM,
+  TRAPV_VECTOR,
   ZERO_DIVIDE_VECTOR,
 } from '../memory'
 
@@ -770,6 +771,25 @@ const RTS: OpcodeDefinition = {
     writeRegister(cpu, Register.A7, sp + 4, 'long')
 
     return 16
+  },
+}
+
+// --- TRAPV ($4E76) ---------------------------------------------------------
+//
+// Raises the TRAPV exception if V is set, otherwise falls through as a
+// no-op - the classic "check for overflow right after an ADD/SUB, bail
+// out if so" idiom, without hand-coding a separate BVC/TRAP pair.
+
+const TRAPV: OpcodeDefinition = {
+  mnemonic: 'TRAPV',
+  encoding: '0100111001110110',
+  size: 'word',
+  handler: (cpu: CPUState, memory: Memory) => {
+    if (cpu.status.V) {
+      raiseException(cpu, memory, TRAPV_VECTOR, 'TRAPV')
+      return 34
+    }
+    return 4
   },
 }
 
@@ -1672,6 +1692,36 @@ const TST: OpcodeDefinition = {
   },
 }
 
+// --- ILLEGAL ($4AFC) ------------------------------------------------------
+//
+// A deliberately-reserved opcode: real 68000 hardware guarantees it always
+// raises the Illegal Instruction exception, unlike an ordinary unimplemented
+// opcode (which this emulator's own step() rejects with a plain JS error
+// instead of a CPU exception - see docs/MEMORY.md). Useful as an explicit,
+// portable "trap here" marker, rather than relying on whatever an
+// actually-unassigned opcode happens to do.
+//
+// Shares TAS's `$4AC0`-`$4AFF` opcode space at the bit level: mode=111,
+// reg=100 (#imm - invalid as TAS's own write destination, since you can't
+// test-and-set an immediate) is exactly `$4AFC`. Real 68000 hardware
+// carves that one otherwise-reserved combination out for ILLEGAL
+// specifically, so this narrower, exact-match entry has to be listed
+// before TAS's broader one in opcodeTable for that reason (same trick
+// SWAP/PEA and EXT/MOVEM use) - which also fixes a latent bug: without it,
+// this word reached TAS's handler and threw decodeEA's generic
+// "Cannot write to an immediate operand" error instead of a clean,
+// catchable Illegal Instruction exception.
+
+const ILLEGAL: OpcodeDefinition = {
+  mnemonic: 'ILLEGAL',
+  encoding: '0100101011111100',
+  size: 'word',
+  handler: (cpu: CPUState, memory: Memory) => {
+    raiseException(cpu, memory, ILLEGAL_INSTRUCTION_VECTOR, 'Illegal Instruction')
+    return 34
+  },
+}
+
 // --- TAS <ea> ($4AC0-$4AFF) - test and set an operand -------------------
 //
 // Reads a byte, sets flags exactly like TST.B would (N/Z from the value,
@@ -2329,6 +2379,7 @@ export const opcodeTable: readonly OpcodeEntry[] = [
   { mask: 0xff00, pattern: 0x4200, definition: CLR },
   { mask: 0xff00, pattern: 0x4400, definition: NEG },
   { mask: 0xffc0, pattern: 0x4800, definition: NBCD },
+  { mask: 0xffff, pattern: 0x4afc, definition: ILLEGAL },
   { mask: 0xffc0, pattern: 0x4ac0, definition: TAS },
   { mask: 0xff00, pattern: 0x4a00, definition: TST },
   { mask: 0xfff8, pattern: 0x4840, definition: SWAP },
@@ -2336,6 +2387,7 @@ export const opcodeTable: readonly OpcodeEntry[] = [
   { mask: 0xffb8, pattern: 0x4880, definition: EXT },
   { mask: 0xfb80, pattern: 0x4880, definition: MOVEM },
   { mask: 0xffff, pattern: 0x4e75, definition: RTS },
+  { mask: 0xffff, pattern: 0x4e76, definition: TRAPV },
   { mask: 0xfff8, pattern: 0x4e50, definition: LINK },
   { mask: 0xfff8, pattern: 0x4e58, definition: UNLK },
   { mask: 0xffc0, pattern: 0x4e80, definition: JSR },

@@ -15,6 +15,7 @@ import {
   ZERO_DIVIDE_VECTOR,
   ILLEGAL_INSTRUCTION_VECTOR,
   CHK_VECTOR,
+  TRAPV_VECTOR,
 } from '../memory'
 import { createCPU, step, writeRegister } from './index'
 import { opcodeTable } from './opcodes'
@@ -1906,6 +1907,47 @@ describe('TAS', () => {
   })
 })
 
+describe('ILLEGAL', () => {
+  it('raises the Illegal Instruction exception', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    memory.write32(ILLEGAL_INSTRUCTION_VECTOR, 0x3000)
+    memory.write16(0x2000, 0x4afc) // ILLEGAL
+
+    const cycles = step(cpu, memory, opcodeTable)
+
+    expect(cpu.pc).toBe(0x3000)
+    expect(cycles).toBe(34)
+  })
+
+  it('round-trips through the installed handler and back via RTS', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    memory.write32(ILLEGAL_INSTRUCTION_VECTOR, 0x3000)
+    memory.write16(0x2000, 0x4afc) // ILLEGAL
+    memory.write16(0x3000, RTS_WORD)
+
+    step(cpu, memory, opcodeTable) // ILLEGAL -> raises, pc = 0x3000
+    step(cpu, memory, opcodeTable) // RTS -> pops back to right after ILLEGAL
+
+    expect(cpu.pc).toBe(0x2002)
+  })
+
+  it('wins over TAS for $4AFC instead of hitting decodeEA\'s immediate-write throw', () => {
+    // $4AFC also decodes as TAS mode=111/reg=100 (#imm) if ILLEGAL's own
+    // opcodeTable entry didn't take priority - that combination isn't a
+    // valid TAS destination, so it used to fall through to decodeEA's
+    // generic "cannot write to an immediate operand" error instead of a
+    // clean, catchable CPU exception. This should throw the *missing
+    // handler* error (proving ILLEGAL's own path ran), not that one.
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    memory.write16(0x2000, 0x4afc)
+
+    expect(() => step(cpu, memory, opcodeTable)).toThrow(/no handler installed/)
+  })
+})
+
 describe('ASL', () => {
   it('shifts left, setting C/X to the bit shifted out and V on sign change', () => {
     const cpu = createCPU(0x2000)
@@ -2749,6 +2791,58 @@ describe('JSR/BSR/RTS', () => {
 
     expect(cpu.pc).toBe(0x2002)
     expect(cpu.registers[Register.A7]).toBe(spBefore)
+  })
+})
+
+const TRAPV_WORD = 0x4e76
+
+describe('TRAPV', () => {
+  it('falls through as a no-op when V is clear', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    cpu.status.V = false
+    memory.write16(0x2000, TRAPV_WORD)
+
+    const cycles = step(cpu, memory, opcodeTable)
+
+    expect(cpu.pc).toBe(0x2002)
+    expect(cycles).toBe(4)
+  })
+
+  it('raises the TRAPV exception when V is set', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    cpu.status.V = true
+    memory.write32(TRAPV_VECTOR, 0x3000)
+    memory.write16(0x2000, TRAPV_WORD)
+
+    const cycles = step(cpu, memory, opcodeTable)
+
+    expect(cpu.pc).toBe(0x3000)
+    expect(cycles).toBe(34)
+  })
+
+  it('round-trips through the installed handler and back via RTS', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    cpu.status.V = true
+    memory.write32(TRAPV_VECTOR, 0x3000)
+    memory.write16(0x2000, TRAPV_WORD)
+    memory.write16(0x3000, RTS_WORD)
+
+    step(cpu, memory, opcodeTable) // TRAPV -> raises, pc = 0x3000
+    step(cpu, memory, opcodeTable) // RTS -> pops back to right after TRAPV
+
+    expect(cpu.pc).toBe(0x2002)
+  })
+
+  it('throws when trapping with no handler installed', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    cpu.status.V = true
+    memory.write16(0x2000, TRAPV_WORD)
+
+    expect(() => step(cpu, memory, opcodeTable)).toThrow(/no handler installed/)
   })
 })
 
