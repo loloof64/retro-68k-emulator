@@ -120,6 +120,18 @@ function btstWord(mode: number, reg: number) {
   return (0b0000100000 << 6) | (mode << 3) | reg
 }
 
+function bchgWord(mode: number, reg: number) {
+  return (0b0000100001 << 6) | (mode << 3) | reg
+}
+
+function bclrWord(mode: number, reg: number) {
+  return (0b0000100010 << 6) | (mode << 3) | reg
+}
+
+function bsetWord(mode: number, reg: number) {
+  return (0b0000100011 << 6) | (mode << 3) | reg
+}
+
 function andWord(destReg: number, opmode: number, srcMode: number, srcReg: number) {
   return (0b1100 << 12) | (destReg << 9) | (opmode << 6) | (srcMode << 3) | srcReg
 }
@@ -3024,6 +3036,113 @@ describe('BTST', () => {
     step(cpu, memory, opcodeTable) // BTST
 
     expect(cpu.status.Z).toBe(false) // button B is pressed
+  })
+})
+
+describe('BCHG/BCLR/BSET', () => {
+  it('BCHG toggles a clear register bit on and sets Z from the old (clear) state', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.D0, 0b0000, 'long')
+    memory.write16(0x2000, bchgWord(0b000, 0)) // BCHG #n,D0
+    memory.write16(0x2002, 2) // bit number 2
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.status.Z).toBe(true) // bit was clear before the toggle
+    expect(cpu.registers[Register.D0]).toBe(0b0100)
+  })
+
+  it('BCHG toggles a set register bit off and sets Z from the old (set) state', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.D0, 0b0100, 'long')
+    memory.write16(0x2000, bchgWord(0b000, 0)) // BCHG #n,D0
+    memory.write16(0x2002, 2) // bit number 2
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.status.Z).toBe(false) // bit was set before the toggle
+    expect(cpu.registers[Register.D0]).toBe(0b0000)
+  })
+
+  it('BCLR clears a register bit unconditionally and reports its old state', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.D0, 0b1111, 'long')
+    memory.write16(0x2000, bclrWord(0b000, 0)) // BCLR #n,D0
+    memory.write16(0x2002, 1) // bit number 1
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.status.Z).toBe(false) // bit was set before clearing
+    expect(cpu.registers[Register.D0]).toBe(0b1101)
+  })
+
+  it('BSET sets a register bit unconditionally and reports its old state', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.D0, 0b0000, 'long')
+    memory.write16(0x2000, bsetWord(0b000, 0)) // BSET #n,D0
+    memory.write16(0x2002, 3) // bit number 3
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.status.Z).toBe(true) // bit was clear before setting
+    expect(cpu.registers[Register.D0]).toBe(0b1000)
+  })
+
+  it('operates on a memory operand as a byte and writes the result back', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.A0, 0x2000 + 4, 'long')
+    memory.write8(0x2000 + 4, 0b00000000)
+    memory.write16(0x2000, bsetWord(0b010, 0)) // BSET #n,(A0)
+    memory.write16(0x2002, 0) // bit number 0
+
+    step(cpu, memory, opcodeTable)
+
+    expect(memory.read8(0x2000 + 4)).toBe(0b00000001)
+  })
+
+  it('a register bit number wraps modulo 32', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.D0, 0, 'long')
+    memory.write16(0x2000, bsetWord(0b000, 0)) // BSET #n,D0
+    memory.write16(0x2002, 32) // bit 32 -> wraps to bit 0
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.registers[Register.D0]).toBe(1)
+  })
+
+  it('a memory bit number wraps modulo 8', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.A0, 0x2000 + 4, 'long')
+    memory.write8(0x2000 + 4, 0)
+    memory.write16(0x2000, bsetWord(0b010, 0)) // BSET #n,(A0)
+    memory.write16(0x2002, 8) // bit 8 -> wraps to bit 0
+
+    step(cpu, memory, opcodeTable)
+
+    expect(memory.read8(0x2000 + 4)).toBe(1)
+  })
+
+  it('an address register target raises Illegal Instruction, for all three', () => {
+    for (const word of [bchgWord(0b001, 0), bclrWord(0b001, 0), bsetWord(0b001, 0)]) {
+      const cpu = createCPU(0x2000)
+      const memory = new SystemMemory()
+      memory.write32(ILLEGAL_INSTRUCTION_VECTOR, 0x3000)
+      memory.write16(0x2000, word) // BCHG/BCLR/BSET #n,A0
+      memory.write16(0x3000, RTS_WORD)
+
+      step(cpu, memory, opcodeTable) // raises -> pc = 0x3000
+      step(cpu, memory, opcodeTable) // RTS -> back to right after the opcode word
+
+      expect(cpu.pc).toBe(0x2002)
+    }
   })
 })
 

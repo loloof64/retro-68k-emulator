@@ -736,6 +736,33 @@ BTST    #0,D0              ; test bit 0 (button A)
 BEQ     A_NOT_PRESSED      ; Z=1 -> bit was clear
 ```
 
+### BCHG/BCLR/BSET - Change/Clear/Set Bit
+```
+BCHG #n,dst
+BCLR #n,dst
+BSET #n,dst
+```
+
+`BTST`'s write-back siblings: each tests bit `n` of `dst` exactly like
+`BTST` (same Z-flag rule, from the bit's state *before* the write), then
+writes the modified value back to `dst`. `BCHG` toggles the bit, `BCLR`
+clears it, `BSET` sets it.
+
+**Sizes**: Same rule as `BTST` — a data register destination is a full
+long (bit number 0-31), a memory destination is a byte (bit number 0-7).
+An address register isn't a valid destination either way — that raises
+the [Illegal Instruction exception](#cpu-exception-vector-table).
+**Cycles**: `BCHG`: 12 (register), 12 (memory). `BCLR`: 14 (register), 12
+(memory). `BSET`: 12 (register), 12 (memory).
+**Flags**: Z only
+
+**Examples**:
+```asm
+BSET    #0,D0          ; set bit 0, Z <- old state of that bit
+BCLR    #7,(A0)        ; clear bit 7 of a byte in memory
+BCHG    #3,D1          ; flip bit 3
+```
+
 ## Shift and Rotate Operations
 
 Two forms exist for every shift/rotate mnemonic below: a **register form**
@@ -1171,7 +1198,7 @@ Does nothing, useful for timing/padding.
 | Arithmetic | ADD, ADDA, SUB, SUBA, ADDQ, SUBQ, MUL, DIV, CMP, CMPA, CLR, NEG, TST, TAS, EXT |
 | BCD | ABCD, SBCD, NBCD |
 | Logical | AND, OR, XOR, NOT |
-| Bit | BTST |
+| Bit | BTST, BCHG, BCLR, BSET |
 | Shift/Rotate | ASL, ASR, LSL, LSR, ROL, ROR, ROXL, ROXR |
 | Branches | BRA, JMP, BEQ, BNE, BLT, BLE, BGT, BGE, BHI, BLS, BCS, BCC, BVS, BVC, BPL, BMI, DBcc (DBRA/DBF, DBT, DBEQ, DBNE, ...), Scc (SEQ, SNE, ST, SF, ...), CHK |
 | Subroutines | JSR, BSR, RTS, LINK, UNLK |
@@ -1190,7 +1217,7 @@ each.
 
 **A** — [ABCD](#abcd---add-decimal-with-extend) · [ADD](#add---add) · [ADDA](#adda---add-address) · [ADDQ](#addqsubq---addsubtract-quick) · [AND](#and---bitwise-and) · [ASL](#aslasr---arithmetic-shift) · [ASR](#aslasr---arithmetic-shift)
 
-**B** — [BCC](#conditional-branches) · [BCS](#conditional-branches) · [BEQ](#conditional-branches) · [BGE](#conditional-branches) · [BGT](#conditional-branches) · [BHI](#conditional-branches) · [BLE](#conditional-branches) · [BLS](#conditional-branches) · [BLT](#conditional-branches) · [BMI](#conditional-branches) · [BNE](#conditional-branches) · [BPL](#conditional-branches) · [BRA](#bra---branch-always) · [BSR](#bsr---branch-to-subroutine) · [BTST](#btst---test-bit) · [BVC](#conditional-branches) · [BVS](#conditional-branches)
+**B** — [BCC](#conditional-branches) · [BCHG](#bchgbclrbset---changeclearset-bit) · [BCLR](#bchgbclrbset---changeclearset-bit) · [BCS](#conditional-branches) · [BEQ](#conditional-branches) · [BGE](#conditional-branches) · [BGT](#conditional-branches) · [BHI](#conditional-branches) · [BLE](#conditional-branches) · [BLS](#conditional-branches) · [BLT](#conditional-branches) · [BMI](#conditional-branches) · [BNE](#conditional-branches) · [BPL](#conditional-branches) · [BRA](#bra---branch-always) · [BSET](#bchgbclrbset---changeclearset-bit) · [BSR](#bsr---branch-to-subroutine) · [BTST](#btst---test-bit) · [BVC](#conditional-branches) · [BVS](#conditional-branches)
 
 **C** — [CHK](#chk---check-register-against-bounds) · [CLR](#clr---clear) · [CMP](#cmp---compare) · [CMPA](#cmpa---compare-address)
 

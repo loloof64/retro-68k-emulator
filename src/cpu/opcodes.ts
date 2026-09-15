@@ -872,6 +872,67 @@ const BTST: OpcodeDefinition = {
   },
 }
 
+// --- BCHG/BCLR/BSET #<data>,<ea> ($0840/$0880/$08C0) ---------------------
+//
+// BTST's write-back siblings: same bit-number extension word and the same
+// register-tests-as-long/memory-tests-as-byte split, but each also writes
+// the modified value back to <ea> after setting Z from the bit's *previous*
+// state — BCHG toggles the bit, BCLR clears it, BSET sets it.
+
+function bitOpHandler(
+  apply: (value: number, mask: number) => number,
+  registerCycles: number
+): OpcodeDefinition['handler'] {
+  return (cpu: CPUState, memory: Memory, args: unknown[]) => {
+    const opcodeWord = opcodeWordOf(args)
+    const mode = (opcodeWord >> 3) & 0b111
+    const reg = opcodeWord & 0b111
+
+    if (mode === 0b001) {
+      // Same "An isn't valid either way" rule BTST follows.
+      raiseException(cpu, memory, ILLEGAL_INSTRUCTION_VECTOR, 'Illegal Instruction')
+      return 34
+    }
+
+    const bitNumberWord = memory.read16(cpu.pc)
+    cpu.pc += 2
+
+    const isRegisterOperand = mode === 0b000
+    const size: Size = isRegisterOperand ? 'long' : 'byte'
+    const bitNumber = bitNumberWord & (isRegisterOperand ? 0x1f : 0x07)
+    const mask = 1 << bitNumber
+
+    const ea = decodeEA(cpu, memory, mode, reg, size)
+    const value = ea.read()
+
+    cpu.status.Z = ((value >>> bitNumber) & 1) === 0
+    ea.write(apply(value, mask))
+
+    return isRegisterOperand ? registerCycles : 12
+  }
+}
+
+const BCHG: OpcodeDefinition = {
+  mnemonic: 'BCHG',
+  encoding: '0000100001mmmrrr',
+  size: 'variable',
+  handler: bitOpHandler((value, mask) => value ^ mask, 12),
+}
+
+const BCLR: OpcodeDefinition = {
+  mnemonic: 'BCLR',
+  encoding: '0000100010mmmrrr',
+  size: 'variable',
+  handler: bitOpHandler((value, mask) => value & ~mask, 14),
+}
+
+const BSET: OpcodeDefinition = {
+  mnemonic: 'BSET',
+  encoding: '0000100011mmmrrr',
+  size: 'variable',
+  handler: bitOpHandler((value, mask) => value | mask, 12),
+}
+
 // --- MULU/MULS <ea>,Dn ($C0C0/$C1C0) - word x word -> long -------------
 //
 // Bits 7-6 = 11 is a reserved opmode in the ADD/SUB/CMP/AND/OR/XOR family
@@ -2212,6 +2273,9 @@ export const opcodeTable: readonly OpcodeEntry[] = [
   { mask: 0xffff, pattern: 0x4e71, definition: NOP },
   { mask: 0xfff0, pattern: 0x4e40, definition: TRAP },
   { mask: 0xffc0, pattern: 0x0800, definition: BTST },
+  { mask: 0xffc0, pattern: 0x0840, definition: BCHG },
+  { mask: 0xffc0, pattern: 0x0880, definition: BCLR },
+  { mask: 0xffc0, pattern: 0x08c0, definition: BSET },
   { mask: 0xff00, pattern: 0x4600, definition: NOT },
   { mask: 0xff00, pattern: 0x4200, definition: CLR },
   { mask: 0xff00, pattern: 0x4400, definition: NEG },

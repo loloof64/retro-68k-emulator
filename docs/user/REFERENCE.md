@@ -184,6 +184,9 @@ A first handful of real instructions is wired in, grouped below the way Motorola
 | Mnemonic | Syntax | Sizes | Cycles | Flags affected | Description |
 |---|---|---|---|---|---|
 | `BTST` | `BTST #n,dst` | long (register), byte (memory) | 4 (register), 8 (memory) | Z only | Tests bit `n` of `dst` (Z=1 when clear). Doesn't modify `dst` — the standard way to poll one button out of the [gamepad bitmask](#reading-the-gamepad). An address register isn't a valid `dst` — that raises the [Illegal Instruction exception](#exceptions). |
+| `BCHG` | `BCHG #n,dst` | long (register), byte (memory) | 12 | Z only | Like `BTST`, but also toggles bit `n` of `dst` after testing it. See [below](#what-do-bchgbclrbset-write-back) for what "write back" means here. |
+| `BCLR` | `BCLR #n,dst` | long (register), byte (memory) | 14 (register), 12 (memory) | Z only | Like `BTST`, but also clears bit `n` of `dst` after testing it. See [below](#what-do-bchgbclrbset-write-back). |
+| `BSET` | `BSET #n,dst` | long (register), byte (memory) | 12 | Z only | Like `BTST`, but also sets bit `n` of `dst` after testing it. See [below](#what-do-bchgbclrbset-write-back). |
 
 ### Shift and Rotate
 
@@ -234,7 +237,7 @@ See [TRAP System Calls](#trap-system-calls) below for `TRAP`.
 
 **A** — [ABCD](#binary-coded-decimal) · [ADD](#arithmetic) · [ADDA](#arithmetic) · [ADDQ](#arithmetic) · [AND](#logical) · [ASL](#shift-and-rotate) · [ASR](#shift-and-rotate)
 
-**B** — [Bcc](#program-control) · [BRA](#program-control) · [BSR](#program-control) · [BTST](#bit-manipulation)
+**B** — [Bcc](#program-control) · [BCHG](#bit-manipulation) · [BCLR](#bit-manipulation) · [BRA](#program-control) · [BSET](#bit-manipulation) · [BSR](#program-control) · [BTST](#bit-manipulation)
 
 **C** — [CHK](#program-control) · [CLR](#arithmetic) · [CMP](#arithmetic) · [CMPA](#arithmetic)
 
@@ -319,6 +322,14 @@ Two flag quirks worth knowing before relying on them:
 - **`Z` is *cleared* if the result is non-zero, but *left alone* if the result is zero** — not a plain assignment like every other instruction on this page. That's deliberate: it lets a multi-byte chain clear `Z` once before the first byte, then read `Z=1` at the end only if *every* byte in the chain came out zero, without each individual byte's instruction able to falsely set `Z` back to `1` on its own.
 
 `NBCD`'s `dst` follows the same restriction `BTST`/`CHK`/`TAS` place on their own operands: `An` direct raises the [Illegal Instruction exception](#exceptions) instead of being treated as a value to negate.
+
+### What do BCHG/BCLR/BSET write back?
+
+Same as `BTST` — the bit is located and its old value drives `Z` — but instead of stopping there, the (possibly changed) value gets written back to `dst`: `BCHG` flips the bit, `BCLR` forces it to `0`, `BSET` forces it to `1`. `Z` still reflects the bit's state *before* the write, exactly like `BTST`, so `BSET #0,D0 / BEQ WAS_CLEAR` reads naturally: branch if the bit *used to be* clear, even though it's `1` now.
+
+`An` direct isn't a valid `dst` for any of the three — same restriction `BTST`/`CHK`/`TAS`/`NBCD` share — so it raises the [Illegal Instruction exception](#exceptions) instead.
+
+`BCLR`'s register-form cycle count (14) is genuinely higher than `BCHG`/`BSET`'s (12) on real 68000 hardware — not a typo. All three cost the same 12 cycles for a memory `dst`.
 
 ### Which Bcc do I want?
 
