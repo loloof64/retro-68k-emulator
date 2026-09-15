@@ -14,6 +14,7 @@ import {
   SOUND_WAVEFORM_TRIANGLE,
   ZERO_DIVIDE_VECTOR,
   ILLEGAL_INSTRUCTION_VECTOR,
+  CHK_VECTOR,
 } from '../memory'
 import { createCPU, step, writeRegister } from './index'
 import { opcodeTable } from './opcodes'
@@ -60,6 +61,10 @@ function dbccWord(cc: number, reg: number) {
 
 function sccWord(cc: number, mode: number, reg: number) {
   return 0x50c0 | (cc << 8) | (mode << 3) | reg
+}
+
+function chkWord(destReg: number, mode: number, reg: number) {
+  return 0x4180 | (destReg << 9) | (mode << 3) | reg
 }
 
 function jsrWord(mode: number, reg: number) {
@@ -747,6 +752,88 @@ describe('DIVS', () => {
     writeRegister(cpu, Register.D0, -100, 'long')
     memory.write16(0x2000, mulDivWord(0b1000, 0, true, 0b111, 0b100)) // DIVS #0,D0
     memory.write16(0x2002, 0)
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.pc).toBe(0x3000)
+  })
+})
+
+describe('CHK', () => {
+  it('does not trap when Dn is within 0..bound', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.D0, 5, 'long')
+    memory.write16(0x2000, chkWord(0, 0b111, 0b100)) // CHK #10,D0
+    memory.write16(0x2002, 10)
+
+    const cycles = step(cpu, memory, opcodeTable)
+
+    expect(cpu.pc).toBe(0x2004) // straight past the extension word, no trap
+    expect(cycles).toBe(10)
+  })
+
+  it('traps and sets N when Dn is negative', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    memory.write32(CHK_VECTOR, 0x3000)
+    writeRegister(cpu, Register.D0, -1, 'long')
+    memory.write16(0x2000, chkWord(0, 0b111, 0b100)) // CHK #10,D0
+    memory.write16(0x2002, 10)
+
+    const cycles = step(cpu, memory, opcodeTable)
+
+    expect(cpu.status.N).toBe(true)
+    expect(cpu.pc).toBe(0x3000)
+    expect(cycles).toBe(40)
+  })
+
+  it('traps and clears N when Dn exceeds the bound', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    memory.write32(CHK_VECTOR, 0x3000)
+    writeRegister(cpu, Register.D0, 20, 'long')
+    memory.write16(0x2000, chkWord(0, 0b111, 0b100)) // CHK #10,D0
+    memory.write16(0x2002, 10)
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.status.N).toBe(false)
+    expect(cpu.pc).toBe(0x3000)
+  })
+
+  it('round-trips through the installed handler and back via RTS', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    memory.write32(CHK_VECTOR, 0x3000)
+    writeRegister(cpu, Register.D0, -1, 'long')
+    memory.write16(0x2000, chkWord(0, 0b111, 0b100)) // CHK #10,D0
+    memory.write16(0x2002, 10)
+    memory.write16(0x3000, RTS_WORD)
+    const spBefore = cpu.registers[Register.A7]
+
+    step(cpu, memory, opcodeTable) // CHK -> raises, pc = 0x3000
+    step(cpu, memory, opcodeTable) // RTS -> pops back to right after CHK
+
+    expect(cpu.pc).toBe(0x2004)
+    expect(cpu.registers[Register.A7]).toBe(spBefore)
+  })
+
+  it('throws when trapping with no handler installed', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.D0, -1, 'long')
+    memory.write16(0x2000, chkWord(0, 0b111, 0b100)) // CHK #10,D0
+    memory.write16(0x2002, 10)
+
+    expect(() => step(cpu, memory, opcodeTable)).toThrow(/no handler installed/)
+  })
+
+  it('rejects An direct as a reserved encoding', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    memory.write32(ILLEGAL_INSTRUCTION_VECTOR, 0x3000)
+    memory.write16(0x2000, chkWord(0, 0b001, 0)) // CHK A0,D0
 
     step(cpu, memory, opcodeTable)
 

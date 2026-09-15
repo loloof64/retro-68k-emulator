@@ -752,6 +752,42 @@ CMP.L   #100,D0
 SEQ     D1             ; low byte = $FF if D0 was 100, else $00
 ```
 
+### CHK - Check Register Against Bounds
+```
+CHK <ea>,Dn
+```
+
+Bounds-checks `Dn`'s low word (as a signed value) against the range `0`
+to `<ea>` (also read as a signed word — the upper bound). If `Dn` is
+negative or greater than the bound, raises the CHK exception instead of
+falling through to the next instruction — see [CHK Exception](#chk-exception)
+below. In range, execution just continues.
+
+**Addressing**: any data addressing mode except `An` direct (mode `001`)
+— that's a genuinely reserved encoding here (there's no such thing as
+bounds-checking against an address register), so it raises the Illegal
+Instruction exception instead, the same as `BTST` targeting `An`.
+
+**Sizes**: W (always — no size field left in the opcode once `<ea>` and
+`Dn` are encoded)
+**Cycles**: 10 (no trap), 40 (trap taken, either reason)
+**Flags**: N (set if `Dn < 0`, cleared if `Dn >` bound, unaffected if in
+range); Z/V/C undefined on real hardware, so untouched here too
+
+**Example**:
+```asm
+MOVE.W  #99,D0         ; array index to validate
+CHK     #99,D0         ; trap if D0 < 0 or D0 > 99 (valid: 0-99)
+; only reached if D0 was in range
+```
+
+### CHK Exception
+
+`CHK`'s bounds check failing jumps through its own vector, `$48`, the
+same mechanism `DIVU`/`DIVS`'s Zero Divide and reserved encodings'
+Illegal Instruction already use — see [CPU Exception Vector Table](./MEMORY.md#cpu-exception-vector-table)
+for the full layout and how to install a handler.
+
 ## Subroutine Control
 
 ### JSR - Jump to Subroutine
@@ -874,7 +910,7 @@ Does nothing, useful for timing/padding.
 | Logical | AND, OR, XOR, NOT |
 | Bit | BTST |
 | Shift/Rotate | ASL, ASR, LSL, LSR, ROL, ROR |
-| Branches | BRA, BEQ, BNE, BLT, BLE, BGT, BGE, BHI, BLS, BCS, BCC, BVS, BVC, BPL, BMI, DBcc (DBRA/DBF, DBT, DBEQ, DBNE, ...), Scc (SEQ, SNE, ST, SF, ...) |
+| Branches | BRA, BEQ, BNE, BLT, BLE, BGT, BGE, BHI, BLS, BCS, BCC, BVS, BVC, BPL, BMI, DBcc (DBRA/DBF, DBT, DBEQ, DBNE, ...), Scc (SEQ, SNE, ST, SF, ...), CHK |
 | Subroutines | JSR, BSR, RTS, LINK, UNLK |
 | System | TRAP, NOP |
 
@@ -893,7 +929,7 @@ each.
 
 **B** — [BCC](#conditional-branches) · [BCS](#conditional-branches) · [BEQ](#conditional-branches) · [BGE](#conditional-branches) · [BGT](#conditional-branches) · [BHI](#conditional-branches) · [BLE](#conditional-branches) · [BLS](#conditional-branches) · [BLT](#conditional-branches) · [BMI](#conditional-branches) · [BNE](#conditional-branches) · [BPL](#conditional-branches) · [BRA](#bra---branch-always) · [BSR](#bsr---branch-to-subroutine) · [BTST](#btst---test-bit) · [BVC](#conditional-branches) · [BVS](#conditional-branches)
 
-**C** — [CLR](#clr---clear) · [CMP](#cmp---compare)
+**C** — [CHK](#chk---check-register-against-bounds) · [CLR](#clr---clear) · [CMP](#cmp---compare)
 
 **D** — [DBCC](#dbcc---decrement-and-branch-conditionally) · [DBCS](#dbcc---decrement-and-branch-conditionally) · [DBEQ](#dbcc---decrement-and-branch-conditionally) · [DBGE](#dbcc---decrement-and-branch-conditionally) · [DBGT](#dbcc---decrement-and-branch-conditionally) · [DBHI](#dbcc---decrement-and-branch-conditionally) · [DBLE](#dbcc---decrement-and-branch-conditionally) · [DBLS](#dbcc---decrement-and-branch-conditionally) · [DBLT](#dbcc---decrement-and-branch-conditionally) · [DBMI](#dbcc---decrement-and-branch-conditionally) · [DBNE](#dbcc---decrement-and-branch-conditionally) · [DBPL](#dbcc---decrement-and-branch-conditionally) · [DBRA](#dbcc---decrement-and-branch-conditionally) · [DBT](#dbcc---decrement-and-branch-conditionally) · [DBVC](#dbcc---decrement-and-branch-conditionally) · [DBVS](#dbcc---decrement-and-branch-conditionally) · [DIVS](#div---divide) · [DIVU](#div---divide)
 

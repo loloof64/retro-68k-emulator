@@ -24,8 +24,8 @@ Reserved for interrupt vectors and system-level data:
 
 ```
 $00000-$0003F    64 bytes   TRAP vector table (16 vectors x 4 bytes)
-$00040-$00047     8 bytes   CPU exception vector table (2 vectors so far)
-$00048-$01FFF    8 KB-72B   Reserved for future use
+$00040-$0004B    12 bytes   CPU exception vector table (3 vectors so far)
+$0004C-$01FFF    8 KB-76B   Reserved for future use
 ```
 
 ### TRAP Vector Table
@@ -69,7 +69,8 @@ nothing to do with its actual exception model.
 Offset   Exception            Raised by
 ────────────────────────────────────────────────────────
 $40      Zero Divide          DIVU / DIVS with a zero divisor
-$44      Illegal Instruction  MOVE.B to An; BTST targeting An
+$44      Illegal Instruction  MOVE.B to An; BTST targeting An; CHK targeting An
+$48      CHK                  CHK's bounds check failed (Dn < 0 or Dn > <ea>)
 ```
 
 Real 68000 hardware pushes the status register and PC onto a *supervisor*

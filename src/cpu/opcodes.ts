@@ -4,6 +4,7 @@ import { readRegister, updateFlags, writeRegister } from './index'
 import { decodeEA, decodeControlAddress, type Size } from './addressing'
 import { addWithFlags, subWithFlags } from './arithmetic'
 import {
+  CHK_VECTOR,
   ILLEGAL_INSTRUCTION_VECTOR,
   INPUT_START,
   SOUND_DURATION,
@@ -1648,6 +1649,59 @@ const ROXR_MEM: OpcodeDefinition = {
   },
 }
 
+// --- CHK <ea>,Dn ($4180-$41FF, mode=001/An excluded - reserved) ---------
+//
+// Bounds-checks Dn's low word as a signed value against the range
+// `0` to `<ea>` (also read as a signed word, the upper bound): out of
+// range either way raises the CHK exception instead of falling through,
+// the same vector-table mechanism DIVU/DIVS's Zero Divide and reserved
+// encodings' Illegal Instruction already use (see raiseException above
+// and CHK_VECTOR in src/memory/index.ts). Word-only on real 68000 - no
+// size field is left in the opcode once `<ea>` and `Dn` are encoded.
+// `An` direct (mode=001) isn't a data operand at all here (there's no
+// such thing as bounds-checking against/with an address register), so
+// it's a genuinely reserved encoding - rejected the same way BTST
+// rejects it as a destination.
+//
+// N is the one flag Motorola actually documents: set when Dn is
+// negative, cleared when Dn exceeds the bound (both trap cases), left
+// alone when Dn is in range - Z/V/C are undefined on real hardware in
+// every case, so they're simply not touched here either.
+
+const CHK: OpcodeDefinition = {
+  mnemonic: 'CHK',
+  encoding: '0100ddd110mmmrrr',
+  size: 'word',
+  handler: (cpu: CPUState, memory: Memory, args: unknown[]) => {
+    const opcodeWord = opcodeWordOf(args)
+    const destReg = (Register.D0 + ((opcodeWord >> 9) & 0b111)) as Register
+    const mode = (opcodeWord >> 3) & 0b111
+    const reg = opcodeWord & 0b111
+
+    if (mode === 0b001) {
+      raiseException(cpu, memory, ILLEGAL_INSTRUCTION_VECTOR, 'Illegal Instruction')
+      return 34
+    }
+
+    const bound = toSigned16(decodeEA(cpu, memory, mode, reg, 'word').read())
+    const value = toSigned16(readRegister(cpu, destReg, 'word'))
+
+    if (value < 0) {
+      cpu.status.N = true
+      raiseException(cpu, memory, CHK_VECTOR, 'CHK')
+      return 40
+    }
+
+    if (value > bound) {
+      cpu.status.N = false
+      raiseException(cpu, memory, CHK_VECTOR, 'CHK')
+      return 40
+    }
+
+    return 10
+  },
+}
+
 // --- TRAP #n ($4E40-$4E4F) ----------------------------------------------
 
 export type TrapHandler = (cpu: CPUState, memory: Memory, vector: number) => void
@@ -1708,6 +1762,7 @@ export const opcodeTable: readonly OpcodeEntry[] = [
   { mask: 0xfff8, pattern: 0x4e58, definition: UNLK },
   { mask: 0xffc0, pattern: 0x4e80, definition: JSR },
   { mask: 0xf1c0, pattern: 0x41c0, definition: LEA },
+  { mask: 0xf1c0, pattern: 0x4180, definition: CHK },
   { mask: 0xffc0, pattern: 0xe1c0, definition: ASL_MEM },
   { mask: 0xffc0, pattern: 0xe0c0, definition: ASR_MEM },
   { mask: 0xffc0, pattern: 0xe3c0, definition: LSL_MEM },

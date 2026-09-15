@@ -206,6 +206,7 @@ restriction, and cycle cost.
 | `Scc` | `Scc dst` | byte | 4 / 6 / 8 | none | Tests condition `cc` (same table as `Bcc`) and sets `dst` to `$FF` or `$00` — no branch, no arithmetic. See [below](#which-destinations-can-scc-use) for valid destinations and what the three cycle counts mean. |
 | `LINK` | `LINK An,#displacement` | word | 16 | none | Stack-frame prologue: pushes `An`, points `An` at the new frame, then moves `SP` by `displacement`. See [below](#how-do-link-and-unlk-handle-a7) for the `LINK A7`/`UNLK A7` special case. |
 | `UNLK` | `UNLK An` | word | 12 | none | Stack-frame epilogue, `LINK`'s inverse: restores `SP` from `An`, then pops the old `An` value. See [below](#how-do-link-and-unlk-handle-a7) for the `UNLK A7` special case. |
+| `CHK` | `CHK <ea>,Dn` | word | 10 / 40 | N (see below) | Bounds-checks `Dn` against `0` and `<ea>` (both signed words); out of range either way raises the [CHK exception](#exceptions) instead of continuing. See [below](#which-values-does-chk-accept) for the exact range and what happens to `N`. |
 
 ### System
 
@@ -221,7 +222,7 @@ See [TRAP System Calls](#trap-system-calls) below for `TRAP`.
 
 **B** — [Bcc](#program-control) · [BRA](#program-control) · [BSR](#program-control) · [BTST](#bit-manipulation)
 
-**C** — [CLR](#arithmetic) · [CMP](#arithmetic)
+**C** — [CHK](#program-control) · [CLR](#arithmetic) · [CMP](#arithmetic)
 
 **D** — [DBcc](#program-control) · [DIVS](#arithmetic) · [DIVU](#arithmetic)
 
@@ -335,6 +336,27 @@ Both instructions are defined as an exact sequence of micro-operations, not one 
 - **`UNLK A7`**: step 1 (`SP←An`) is a no-op, since `An` already *is* `SP`. Step 2 (`An←(SP)`) then overwrites `A7` with the popped value — so by the time step 3 runs, `SP←SP+4` adds 4 to the *popped* value, not to the original frame pointer.
 
 Neither case comes up in the `LINK A6,#-8` / `UNLK A6` idiom above, since a subroutine almost always frames a different register than `SP` — but hand-encoding raw opcode words makes it easy to reach for `A7` by mistake, so it's worth knowing the sequence rather than assuming "swap" semantics.
+
+### Which values does CHK accept?
+
+`CHK <ea>,Dn` treats `<ea>` as an upper bound and checks whether `Dn`'s low 16 bits, read as a signed value, falls in the range `0` to `<ea>` inclusive — the classic use is validating an array index before using it:
+
+```asm
+MOVE.W  D3,D0           ; candidate index, computed earlier
+CHK     #99,D0          ; valid range is 0-99 (a 100-entry array)
+; only reached if D0 was in 0..99 - safe to use as an index below
+LEA     TABLE,A0
+MOVE.W  (A0,D0.W),D1    ; safe: D0 already passed the bounds check
+```
+
+Two ways to fail, and `N` tells you which one happened right before the exception fires:
+
+- **`Dn` is negative** — `N` is set to `1`.
+- **`Dn` is greater than the bound** — `N` is cleared to `0`.
+
+Either failure raises the [CHK exception](#exceptions) (vector `$48`) instead of falling through to the next instruction — same mechanism as `DIVU`/`DIVS`'s Zero Divide, just a different vector. When `Dn` is in range, execution just continues and `N` is left exactly as it was; `Z`, `V`, and `C` are undefined on real 68000 hardware in every case, so this emulator leaves them untouched too rather than picking an arbitrary value for them.
+
+`An` direct isn't a valid `<ea>` here — there's no such thing as bounds-checking against an address register — so it raises the [Illegal Instruction exception](#exceptions) instead, the same restriction `BTST` has on its destination.
 
 ### How does MOVEM's register list work?
 
@@ -472,7 +494,8 @@ hasn't implemented yet, which would run fine on real hardware.
 | Vector | Address | Raised by | Description |
 |---|---|---|---|
 | Zero Divide | `$40` | `DIVU`/`DIVS` with a zero divisor | Jumps to the handler address stored at `$40`. |
-| Illegal Instruction | `$44` | `MOVE.B` to an address register; `BTST` targeting one | Jumps to the handler address stored at `$44`. Both are reserved/undefined encodings on real 68000 hardware, not missing features. |
+| Illegal Instruction | `$44` | `MOVE.B` to an address register; `BTST`/`CHK` targeting one | Jumps to the handler address stored at `$44`. All are reserved/undefined encodings on real 68000 hardware, not missing features. |
+| CHK | `$48` | `CHK`'s bounds check failing (`Dn < 0` or `Dn >` the upper bound) | Jumps to the handler address stored at `$48`. See [CHK](#program-control) above. |
 
 Your program installs a handler by writing its address into the vector
 *before* the fault can happen:

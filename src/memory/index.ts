@@ -45,6 +45,7 @@ export const ZERO_DIVIDE_VECTOR = EXCEPTION_VECTORS_START + 0 // DIVU/DIVS by ze
 // targeting An) — never for an instruction/addressing mode this emulator
 // simply hasn't implemented yet, which would run fine on real hardware.
 export const ILLEGAL_INSTRUCTION_VECTOR = EXCEPTION_VECTORS_START + 4
+export const CHK_VECTOR = EXCEPTION_VECTORS_START + 8 // CHK bounds check failed
 
 // Sound port: layout reserved, not wired to any audio output yet (see
 // docs/MEMORY.md). Modeled on a simple single-voice tone generator — like
