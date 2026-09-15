@@ -138,6 +138,7 @@ A first handful of real instructions is wired in, grouped below the way Motorola
 | `LEA` | `LEA src,An` | long | 4 | none | Computes an address and loads it into `An`, without reading what's stored there. Same addressing modes as `JSR` — see [below](#which-addressing-modes-can-jsr-target). |
 | `PEA` | `PEA src` | long | 12 | none | Like `LEA`, but pushes the address onto the stack instead of loading it into a register. Same addressing modes as `JSR` — see [below](#which-addressing-modes-can-jsr-target). |
 | `SWAP` | `SWAP Dn` | long | 4 | N, Z, V (0), C (0) | Swaps the high and low 16-bit halves of `Dn`. |
+| `MOVEM` | `MOVEM.size list,dst` / `MOVEM.size src,list` | word, long | see below | none | Moves any subset of the 16 registers to or from memory at once, picked by a bitmask. See [below](#how-does-movems-register-list-work) for the addressing modes, the bitmask order, and the cycle formula. |
 
 ### Arithmetic
 
@@ -225,7 +226,7 @@ See [TRAP System Calls](#trap-system-calls) below for `TRAP`.
 
 **L** — [LEA](#data-movement) · [LSL](#shift-and-rotate) · [LSR](#shift-and-rotate)
 
-**M** — [MOVE](#data-movement) · [MOVEA](#data-movement) · [MOVEQ](#data-movement) · [MULS](#arithmetic) · [MULU](#arithmetic)
+**M** — [MOVE](#data-movement) · [MOVEA](#data-movement) · [MOVEM](#data-movement) · [MOVEQ](#data-movement) · [MULS](#arithmetic) · [MULU](#arithmetic)
 
 **N** — [NEG](#arithmetic) · [NOP](#system) · [NOT](#logical)
 
@@ -308,6 +309,22 @@ The three cycle counts depend on both the destination and the outcome of testing
 
 Any that name a memory location without a register side effect — the 68000's "control" addressing modes: `(An)`, `d16(An)`, `d8(An,Xn)`, `xxx.W`, `xxx.L`, `d16(PC)`, `d8(PC,Xn)`. Not valid: `Dn`, `An`, `(An)+`, `-(An)`, or `#imm`. See [Addressing Modes](#addressing-modes) above for what each of these means (that section covers what every other instruction's `src`/`dst` can be, too). `LEA` and `PEA` use this exact same set for their `src` — they compute the address the same way `JSR` does, just load it into `An` (`LEA`) or push it onto the stack (`PEA`) instead of jumping to it.
 
+### How does MOVEM's register list work?
+
+`MOVEM` moves any subset of the 16 registers (`D0`-`D7`, `A0`-`A7`) to or from memory in one instruction. The register list — written as a range/list like `D0-D2/A0`, meaning `D0`, `D1`, `D2`, and `A0` — gets packed into a 16-bit bitmask, one bit per register, that follows the opcode word. (There's no assembler yet, so today that bitmask has to be hand-encoded, the same way `Bcc`'s target does.)
+
+Which addressing modes are valid depends on which direction the data is moving:
+- **Register list → memory** (`MOVEM.size list,dst`): the [control addressing modes](#which-addressing-modes-can-jsr-target) `JSR`/`LEA`/`PEA` use, plus predecrement (`-(An)`).
+- **Memory → register list** (`MOVEM.size src,list`): the same control addressing modes, plus postincrement (`(An)+`).
+
+`Dn`, `An` direct, and `#imm` are never valid — there's no single register or constant to move a whole register list to or from.
+
+Two quirks worth knowing before hand-encoding one:
+1. **Predecrement reverses the bit order.** For every addressing mode except `-(An)`, bit 0 of the mask is `D0` and bit 15 is `A7`. But `-(An)` decrements the address *before* each store, filling memory backward — so to keep the lowest address holding the lowest-numbered register (matching normal reading order), the bit order flips too: bit 0 becomes `A7`, bit 15 becomes `D0`. A real assembler handles this automatically from the `list,-(An)` syntax; hand-encoding it means reversing the bits yourself.
+2. **Word-size loads sign-extend.** `MOVEM.W src,list` sign-extends each 16-bit value it reads to the full 32 bits of its register — unlike `MOVE.W`, which only overwrites the low word and leaves the high word alone. `MOVEM.W list,dst` (storing) just writes each register's low 16 bits, no extension involved.
+
+**Cycles**: `8 + 4n` (register→memory, word) / `8 + 8n` (long); `12 + 4n` (memory→register, word) / `12 + 8n` (long) — `n` is the number of registers actually transferred, not 16.
+
 **Example** — add two numbers and write a white pixel, using a direct absolute address:
 
 ```
@@ -355,6 +372,23 @@ TRAP    #0                 ; exit
 DOUBLE:
 ADD.L   D0,D0              ; D0 += D0
 RTS                        ; back to the caller
+```
+
+**Example** — saving and restoring registers around a subroutine call with `MOVEM`, so `DOUBLE` is free to use `D1` and `A0` as scratch without disturbing the caller's:
+
+```
+MOVEQ   #1,D1
+MOVEA.L #$1000,A0
+MOVEM.L D1/A0,-(A7)       ; push D1,A0 (see above)
+MOVEA.L #DOUBLE,A0
+MOVEQ   #21,D0
+JSR     (A0)               ; D0 *= 2; free to clobber D1/A0
+MOVEM.L (A7)+,D1/A0       ; restore, same order pushed
+TRAP    #0                 ; exit
+
+DOUBLE:
+ADD.L   D0,D0
+RTS
 ```
 
 The rest of the ~80-instruction set lands in upcoming sessions — each one gets its own entry here as it becomes real.

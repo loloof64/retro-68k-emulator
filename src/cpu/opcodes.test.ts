@@ -125,6 +125,11 @@ function extWord(toLong: boolean, reg: number) {
   return (toLong ? 0x48c0 : 0x4880) | reg
 }
 
+// dr: 0=register-to-memory 1=memory-to-register. size: 0=word 1=long.
+function movemWord(dr: 0 | 1, size: 0 | 1, mode: number, reg: number) {
+  return 0x4880 | (dr << 10) | (size << 6) | (mode << 3) | reg
+}
+
 function tstWord(size: 0b00 | 0b01 | 0b10, mode: number, reg: number) {
   return (0b0100101000000000) | (size << 6) | (mode << 3) | reg
 }
@@ -937,6 +942,150 @@ describe('EXT', () => {
 
     expect(cpu.status.Z).toBe(true)
     expect(cpu.status.N).toBe(false)
+  })
+})
+
+describe('MOVEM', () => {
+  it('register-to-memory, (An): stores selected registers in D0..A7 order at ascending addresses', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.A0, 0x3000, 'long')
+    writeRegister(cpu, Register.D0, 0x11111111, 'long')
+    writeRegister(cpu, Register.D1, 0x22222222, 'long')
+    writeRegister(cpu, Register.A1, 0x33333333, 'long')
+    // D0 (bit0), D1 (bit1), A1 (bit9)
+    memory.write16(0x2000, movemWord(0, 0, 0b010, 0)) // MOVEM.W D0/D1/A1,(A0)
+    memory.write16(0x2002, 0b0000001000000011)
+
+    const cycles = step(cpu, memory, opcodeTable)
+
+    expect(memory.read16(0x3000)).toBe(0x1111)
+    expect(memory.read16(0x3002)).toBe(0x2222)
+    expect(memory.read16(0x3004)).toBe(0x3333)
+    expect(cpu.registers[Register.A0]).toBe(0x3000) // (An) never modifies An
+    expect(cpu.pc).toBe(0x2004)
+    expect(cycles).toBe(8 + 4 * 3)
+  })
+
+  it('register-to-memory, -(An): reversed register list, so the lowest-numbered register ends up at the lowest address', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.A0, 0x4020, 'long')
+    writeRegister(cpu, Register.D0, 0x11111111, 'long')
+    writeRegister(cpu, Register.A1, 0x33333333, 'long')
+    // Predecrement's list is reversed (bit0=A7..bit15=D0): D0 is bit15, A1 is bit6.
+    memory.write16(0x2000, movemWord(0, 1, 0b100, 0)) // MOVEM.L D0/A1,-(A0)
+    memory.write16(0x2002, (1 << 15) | (1 << 6))
+
+    const cycles = step(cpu, memory, opcodeTable)
+
+    expect(memory.read32(0x4018)).toBe(0x11111111) // D0: last stored, lowest address
+    expect(memory.read32(0x401c)).toBe(0x33333333) // A1: stored first
+    expect(cpu.registers[Register.A0]).toBe(0x4018)
+    expect(cycles).toBe(8 + 8 * 2)
+  })
+
+  it('memory-to-register, (An): word size sign-extends each loaded value to the full register', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.A0, 0x5000, 'long')
+    memory.write16(0x5000, 0xfffe) // -2, should sign-extend
+    memory.write16(0x5002, 0x0007) // positive, unaffected by sign-extension
+    memory.write16(0x2000, movemWord(1, 0, 0b010, 0)) // MOVEM.W (A0),D2/D3
+    memory.write16(0x2002, (1 << 2) | (1 << 3))
+
+    const cycles = step(cpu, memory, opcodeTable)
+
+    expect(cpu.registers[Register.D2]).toBe(0xfffffffe)
+    expect(cpu.registers[Register.D3]).toBe(0x00000007)
+    expect(cpu.registers[Register.A0]).toBe(0x5000) // (An) never modifies An
+    expect(cycles).toBe(12 + 4 * 2)
+  })
+
+  it('memory-to-register, (An)+: normal register order, An advances past every register read', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.A0, 0x6000, 'long')
+    memory.write32(0x6000, 0xaaaabbbb)
+    memory.write32(0x6004, 0x11112222)
+    // D5 (bit5), A2 (bit10)
+    memory.write16(0x2000, movemWord(1, 1, 0b011, 0)) // MOVEM.L (A0)+,D5/A2
+    memory.write16(0x2002, (1 << 5) | (1 << 10))
+
+    const cycles = step(cpu, memory, opcodeTable)
+
+    expect(cpu.registers[Register.D5]).toBe(0xaaaabbbb)
+    expect(cpu.registers[Register.A2]).toBe(0x11112222)
+    expect(cpu.registers[Register.A0]).toBe(0x6008)
+    expect(cycles).toBe(12 + 8 * 2)
+  })
+
+  it('a predecrement store followed by a postincrement load round-trips the same registers and address', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.A0, 0x4020, 'long')
+    writeRegister(cpu, Register.D0, 0x11111111, 'long')
+    writeRegister(cpu, Register.D1, 0x22222222, 'long')
+    writeRegister(cpu, Register.A1, 0x33333333, 'long')
+    memory.write16(0x2000, movemWord(0, 1, 0b100, 0)) // MOVEM.L D0/D1/A1,-(A0)
+    memory.write16(0x2002, (1 << 15) | (1 << 14) | (1 << 6))
+    memory.write16(0x2004, movemWord(1, 1, 0b011, 0)) // MOVEM.L (A0)+,D0/D1/A1
+    memory.write16(0x2006, (1 << 0) | (1 << 1) | (1 << 9))
+
+    step(cpu, memory, opcodeTable) // store
+    writeRegister(cpu, Register.D0, 0, 'long')
+    writeRegister(cpu, Register.D1, 0, 'long')
+    writeRegister(cpu, Register.A1, 0, 'long')
+    step(cpu, memory, opcodeTable) // load back
+
+    expect(cpu.registers[Register.D0]).toBe(0x11111111)
+    expect(cpu.registers[Register.D1]).toBe(0x22222222)
+    expect(cpu.registers[Register.A1]).toBe(0x33333333)
+    expect(cpu.registers[Register.A0]).toBe(0x4020) // back to the original address
+  })
+
+  it('reads an absolute long address after the register-list mask word, in that order', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.D0, 0x42, 'long')
+    memory.write16(0x2000, movemWord(0, 1, 0b111, 0b001)) // MOVEM.L D0,$40000.L
+    memory.write16(0x2002, 1 << 0) // D0
+    memory.write32(0x2004, 0x00040000)
+
+    step(cpu, memory, opcodeTable)
+
+    expect(memory.read32(0x40000)).toBe(0x42)
+    expect(cpu.pc).toBe(0x2008)
+  })
+
+  it('rejects predecrement addressing in the memory-to-register direction', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    memory.write16(0x2000, movemWord(1, 0, 0b100, 0)) // MOVEM.W -(A0),D0 - not valid
+    memory.write16(0x2002, 1)
+
+    expect(() => step(cpu, memory, opcodeTable)).toThrow(/predecrement/)
+  })
+
+  it('rejects postincrement addressing in the register-to-memory direction', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    memory.write16(0x2000, movemWord(0, 0, 0b011, 0)) // MOVEM.W D0,(A0)+ - not valid
+    memory.write16(0x2002, 1)
+
+    expect(() => step(cpu, memory, opcodeTable)).toThrow(/postincrement/)
+  })
+
+  it('mode=000 in this bit range still dispatches to EXT, not MOVEM, since the two share an opcode', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.D0, 0x12340080, 'long')
+    memory.write16(0x2000, movemWord(0, 0, 0b000, 0)) // same bits as EXT.W D0
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.registers[Register.D0]).toBe(0x1234ff80) // EXT's effect
+    expect(cpu.pc).toBe(0x2002) // EXT reads no extension word; MOVEM would have read a mask
   })
 })
 

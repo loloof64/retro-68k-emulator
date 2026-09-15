@@ -923,6 +923,126 @@ const EXT: OpcodeDefinition = {
   },
 }
 
+// --- MOVEM <register list>,<ea> / <ea>,<register list> ($4880-$4CFF) ----
+//
+// Moves any subset of the 16 registers to/from memory in one instruction,
+// driven by a 16-bit register-list mask that's its own extension word
+// right after the opcode word — read *before* any <ea> extension word
+// (a d16 displacement, an absolute address, ...) that decodeControlAddress
+// below might still need, since real hardware always reads it first.
+//
+// Two real-68000 quirks this has to reproduce:
+// - The list is bit0=D0..bit7=D7,bit8=A0..bit15=A7 for every addressing
+//   mode *except* predecrement (`-(An)`), where it's reversed:
+//   bit0=A7..bit7=A0,bit8=D7..bit15=D0. Predecrement stores backward
+//   through memory as it decrements An, so listing the *last*-stored
+//   register (A7) at bit0 is what makes a later, forward re-read (e.g. the
+//   matching postincrement MOVEM restoring these registers) come back out
+//   in D0..A7 order.
+// - Loading (memory-to-register) at word size sign-extends each 16-bit
+//   value into the full 32-bit register, unlike a plain word MOVE (which
+//   only overwrites the low word). Storing at word size just truncates —
+//   no extension needed, since only the low word is written out.
+//
+// Addressing modes split by direction: register-to-memory allows the
+// control modes (see decodeControlAddress) plus predecrement; memory-to-
+// register allows the control modes plus postincrement. Dn/An direct and
+// #imm are invalid either way (reserved encodings) — decodeControlAddress
+// already rejects those. mode=000 (Dn) with the register-to-memory
+// direction bit also doubles as EXT's opcode: the exact SWAP/PEA and
+// DBcc/Scc situation, so EXT's narrower, already-earlier opcodeTable entry
+// has to keep matching first for that one mode.
+
+const MOVEM_ORDER: readonly Register[] = [
+  Register.D0,
+  Register.D1,
+  Register.D2,
+  Register.D3,
+  Register.D4,
+  Register.D5,
+  Register.D6,
+  Register.D7,
+  Register.A0,
+  Register.A1,
+  Register.A2,
+  Register.A3,
+  Register.A4,
+  Register.A5,
+  Register.A6,
+  Register.A7,
+]
+
+const MOVEM: OpcodeDefinition = {
+  mnemonic: 'MOVEM',
+  encoding: '01001d001smmmrrr',
+  size: 'variable',
+  handler: (cpu: CPUState, memory: Memory, args: unknown[]) => {
+    const opcodeWord = opcodeWordOf(args)
+    const loadToRegisters = ((opcodeWord >> 10) & 1) === 1
+    const size: Size = ((opcodeWord >> 6) & 1) === 1 ? 'long' : 'word'
+    const mode = (opcodeWord >> 3) & 0b111
+    const reg = opcodeWord & 0b111
+    const step = size === 'long' ? 4 : 2
+    const cyclesPerReg = size === 'long' ? 8 : 4
+
+    const mask = memory.read16(cpu.pc)
+    cpu.pc += 2
+
+    if (mode === 0b100) {
+      if (loadToRegisters) {
+        throw new Error('MOVEM memory-to-register does not support predecrement addressing')
+      }
+
+      const addrReg = (Register.A0 + reg) as Register
+      let address = readRegister(cpu, addrReg, 'long')
+      let count = 0
+      for (let bit = 0; bit < 16; bit++) {
+        if (((mask >> bit) & 1) === 0) continue
+        address -= step
+        const value = readRegister(cpu, MOVEM_ORDER[15 - bit], size)
+        if (size === 'long') memory.write32(address, value)
+        else memory.write16(address, value)
+        count++
+      }
+      writeRegister(cpu, addrReg, address, 'long')
+
+      return 8 + cyclesPerReg * count
+    }
+
+    if (mode === 0b011 && !loadToRegisters) {
+      throw new Error('MOVEM register-to-memory does not support postincrement addressing')
+    }
+
+    let address: number
+    let addrRegToWriteBack: Register | null = null
+    if (mode === 0b011) {
+      addrRegToWriteBack = (Register.A0 + reg) as Register
+      address = readRegister(cpu, addrRegToWriteBack, 'long')
+    } else {
+      address = decodeControlAddress(cpu, memory, mode, reg)
+    }
+
+    let count = 0
+    for (let bit = 0; bit < 16; bit++) {
+      if (((mask >> bit) & 1) === 0) continue
+      const targetReg = MOVEM_ORDER[bit]
+      if (loadToRegisters) {
+        const raw = size === 'long' ? memory.read32(address) : memory.read16(address)
+        writeRegister(cpu, targetReg, size === 'word' ? toSigned16(raw) : raw, 'long')
+      } else if (size === 'long') {
+        memory.write32(address, readRegister(cpu, targetReg, 'long'))
+      } else {
+        memory.write16(address, readRegister(cpu, targetReg, 'word'))
+      }
+      address += step
+      count++
+    }
+    if (addrRegToWriteBack !== null) writeRegister(cpu, addrRegToWriteBack, address, 'long')
+
+    return (loadToRegisters ? 12 : 8) + cyclesPerReg * count
+  },
+}
+
 // --- NEG <ea> ($4400) - dst = 0 - dst, full flags (unlike CLR/NOT) -------
 
 const NEG: OpcodeDefinition = {
@@ -1239,6 +1359,7 @@ export const opcodeTable: readonly OpcodeEntry[] = [
   { mask: 0xfff8, pattern: 0x4840, definition: SWAP },
   { mask: 0xffc0, pattern: 0x4840, definition: PEA },
   { mask: 0xffb8, pattern: 0x4880, definition: EXT },
+  { mask: 0xfb80, pattern: 0x4880, definition: MOVEM },
   { mask: 0xffff, pattern: 0x4e75, definition: RTS },
   { mask: 0xffc0, pattern: 0x4e80, definition: JSR },
   { mask: 0xf1c0, pattern: 0x41c0, definition: LEA },

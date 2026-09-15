@@ -156,6 +156,52 @@ Exchanges the high and low 16-bit words of a data register.
 SWAP    D0              ; D0's high and low words trade places
 ```
 
+### MOVEM - Move Multiple Registers
+```
+MOVEM.size <register list>,<ea>
+MOVEM.size <ea>,<register list>
+```
+
+Moves any subset of the 16 registers to or from memory in one instruction.
+The register list is its own 16-bit extension word right after the opcode
+word — read *before* any `<ea>` extension word (a `d16` displacement, an
+absolute address, ...) — with one bit per register.
+
+Two real-68000 quirks this reproduces (see `MOVEM` in
+`src/cpu/opcodes.ts`):
+- The list is bit0=`D0`..bit7=`D7`,bit8=`A0`..bit15=`A7` for every
+  addressing mode *except* predecrement (`-(An)`), where it's **reversed**:
+  bit0=`A7`..bit7=`A0`,bit8=`D7`..bit15=`D0`. Predecrement stores backward
+  through memory as it decrements `An`, so listing the *last*-stored
+  register (`A7`) at bit0 is what makes a later, forward re-read (e.g. a
+  matching postincrement `MOVEM` restoring these registers) come back out
+  in `D0`..`A7` order — see the round-trip example below.
+- Loading (memory-to-register) at word size **sign-extends** each 16-bit
+  value into the full 32-bit register, unlike a plain word `MOVE` (which
+  only overwrites the low word). Storing at word size just truncates — no
+  extension needed, since only the low word is written out.
+
+Addressing modes split by direction: register-to-memory allows the control
+modes (`(An)`, `d16(An)`, `d8(An,Xn)`, `xxx.W`, `xxx.L`, `d16(PC)`,
+`d8(PC,Xn)` — see `decodeControlAddress` in `src/cpu/addressing.ts`) plus
+predecrement; memory-to-register allows the control modes plus
+postincrement. `Dn`, `An` direct, and `#imm` are invalid either way
+(reserved encodings). `mode=000` (`Dn`) with the register-to-memory
+direction bit also doubles as `EXT`'s opcode — the exact `SWAP`/`PEA` and
+`DBcc`/`Scc` situation, so `EXT`'s narrower, already-earlier `opcodeTable`
+entry has to keep matching first for that one mode.
+
+**Sizes**: W, L
+**Cycles**: register-to-memory: `8 + 4n` (W) / `8 + 8n` (L); memory-to-register: `12 + 4n` (W) / `12 + 8n` (L) — `n` = number of registers transferred
+**Flags**: None
+
+**Examples**:
+```asm
+MOVEM.L D0-D2/A0,-(A7)     ; push D0,D1,D2,A0 onto the stack
+; ... subroutine body, free to clobber D0-D2/A0 ...
+MOVEM.L (A7)+,D0-D2/A0     ; pop them back, same order pushed
+```
+
 ## Arithmetic Operations
 
 ### ADD - Add
