@@ -356,6 +356,105 @@ const CMP: OpcodeDefinition = {
   },
 }
 
+// --- ADDA/SUBA <ea>,An ($D0C0-$D1FE / $90C0-$91FE) -----------------------
+//
+// The `An`-destination form of `ADD`/`SUB` - exactly the relationship
+// `MOVEA` has to `MOVE`: always a full 32-bit op on `An` regardless of
+// source size, and it never touches the flags (real 68000: `ADDA`/`SUBA`
+// affect no condition codes at all, not even the ones a same-size `ADD`/
+// `SUB` would set). A word-sized source is sign-extended to 32 bits
+// before the add/subtract - `toSigned16` already produces a JS number
+// that `writeRegister`'s `>>> 0` reinterprets correctly as the 32-bit
+// two's-complement value, so no separate extension step is needed here.
+//
+// Opmode bits 8-6 select `ADDA`/`SUBA` at `011` (word) and `111` (long) -
+// note bit 8 (word/long) sits in the *middle* of the fixed `ADD`/`SUB`
+// opmode space rather than at either end, so `decodeStandardOpSize`
+// (which only defines byte/word/long as 000/001/010) can't be reused
+// here. Both opmodes share `ADDA`/`SUBA`'s own narrower opcodeTable
+// entry (mask `0xf0c0`, matching bits 7-6 = `11` with bit 8 free), which
+// has to be listed *before* `ADD`/`SUB`'s broader entry (mask `0xf100`,
+// bit 8 fixed at `0`) - otherwise a word-sized `ADDA`/`SUBA` (bit 8 = 0)
+// would wrongly resolve to plain `ADD`/`SUB` and crash trying to decode
+// `011` as if it were a byte/word/long size. `ADDA`/`SUBA`'s long form
+// (bit 8 = 1) doesn't collide with `ADD`/`SUB` at all - only with word.
+//
+// Real 68000 cycle counts split cleanly by size here (word costs more:
+// the sign-extension is an extra internal step), so - same precision
+// this codebase already applies to MOVEM's word/long split - it's
+// modeled exactly rather than flattened to one number.
+
+function addaSubaHandler(sign: 1 | -1): OpcodeDefinition['handler'] {
+  return (cpu: CPUState, memory: Memory, args: unknown[]) => {
+    const opcodeWord = opcodeWordOf(args)
+    const destReg = (Register.A0 + ((opcodeWord >> 9) & 0b111)) as Register
+    const isLong = ((opcodeWord >> 8) & 1) === 1
+    const size: Size = isLong ? 'long' : 'word'
+    const srcMode = (opcodeWord >> 3) & 0b111
+    const srcReg = opcodeWord & 0b111
+
+    const src = decodeEA(cpu, memory, srcMode, srcReg, size)
+    const value = isLong ? src.read() : toSigned16(src.read())
+
+    const current = readRegister(cpu, destReg, 'long')
+    writeRegister(cpu, destReg, current + sign * value, 'long')
+
+    return isLong ? 6 : 8
+  }
+}
+
+const ADDA: OpcodeDefinition = {
+  mnemonic: 'ADDA',
+  encoding: '1101aaas11mmmrrr',
+  size: 'variable',
+  handler: addaSubaHandler(1),
+}
+
+const SUBA: OpcodeDefinition = {
+  mnemonic: 'SUBA',
+  encoding: '1001aaas11mmmrrr',
+  size: 'variable',
+  handler: addaSubaHandler(-1),
+}
+
+// --- CMPA <ea>,An ($B0C0-$B1FE) - like CMP, but a 32-bit An comparison --
+//
+// Same opmode `011`/`111` slot `ADDA`/`SUBA` use, same word-source
+// sign-extension, but sets flags like `CMP` instead of writing back to
+// `An` - N/Z/V/C from the 32-bit subtraction, X left untouched, exactly
+// `CMP`'s own rule. Its long form (bit 8 = 1) shares `XOR`'s opcodeTable
+// range too (`XOR`'s mask only fixes bit 8 = 1, wildcarding bits 7-6),
+// so `CMPA`'s narrower entry has to be listed before *both* `CMP`'s and
+// `XOR`'s broader ones.
+
+const CMPA: OpcodeDefinition = {
+  mnemonic: 'CMPA',
+  encoding: '1011aaas11mmmrrr',
+  size: 'variable',
+  handler: (cpu: CPUState, memory: Memory, args: unknown[]) => {
+    const opcodeWord = opcodeWordOf(args)
+    const destReg = (Register.A0 + ((opcodeWord >> 9) & 0b111)) as Register
+    const isLong = ((opcodeWord >> 8) & 1) === 1
+    const size: Size = isLong ? 'long' : 'word'
+    const srcMode = (opcodeWord >> 3) & 0b111
+    const srcReg = opcodeWord & 0b111
+
+    const src = decodeEA(cpu, memory, srcMode, srcReg, size)
+    const value = isLong ? src.read() : toSigned16(src.read())
+    const current = readRegister(cpu, destReg, 'long')
+
+    const { flags } = subWithFlags(current, value, 'long')
+
+    cpu.status.N = flags.N
+    cpu.status.Z = flags.Z
+    cpu.status.V = flags.V
+    cpu.status.C = flags.C
+    // Real 68000 CMPA leaves X untouched, same as CMP.
+
+    return 6
+  },
+}
+
 // --- MOVEQ #imm,Dn ($7000-$7EFE, bit8 = 0) ------------------------------
 
 const MOVEQ: OpcodeDefinition = {
@@ -1960,6 +2059,9 @@ export const opcodeTable: readonly OpcodeEntry[] = [
   { mask: 0xf118, pattern: 0xe018, definition: ROR },
   { mask: 0xf118, pattern: 0xe110, definition: ROXL },
   { mask: 0xf118, pattern: 0xe010, definition: ROXR },
+  { mask: 0xf0c0, pattern: 0xd0c0, definition: ADDA },
+  { mask: 0xf0c0, pattern: 0x90c0, definition: SUBA },
+  { mask: 0xf0c0, pattern: 0xb0c0, definition: CMPA },
   { mask: 0xf100, pattern: 0xd000, definition: ADD },
   { mask: 0xf100, pattern: 0x9000, definition: SUB },
   { mask: 0xf100, pattern: 0xb000, definition: CMP },

@@ -145,9 +145,12 @@ A first handful of real instructions is wired in, grouped below the way Motorola
 | Mnemonic | Syntax | Sizes | Cycles | Flags affected | Description |
 |---|---|---|---|---|---|
 | `ADD` | `ADD.size src,Dn` | byte, word, long | 4 | N, Z, V, C, X | Adds `src` to a data register, in place. |
+| `ADDA` | `ADDA.size src,An` | word, long | 8 (word), 6 (long) | none | `ADD`'s `An`-destination form: always a full 32-bit add, word `src` sign-extended first. Same relationship `MOVEA` has to `MOVE` — no flags touched at all, not even the ones a same-size `ADD` would set. |
 | `SUB` | `SUB.size src,Dn` | byte, word, long | 4 | N, Z, V, C, X | Subtracts `src` from a data register, in place. |
+| `SUBA` | `SUBA.size src,An` | word, long | 8 (word), 6 (long) | none | `SUB`'s `An`-destination form — same rules `ADDA` follows. |
 | `ADDQ`/`SUBQ` | `ADDQ #data,dst` / `SUBQ #data,dst` | byte, word, long | 4 | N, Z, V, C, X (`An`: none) | Adds/subtracts a small immediate (`1`-`8`) straight into `dst`, packed into the opcode itself. `dst = An` is always a full 32-bit op with no flags touched, regardless of size — same rule `MOVEA` follows. |
 | `CMP` | `CMP.size src,Dn` | byte, word, long | 4 | N, Z, V, C | Subtracts `src` from a data register like `SUB`, but only sets flags — the register itself is unchanged. Typically followed by a `Bcc`. |
+| `CMPA` | `CMPA.size src,An` | word, long | 6 | N, Z, V, C | `CMP`'s `An`-destination form: compares the full 32-bit `An` against `src` (sign-extended if word), without modifying `An`. |
 | `CLR` | `CLR.size dst` | byte, word, long | 4 | N, Z, V (0), C (0) | Sets `dst` to `0`. |
 | `NEG` | `NEG.size dst` | byte, word, long | 4 | N, Z, V, C, X | Negates `dst` in place (two's complement: `dst = 0 - dst`). |
 | `TST` | `TST.size dst` | byte, word, long | 4 | N, Z, V (0), C (0) | Sets flags from `dst`, like `CMP.size #0,dst` — doesn't modify it. |
@@ -227,11 +230,11 @@ See [TRAP System Calls](#trap-system-calls) below for `TRAP`.
 
 ### Alphabetical Index
 
-**A** — [ABCD](#binary-coded-decimal) · [ADD](#arithmetic) · [ADDQ](#arithmetic) · [AND](#logical) · [ASL](#shift-and-rotate) · [ASR](#shift-and-rotate)
+**A** — [ABCD](#binary-coded-decimal) · [ADD](#arithmetic) · [ADDA](#arithmetic) · [ADDQ](#arithmetic) · [AND](#logical) · [ASL](#shift-and-rotate) · [ASR](#shift-and-rotate)
 
 **B** — [Bcc](#program-control) · [BRA](#program-control) · [BSR](#program-control) · [BTST](#bit-manipulation)
 
-**C** — [CHK](#program-control) · [CLR](#arithmetic) · [CMP](#arithmetic)
+**C** — [CHK](#program-control) · [CLR](#arithmetic) · [CMP](#arithmetic) · [CMPA](#arithmetic)
 
 **D** — [DBcc](#program-control) · [DIVS](#arithmetic) · [DIVU](#arithmetic)
 
@@ -251,7 +254,7 @@ See [TRAP System Calls](#trap-system-calls) below for `TRAP`.
 
 **R** — [ROL](#shift-and-rotate) · [ROR](#shift-and-rotate) · [ROXL](#shift-and-rotate) · [ROXR](#shift-and-rotate) · [RTS](#program-control)
 
-**S** — [SBCD](#binary-coded-decimal) · [Scc](#program-control) · [SUB](#arithmetic) · [SUBQ](#arithmetic) · [SWAP](#data-movement)
+**S** — [SBCD](#binary-coded-decimal) · [Scc](#program-control) · [SUB](#arithmetic) · [SUBA](#arithmetic) · [SUBQ](#arithmetic) · [SWAP](#data-movement)
 
 **T** — [TAS](#arithmetic) · [TST](#arithmetic)
 

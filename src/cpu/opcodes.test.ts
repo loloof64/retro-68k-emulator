@@ -56,6 +56,12 @@ function cmpWord(destReg: number, opmode: number, srcMode: number, srcReg: numbe
   return (0b1011 << 12) | (destReg << 9) | (opmode << 6) | (srcMode << 3) | srcReg
 }
 
+// topNibble: 0b1101=ADDA, 0b1001=SUBA, 0b1011=CMPA. isLong: false->word(opmode 011), true->long(opmode 111).
+function addrOpWord(topNibble: number, destReg: number, isLong: boolean, srcMode: number, srcReg: number) {
+  const opmode = isLong ? 0b111 : 0b011
+  return (topNibble << 12) | (destReg << 9) | (opmode << 6) | (srcMode << 3) | srcReg
+}
+
 function moveqWord(destReg: number, data: number) {
   return (0b0111 << 12) | (destReg << 9) | (0 << 8) | (data & 0xff)
 }
@@ -851,6 +857,95 @@ describe('CMP', () => {
 
     expect(cpu.status.C).toBe(true)
     expect(cpu.status.X).toBe(true) // left as it was, not set from carry
+  })
+})
+
+describe('ADDA/SUBA/CMPA', () => {
+  it('ADDA.W sign-extends a word source before adding to a full 32-bit An', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.A0, 0x00001000, 'long')
+    writeRegister(cpu, Register.D1, 0xffff, 'long') // -1 as a word
+    memory.write16(0x2000, addrOpWord(0b1101, 0, false, 0b000, 1)) // ADDA.W D1,A0
+
+    const cycles = step(cpu, memory, opcodeTable)
+
+    expect(cpu.registers[Register.A0]).toBe(0x00000fff) // 0x1000 + (-1)
+    expect(cycles).toBe(8)
+  })
+
+  it('ADDA.L adds the full 32-bit source, no sign extension', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.A0, 0x00001000, 'long')
+    writeRegister(cpu, Register.D1, 0x00000001, 'long')
+    memory.write16(0x2000, addrOpWord(0b1101, 0, true, 0b000, 1)) // ADDA.L D1,A0
+
+    const cycles = step(cpu, memory, opcodeTable)
+
+    expect(cpu.registers[Register.A0]).toBe(0x00001001)
+    expect(cycles).toBe(6)
+  })
+
+  it('ADDA touches no flags at all, unlike ADD', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    cpu.status.N = true
+    cpu.status.Z = true
+    cpu.status.V = true
+    cpu.status.C = true
+    cpu.status.X = true
+    writeRegister(cpu, Register.A0, 0, 'long')
+    writeRegister(cpu, Register.D1, 0, 'long')
+    memory.write16(0x2000, addrOpWord(0b1101, 0, true, 0b000, 1)) // ADDA.L D1,A0 (result 0)
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.status.N).toBe(true)
+    expect(cpu.status.Z).toBe(true)
+    expect(cpu.status.V).toBe(true)
+    expect(cpu.status.C).toBe(true)
+    expect(cpu.status.X).toBe(true)
+  })
+
+  it('SUBA.W sign-extends and subtracts from An', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.A0, 0x00001000, 'long')
+    writeRegister(cpu, Register.D1, 0x0001, 'long')
+    memory.write16(0x2000, addrOpWord(0b1001, 0, false, 0b000, 1)) // SUBA.W D1,A0
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.registers[Register.A0]).toBe(0x00000fff)
+  })
+
+  it('CMPA.W compares a sign-extended word against An without modifying it', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.A0, 0x00000005, 'long')
+    writeRegister(cpu, Register.D1, 0x0005, 'long')
+    memory.write16(0x2000, addrOpWord(0b1011, 0, false, 0b000, 1)) // CMPA.W D1,A0
+
+    const cycles = step(cpu, memory, opcodeTable)
+
+    expect(cpu.registers[Register.A0]).toBe(5) // unchanged
+    expect(cpu.status.Z).toBe(true)
+    expect(cycles).toBe(6)
+  })
+
+  it('CMPA leaves X untouched, same as CMP', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    cpu.status.X = true
+    writeRegister(cpu, Register.A0, 0, 'long')
+    writeRegister(cpu, Register.D1, 1, 'long')
+    memory.write16(0x2000, addrOpWord(0b1011, 0, true, 0b000, 1)) // CMPA.L D1,A0
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.status.C).toBe(true)
+    expect(cpu.status.X).toBe(true) // left alone
   })
 })
 

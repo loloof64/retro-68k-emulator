@@ -222,6 +222,27 @@ ADD.W   #10,D0         ; D0 += 10
 ADD.L   (A0),D1        ; D1 += Memory[A0]
 ```
 
+### ADDA - Add Address
+```
+ADDA src,An
+```
+
+`ADD`'s `An`-destination form — exactly `MOVEA`'s relationship to `MOVE`:
+always a full 32-bit operation on `An` regardless of source size, and it
+never touches the flags at all (not even the ones a same-size `ADD`
+would set). A word-sized `src` is sign-extended to 32 bits before being
+added.
+
+**Sizes**: W, L
+**Cycles**: 8 (word), 6 (long)
+**Flags**: None
+
+**Examples**:
+```asm
+ADDA.W  D0,A0          ; A0 += D0 (sign-extended)
+ADDA.L  #$1000,A1      ; A1 += $1000
+```
+
 ### SUB - Subtract
 ```
 SUB src,dst
@@ -237,6 +258,24 @@ Subtracts source from destination: `dst = dst - src`
 ```asm
 SUB.L   D1,D0          ; D0 -= D1
 SUB.W   #5,D0          ; D0 -= 5
+```
+
+### SUBA - Subtract Address
+```
+SUBA src,An
+```
+
+`SUB`'s `An`-destination form — same rules `ADDA` follows (32-bit,
+word source sign-extended, no flags touched).
+
+**Sizes**: W, L
+**Cycles**: 8 (word), 6 (long)
+**Flags**: None
+
+**Examples**:
+```asm
+SUBA.W  D0,A0          ; A0 -= D0 (sign-extended)
+SUBA.L  #$100,A1       ; A1 -= $100
 ```
 
 ### ADDQ/SUBQ - Add/Subtract Quick
@@ -320,13 +359,33 @@ Compares destination with source (calculates `dst - src`), updates flags but doe
 
 **Sizes**: B, W, L
 **Cycles**: 4-6
-**Flags**: N, Z, V, C, X
+**Flags**: N, Z, V, C (`X` untouched, unlike `SUB`)
 
 **Examples**:
 ```asm
 CMP.L   D1,D0          ; Compare D0 with D1
 CMP.W   #100,D0        ; Compare D0 with 100
 BEQ     EQUAL          ; Branch if equal
+```
+
+### CMPA - Compare Address
+```
+CMPA src,An
+```
+
+`CMP`'s `An`-destination form: compares the full 32-bit `An` against
+`src` (sign-extended to 32 bits if word-sized), the same way `CMP`
+compares `Dn` — sets flags, doesn't modify `An`.
+
+**Sizes**: W, L
+**Cycles**: 6
+**Flags**: N, Z, V, C (`X` untouched, same as `CMP`)
+
+**Examples**:
+```asm
+CMPA.W  D0,A0          ; compare A0 with D0 (sign-extended)
+CMPA.L  #$2000,A1      ; compare A1 with $2000
+BEQ     MATCH
 ```
 
 ### CLR - Clear
@@ -1031,7 +1090,7 @@ Does nothing, useful for timing/padding.
 | Category | Instructions |
 |----------|--------------|
 | Data Movement | MOVE, MOVEA, MOVEQ, LEA, PEA, SWAP |
-| Arithmetic | ADD, SUB, ADDQ, SUBQ, MUL, DIV, CMP, CLR, NEG, TST, TAS, EXT |
+| Arithmetic | ADD, ADDA, SUB, SUBA, ADDQ, SUBQ, MUL, DIV, CMP, CMPA, CLR, NEG, TST, TAS, EXT |
 | BCD | ABCD, SBCD, NBCD |
 | Logical | AND, OR, XOR, NOT |
 | Bit | BTST |
@@ -1051,11 +1110,11 @@ conditional `Scc` variants (`SEQ`, `SNE`, ...) all share the one
 [Scc](#scc---set-conditionally) section, rather than having a section
 each.
 
-**A** — [ABCD](#abcd---add-decimal-with-extend) · [ADD](#add---add) · [ADDQ](#addqsubq---addsubtract-quick) · [AND](#and---bitwise-and) · [ASL](#aslasr---arithmetic-shift) · [ASR](#aslasr---arithmetic-shift)
+**A** — [ABCD](#abcd---add-decimal-with-extend) · [ADD](#add---add) · [ADDA](#adda---add-address) · [ADDQ](#addqsubq---addsubtract-quick) · [AND](#and---bitwise-and) · [ASL](#aslasr---arithmetic-shift) · [ASR](#aslasr---arithmetic-shift)
 
 **B** — [BCC](#conditional-branches) · [BCS](#conditional-branches) · [BEQ](#conditional-branches) · [BGE](#conditional-branches) · [BGT](#conditional-branches) · [BHI](#conditional-branches) · [BLE](#conditional-branches) · [BLS](#conditional-branches) · [BLT](#conditional-branches) · [BMI](#conditional-branches) · [BNE](#conditional-branches) · [BPL](#conditional-branches) · [BRA](#bra---branch-always) · [BSR](#bsr---branch-to-subroutine) · [BTST](#btst---test-bit) · [BVC](#conditional-branches) · [BVS](#conditional-branches)
 
-**C** — [CHK](#chk---check-register-against-bounds) · [CLR](#clr---clear) · [CMP](#cmp---compare)
+**C** — [CHK](#chk---check-register-against-bounds) · [CLR](#clr---clear) · [CMP](#cmp---compare) · [CMPA](#cmpa---compare-address)
 
 **D** — [DBCC](#dbcc---decrement-and-branch-conditionally) · [DBCS](#dbcc---decrement-and-branch-conditionally) · [DBEQ](#dbcc---decrement-and-branch-conditionally) · [DBGE](#dbcc---decrement-and-branch-conditionally) · [DBGT](#dbcc---decrement-and-branch-conditionally) · [DBHI](#dbcc---decrement-and-branch-conditionally) · [DBLE](#dbcc---decrement-and-branch-conditionally) · [DBLS](#dbcc---decrement-and-branch-conditionally) · [DBLT](#dbcc---decrement-and-branch-conditionally) · [DBMI](#dbcc---decrement-and-branch-conditionally) · [DBNE](#dbcc---decrement-and-branch-conditionally) · [DBPL](#dbcc---decrement-and-branch-conditionally) · [DBRA](#dbcc---decrement-and-branch-conditionally) · [DBT](#dbcc---decrement-and-branch-conditionally) · [DBVC](#dbcc---decrement-and-branch-conditionally) · [DBVS](#dbcc---decrement-and-branch-conditionally) · [DIVS](#div---divide) · [DIVU](#div---divide)
 
@@ -1075,7 +1134,7 @@ each.
 
 **R** — [ROL](#rolror---rotate) · [ROR](#rolror---rotate) · [RTS](#rts---return-from-subroutine)
 
-**S** — [SBCD](#sbcd---subtract-decimal-with-extend) · [SCC](#scc---set-conditionally) · [SEQ](#scc---set-conditionally) · [SF](#scc---set-conditionally) · [SGE](#scc---set-conditionally) · [SGT](#scc---set-conditionally) · [SHI](#scc---set-conditionally) · [SLE](#scc---set-conditionally) · [SLS](#scc---set-conditionally) · [SLT](#scc---set-conditionally) · [SMI](#scc---set-conditionally) · [SNE](#scc---set-conditionally) · [SPL](#scc---set-conditionally) · [ST](#scc---set-conditionally) · [SUB](#sub---subtract) · [SUBQ](#addqsubq---addsubtract-quick) · [SVC](#scc---set-conditionally) · [SVS](#scc---set-conditionally) · [SWAP](#swap---swap-register-halves)
+**S** — [SBCD](#sbcd---subtract-decimal-with-extend) · [SCC](#scc---set-conditionally) · [SEQ](#scc---set-conditionally) · [SF](#scc---set-conditionally) · [SGE](#scc---set-conditionally) · [SGT](#scc---set-conditionally) · [SHI](#scc---set-conditionally) · [SLE](#scc---set-conditionally) · [SLS](#scc---set-conditionally) · [SLT](#scc---set-conditionally) · [SMI](#scc---set-conditionally) · [SNE](#scc---set-conditionally) · [SPL](#scc---set-conditionally) · [ST](#scc---set-conditionally) · [SUB](#sub---subtract) · [SUBA](#suba---subtract-address) · [SUBQ](#addqsubq---addsubtract-quick) · [SVC](#scc---set-conditionally) · [SVS](#scc---set-conditionally) · [SWAP](#swap---swap-register-halves)
 
 **T** — [TAS](#tas---test-and-set-an-operand) · [TRAP](#trap---software-trap) · [TST](#tst---test)
 
