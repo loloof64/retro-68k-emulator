@@ -436,6 +436,33 @@ the faulting instruction. If no handler was installed when the fault
 happens, the emulator throws a clear error instead of jumping to address
 `$0` the way real (misconfigured) hardware would.
 
+## Assembly Programming Tips
+
+### Declaring data: DC.B, DC.W, DC.L
+
+On real 68000 assemblers, `DC.B`, `DC.W`, and `DC.L` ("Define Constant") reserve space in memory and fill it with fixed values at assembly time — the usual way to embed a lookup table, a string, or any other static data alongside the code, e.g.:
+
+```asm
+ARRAY:
+DC.L    10, 20, 30, 40, 50    ; five long words, back to back
+MESSAGE:
+DC.B    'HI', 0                ; three bytes: 'H', 'I', 0
+```
+
+There's no assembler in this project yet — no `.asm` file at all, only hand-encoded machine words — so `DC.x` isn't something that can actually be written today. The closest equivalent right now is building the data at *runtime* instead of baking it in ahead of time: pick an address, then write each value into it with its own `MOVE`, stepping the address with [`(An)+`](#addressing-modes) the same way a program would read the data back out later. Less convenient than a static table, but the memory ends up holding exactly the same bytes.
+
+### Tips
+
+A few habits worth having, some of them straight from gotchas this emulator's own opcodes hit during development:
+
+- **Initialize every register before reading it.** Nothing clears `D0`-`A7` to a known value automatically — a register holds whatever was last written to it (they do start at `0`, but don't rely on that once a program is running).
+- **`CMP` first, `Bcc` second, and pick the right family.** Mixing up signed and unsigned comparisons is the classic bug — see [Which Bcc do I want?](#which-bcc-do-i-want) if a branch seems to go the wrong way.
+- **`DBcc`/`DBRA` loop counters start at `N - 1`, not `N`.** The loop body always runs once before the first decrement — see [How does DBcc decide?](#how-does-dbcc-decide) for the full walk-through; it's an easy off-by-one to trip over.
+- **Save what a subroutine will clobber, restore it before returning.** [`MOVEM`](#how-does-movems-register-list-work) pushing onto `-(A7)` at the top and popping from `(A7)+` at the bottom is the standard pattern — see its worked example above.
+- **`MOVEA`/`ADDQ`/`SUBQ` to an address register never touch the flags**, and are always a full 32-bit operation regardless of the size field — real 68000 behavior, easy to forget if a flag check right after one comes back stale.
+- **Prefer `MOVEQ` for small constants (`-128` to `127`)** into a data register — it's the same 4 cycles as `MOVE.L #imm,Dn` but a shorter encoding, and shifts (`ASL`/`LSL`, etc.) are a cheap way to multiply or divide by a power of two instead of reaching for `MULU`/`DIVU`.
+- **Comment the *why*, not just the *what*, even in illustrative examples.** Every worked example on this page does — it's what makes a hand-traced instruction sequence checkable later.
+
 ## Performance Notes
 
 - **Simple interpretation, no recompilation**: each instruction is fetched, decoded, and executed one at a time — there's no JIT, no bytecode caching. That keeps the implementation easy to follow, which matters more here than raw speed for hand-written assembly programs at this scale.
