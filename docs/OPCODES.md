@@ -322,8 +322,8 @@ Sign-extends the low part of a data register into the next size up. `EXT.W` leav
 
 **Examples**:
 ```asm
-EXT.W   D0              ; D0's low byte -> low word (sign-extended)
-EXT.L   D0              ; D0's low word -> full long (sign-extended)
+EXT.W   D0              ; low byte -> low word (sign-extended)
+EXT.L   D0              ; low word -> full long (sign-extended)
 ```
 
 ## Logical Operations
@@ -570,7 +570,7 @@ there's no 8-bit inline form.
 
 **Example**:
 ```asm
-MOVE.W  #99,D0         ; body runs 100 times: Dn starts at (iterations - 1)
+MOVE.W  #99,D0         ; runs 100 times (Dn = iterations - 1)
 LOOP:
   ADD.W   #1,D1        ; D1 += 1
   DBRA    D0,LOOP      ; D0--, loop if D0 != -1
@@ -584,7 +584,7 @@ what makes the body run exactly 100 times.
 ```asm
 LOOP:
   BTST    #0,D2         ; test some condition
-  DBEQ    D0,LOOP       ; D0--, loop unless the condition was already true (Z=1)
+  DBEQ    D0,LOOP       ; D0--, loop unless already true (Z=1)
 ```
 
 ### Scc - Set Conditionally
@@ -610,7 +610,7 @@ anyway), so an `Scc`-shaped opcode with that mode is actually a `DBcc`.
 **Example**:
 ```asm
 CMP.L   #100,D0
-SEQ     D1             ; D1's low byte = $FF if D0 was 100, else $00
+SEQ     D1             ; low byte = $FF if D0 was 100, else $00
 ```
 
 ## Subroutine Control

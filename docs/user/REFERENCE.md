@@ -334,10 +334,10 @@ TRAP    #0                 ; exit
 **Example** — the same countdown, more idiomatically, using `DBRA`:
 
 ```
-MOVEQ   #4,D0             ; D0 = 4 -- one less than the iteration count, see below
+MOVEQ   #4,D0             ; D0 = 4 (see gotcha below)
 LOOP:
 ADD.W   #1,D1             ; (loop body — whatever the loop is for)
-DBRA    D0,LOOP           ; D0--, branch back to LOOP unless D0 is now -1
+DBRA    D0,LOOP           ; D0--, loop unless D0 hits -1
 TRAP    #0                 ; exit
 ```
 
