@@ -212,10 +212,10 @@ restriction, and cycle cost.
 |---|---|---|---|---|---|
 | `BRA` | `BRA target` | word | 10 | none | Always jumps to `target`. |
 | `Bcc` | see below | word | 10 | none (reads flags, doesn't set them) | Jumps to `target` only if the named condition on the current flags holds. |
-| `JMP` | `JMP target` | word | 8 | none | Jumps to `target` unconditionally — no return address is pushed. See [below](#which-addressing-modes-can-jsr-target) for which addressing modes are valid. |
-| `JSR` | `JSR target` | word | 16 | none | Pushes the return address onto the stack, then jumps to `target`. See [below](#which-addressing-modes-can-jsr-target) for which addressing modes are valid. |
-| `BSR` | `BSR target` | word | 18 | none | Like `JSR`, but PC-relative — pushes the return address, then always branches to `target`. |
-| `RTS` | `RTS` | word | 16 | none | Pops a return address pushed by `JSR`/`BSR` and jumps there. |
+| `JMP` | `JMP target` | word | 8 | none | Jumps to `target` unconditionally — no [return address](#what-is-a-return-address) is pushed. See [below](#which-addressing-modes-can-jsr-target) for which addressing modes are valid. |
+| `JSR` | `JSR target` | word | 16 | none | Pushes the [return address](#what-is-a-return-address) onto the stack, then jumps to `target`. See [below](#which-addressing-modes-can-jsr-target) for which addressing modes are valid. |
+| `BSR` | `BSR target` | word | 18 | none | Like `JSR`, but PC-relative — pushes the [return address](#what-is-a-return-address), then always branches to `target`. |
+| `RTS` | `RTS` | word | 16 | none | Pops a [return address](#what-is-a-return-address) pushed by `JSR`/`BSR` and jumps there. |
 | `DBcc` | `DBcc Dn,target` | word | 10 / 12 / 14 | none | Tests condition `cc` (same table as `Bcc`), then either stops or loops back to `target`. See [below](#how-does-dbcc-decide) for exactly how, and what the three cycle counts mean. |
 | `Scc` | `Scc dst` | byte | 4 / 6 / 8 | none | Tests condition `cc` (same table as `Bcc`) and sets `dst` to `$FF` or `$00` — no branch, no arithmetic. See [below](#which-destinations-can-scc-use) for valid destinations and what the three cycle counts mean. |
 | `LINK` | `LINK An,#displacement` | word | 16 | none | Stack-frame prologue: pushes `An`, points `An` at the new frame, then moves `SP` by `displacement`. See [below](#how-do-link-and-unlk-handle-a7) for the `LINK A7`/`UNLK A7` special case. |
@@ -382,6 +382,19 @@ Spelled out, step by step:
 Any data-alterable destination — `Dn` or writable memory, same restriction `CLR`/`NOT`/`NEG`/`TST` use. Not valid: `An`, `#value`, or a PC-relative address (`d16(PC)`, `d8(PC,Xn)`).
 
 The three cycle counts depend on both the destination and the outcome of testing `cc`: 4 cycles for `Dn` when `cc` turns out false, 6 when it's true, 8 for a memory destination either way.
+
+### What is a "return address"?
+
+The address of the instruction right after the call — where execution should pick back up once the called code is done. `JSR`/`BSR` push it onto the stack when they jump; `RTS` pops it back off and jumps there, resuming exactly where the caller left off. This is the 68000's version of a `call`/`return` mechanism.
+
+Concretely, `PC` (the [Program Counter](#registers)) already points past an instruction by the time that instruction runs — the CPU advances it during fetch, before execution. So when `JSR` pushes "the return address", it's just pushing `PC`'s current value at that point, which happens to be right after the `JSR` instruction (and past any extension word its addressing mode used, e.g. the `d16` in `JSR $10(A0)`):
+
+```asm
+        JSR     MY_FUNC        ; at address $2000, 2 bytes long
+; <-- $2002 is what gets pushed as the return address
+```
+
+Inside `MY_FUNC`, a final `RTS` pops that `$2002` back into `PC`, so execution resumes right after the call. `JMP` skips all of this — no address is pushed, so there's nothing to return to.
 
 ### Which addressing modes can JSR target?
 
