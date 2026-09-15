@@ -119,7 +119,7 @@ function convertTables(html) {
       .map((cells) => `<tr>${cells.map((c, i) => `<td${cellStyle(i)}>${c}</td>`).join('')}</tr>`)
       .join('')
 
-    return `<table><thead><tr>${thead}</tr></thead><tbody>${tbody}</tbody></table>\n`
+    return `<table class="cols-${headers.length}"><thead><tr>${thead}</tr></thead><tbody>${tbody}</tbody></table>\n`
   })
 }
 
@@ -346,6 +346,37 @@ export function generateHtmlDocument({
       text-align: left;
     }
 
+    /* Instruction-table layout (Mnemonic/Syntax/Sizes/Cycles/Flags/Description):
+       an unconstrained table gives Description the same share as narrow
+       columns like Sizes or Cycles, so it wraps into many short lines and
+       the row towers over its siblings. table-layout: auto (the default)
+       also treats a cell's width as a hint, not a rule — actual column
+       widths still grow to fit content, so the widths below need the
+       fixed layout to have any effect. Fixed layout then makes CSS the
+       source of truth, so cell text must be allowed to wrap on its own
+       (overflow-wrap) or a long unbreakable token can overflow past its
+       column border instead. */
+    .cols-6 { table-layout: fixed; }
+    .cols-6 td, .cols-6 th { overflow-wrap: break-word; }
+    /* Smaller header font: at the body's 1em, single-word headers like
+       "Mnemonic"/"Description" need ~18-19% width just to avoid a mid-word
+       break, which starves Description. Shrinking headers (and every
+       column's own content, per Laurent) buys back enough width for
+       Description without any column becoming unreadably tight. Sizes and
+       Cycles still need a wider share than their headers alone suggest —
+       "word (source)" and DIVU/DIVS's "138 (10 on overflow, 38 on zero
+       divide)" each contain a single unbreakable word (e.g. "overflow,")
+       that sets the real minimum for that column. */
+    .cols-6 th { font-size: 0.8em; }
+    .cols-6 td { font-size: 0.85em; }
+    .cols-6 td:nth-child(2) { font-size: 0.8em; }
+    .cols-6 th:nth-child(1), .cols-6 td:nth-child(1) { width: 15%; }
+    .cols-6 th:nth-child(2), .cols-6 td:nth-child(2) { width: 16%; }
+    .cols-6 th:nth-child(3), .cols-6 td:nth-child(3) { width: 14%; }
+    .cols-6 th:nth-child(4), .cols-6 td:nth-child(4) { width: 14%; }
+    .cols-6 th:nth-child(5), .cols-6 td:nth-child(5) { width: 12%; }
+    .cols-6 th:nth-child(6), .cols-6 td:nth-child(6) { width: 29%; }
+
     th {
       background: #f5f5f5;
       font-weight: bold;
@@ -385,12 +416,12 @@ export function generateHtmlDocument({
       font-size: 0.95em;
     }
 
-    .section {
-      break-after: page;
-    }
-
-    .section:last-child {
-      break-after: auto;
+    /* break-before (not break-after on .section itself) so the very last
+       section never forces a page break after it — .section:last-child
+       can't be used for that here since <footer> follows the sections as
+       a sibling, making the last .section not actually body's last child. */
+    .section + .section {
+      break-before: page;
     }
 
     footer {

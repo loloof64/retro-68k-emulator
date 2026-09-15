@@ -180,12 +180,12 @@ isn't implemented.
 
 | Mnemonic | Syntax | Sizes | Cycles | Flags affected | Description |
 |---|---|---|---|---|---|
-| `ASL` | `ASL #n,Dn` / `ASL Dx,Dn` | byte, word, long | 6 + 2×count | N, Z, V, C, X | Arithmetic shift left. Sets V if the sign bit changes value at any point during the shift. |
-| `ASR` | `ASR #n,Dn` / `ASR Dx,Dn` | byte, word, long | 6 + 2×count | N, Z, V (0), C, X | Arithmetic shift right — copies the original sign bit back in at each step. |
-| `LSL` | `LSL #n,Dn` / `LSL Dx,Dn` | byte, word, long | 6 + 2×count | N, Z, V (0), C, X | Logical shift left, filling with `0`. |
-| `LSR` | `LSR #n,Dn` / `LSR Dx,Dn` | byte, word, long | 6 + 2×count | N, Z, V (0), C, X | Logical shift right, filling with `0`. |
-| `ROL` | `ROL #n,Dn` / `ROL Dx,Dn` | byte, word, long | 6 + 2×count | N, Z, V (0), C | Rotates left — the bit rotated out of the top wraps back into bit 0. `X` is never touched. |
-| `ROR` | `ROR #n,Dn` / `ROR Dx,Dn` | byte, word, long | 6 + 2×count | N, Z, V (0), C | Rotates right — the bit rotated out of bit 0 wraps back into the top. `X` is never touched. |
+| `ASL` | `ASL #n,Dn / Dx,Dn` | byte, word, long | 6 + 2×count | N, Z, V, C, X | Arithmetic shift left. Sets V if the sign bit changes value at any point during the shift. |
+| `ASR` | `ASR #n,Dn / Dx,Dn` | byte, word, long | 6 + 2×count | N, Z, V (0), C, X | Arithmetic shift right — copies the original sign bit back in at each step. |
+| `LSL` | `LSL #n,Dn / Dx,Dn` | byte, word, long | 6 + 2×count | N, Z, V (0), C, X | Logical shift left, filling with `0`. |
+| `LSR` | `LSR #n,Dn / Dx,Dn` | byte, word, long | 6 + 2×count | N, Z, V (0), C, X | Logical shift right, filling with `0`. |
+| `ROL` | `ROL #n,Dn / Dx,Dn` | byte, word, long | 6 + 2×count | N, Z, V (0), C | Rotates left — the bit rotated out of the top wraps back into bit 0. `X` is never touched. |
+| `ROR` | `ROR #n,Dn / Dx,Dn` | byte, word, long | 6 + 2×count | N, Z, V (0), C | Rotates right — the bit rotated out of bit 0 wraps back into the top. `X` is never touched. |
 
 *(A dynamic count of `0` — only possible with the `Dx,Dn` form — does nothing: `C` comes out cleared, but `X` is left exactly as it was.)*
 
