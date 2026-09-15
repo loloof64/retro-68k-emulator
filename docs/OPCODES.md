@@ -102,6 +102,30 @@ LEA     $40000.L,A0    ; A0 = address of the framebuffer
 MOVE.L  #$FFFFFF,(A0)  ; first pixel = white
 ```
 
+### PEA - Push Effective Address
+```
+PEA <ea>
+```
+
+Like `LEA`, but pushes the computed address onto the stack (`A7 -= 4`)
+instead of loading it into an address register — the same "control"
+addressing modes as `JSR`/`LEA`. Shares `SWAP`'s `$4840` opcode at the
+bit level: mode `000` (`Dn`) isn't a valid `PEA` destination anyway (not
+a control addressing mode), so `SWAP`'s narrower, more specific
+`opcodeTable` entry has to stay listed before `PEA`'s broader one for
+that mode to keep resolving to `SWAP` — same trick `DBcc`/`Scc` use for
+their own shared `mode=001` slot.
+
+**Sizes**: L (always)
+**Cycles**: 12
+**Flags**: None
+
+**Example**:
+```asm
+PEA     $40000.L       ; push the framebuffer address
+; ... call a subroutine that expects it on the stack ...
+```
+
 ### MOVEQ - Move Quick
 ```
 MOVEQ #value,Dn
@@ -667,7 +691,7 @@ Does nothing, useful for timing/padding.
 
 | Category | Instructions |
 |----------|--------------|
-| Data Movement | MOVE, MOVEA, MOVEQ, LEA, SWAP |
+| Data Movement | MOVE, MOVEA, MOVEQ, LEA, PEA, SWAP |
 | Arithmetic | ADD, SUB, MUL, DIV, CMP, CLR, NEG, TST, EXT |
 | Logical | AND, OR, XOR, NOT |
 | Bit | BTST |
@@ -706,6 +730,8 @@ each.
 **N** — [NEG](#neg---negate) · [NOP](#nop---no-operation) · [NOT](#not---bitwise-not)
 
 **O** — [OR](#or---bitwise-or)
+
+**P** — [PEA](#pea---push-effective-address)
 
 **R** — [ROL](#rolror---rotate) · [ROR](#rolror---rotate) · [RTS](#rts---return-from-subroutine)
 

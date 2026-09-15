@@ -64,6 +64,10 @@ function leaWord(destReg: number, mode: number, reg: number) {
   return 0x41c0 | (destReg << 9) | (mode << 3) | reg
 }
 
+function peaWord(mode: number, reg: number) {
+  return 0x4840 | (mode << 3) | reg
+}
+
 function bsrWord(disp8: number) {
   return 0x6100 | (disp8 & 0xff)
 }
@@ -1363,6 +1367,48 @@ describe('LEA', () => {
     memory.write16(0x2000, leaWord(0, 0b000, 0)) // LEA D0,A0 - not a valid control mode
 
     expect(() => step(cpu, memory, opcodeTable)).toThrow(/not a control addressing mode/)
+  })
+})
+
+describe('PEA', () => {
+  it('pushes the address from (An) onto the stack', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.A0, 0x3000, 'long')
+    memory.write16(0x2000, peaWord(0b010, 0)) // PEA (A0)
+    const spBefore = cpu.registers[Register.A7]
+
+    const cycles = step(cpu, memory, opcodeTable)
+
+    expect(cpu.registers[Register.A7]).toBe(spBefore - 4)
+    expect(memory.read32(spBefore - 4)).toBe(0x3000)
+    expect(cycles).toBe(12)
+  })
+
+  it('pushes a full 32-bit absolute address', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    memory.write16(0x2000, peaWord(0b111, 0b001)) // PEA $40000.L
+    memory.write32(0x2002, 0x00040000)
+    const spBefore = cpu.registers[Register.A7]
+
+    step(cpu, memory, opcodeTable)
+
+    expect(memory.read32(spBefore - 4)).toBe(0x40000)
+    expect(cpu.pc).toBe(0x2006)
+  })
+
+  it('mode=000 in this bit range still dispatches to SWAP, not PEA, since the two share an opcode', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.D0, 0x12340005, 'long')
+    const spBefore = cpu.registers[Register.A7]
+    memory.write16(0x2000, peaWord(0b000, 0)) // same bits as SWAP D0
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.registers[Register.D0]).toBe(0x00051234) // SWAP's effect
+    expect(cpu.registers[Register.A7]).toBe(spBefore) // untouched - PEA's handler never ran
   })
 })
 

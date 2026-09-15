@@ -401,6 +401,34 @@ const LEA: OpcodeDefinition = {
   },
 }
 
+// --- PEA <ea> ($4840-$4FFE, mode=000 excluded — that's SWAP) ------------
+//
+// Pushes the address <ea> names onto the stack (A7 -= 4) — like LEA, but
+// to the stack instead of An. Shares SWAP's $4840 opcode at the bit
+// level: mode=000 (Dn) isn't a valid PEA destination anyway (same as
+// DBcc/Scc's mode=001 split), so SWAP's narrower, more specific
+// opcodeTable entry has to stay listed before PEA's broader one for that
+// mode to keep resolving to SWAP.
+
+const PEA: OpcodeDefinition = {
+  mnemonic: 'PEA',
+  encoding: '0100100001mmmrrr',
+  size: 'long',
+  handler: (cpu: CPUState, memory: Memory, args: unknown[]) => {
+    const opcodeWord = opcodeWordOf(args)
+    const mode = (opcodeWord >> 3) & 0b111
+    const reg = opcodeWord & 0b111
+
+    const address = decodeControlAddress(cpu, memory, mode, reg)
+
+    const sp = readRegister(cpu, Register.A7, 'long') - 4
+    memory.write32(sp, address)
+    writeRegister(cpu, Register.A7, sp, 'long')
+
+    return 12
+  },
+}
+
 // --- JSR/BSR/RTS - subroutine control ------------------------------------
 //
 // All three push/pop a return address on A7, which decodeEA's -(An)/(An)+
@@ -1146,6 +1174,7 @@ export const opcodeTable: readonly OpcodeEntry[] = [
   { mask: 0xff00, pattern: 0x4400, definition: NEG },
   { mask: 0xff00, pattern: 0x4a00, definition: TST },
   { mask: 0xfff8, pattern: 0x4840, definition: SWAP },
+  { mask: 0xffc0, pattern: 0x4840, definition: PEA },
   { mask: 0xffb8, pattern: 0x4880, definition: EXT },
   { mask: 0xffff, pattern: 0x4e75, definition: RTS },
   { mask: 0xffc0, pattern: 0x4e80, definition: JSR },
