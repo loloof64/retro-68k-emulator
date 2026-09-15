@@ -206,13 +206,21 @@ MOVEM.L (A7)+,D0-D2/A0     ; pop them back, same order pushed
 
 ### ADD - Add
 ```
-ADD src,dst
+ADD <ea>,Dn
+ADD Dn,<ea>
 ```
 
-Adds source to destination: `dst = dst + src`
+Adds source to destination: `dst = dst + src`. Two directions share the
+one mnemonic: `<ea>,Dn` reads a value from anywhere and adds it into a
+data register (any addressing mode, including `#imm`); `Dn,<ea>` is the
+mirror image, adding a data register's value into memory instead - `<ea>`
+there must be a *memory-alterable* mode (not `Dn`, not `An`, no `#imm`,
+no PC-relative), the same restriction the shift/rotate memory form
+below uses (`decodeMemAlterableEA` in `src/cpu/opcodes.ts`, shared by
+both).
 
 **Sizes**: B, W, L
-**Cycles**: 4-6
+**Cycles**: 4 (`<ea>,Dn`), 8/12 byte-word/long (`Dn,<ea>`)
 **Flags**: N, Z, V, C, X
 
 **Examples**:
@@ -220,6 +228,7 @@ Adds source to destination: `dst = dst + src`
 ADD.L   D1,D0          ; D0 += D1
 ADD.W   #10,D0         ; D0 += 10
 ADD.L   (A0),D1        ; D1 += Memory[A0]
+ADD.B   D0,(A1)        ; Memory[A1] += D0 (memory destination)
 ```
 
 ### ADDA - Add Address
@@ -245,19 +254,24 @@ ADDA.L  #$1000,A1      ; A1 += $1000
 
 ### SUB - Subtract
 ```
-SUB src,dst
+SUB <ea>,Dn
+SUB Dn,<ea>
 ```
 
-Subtracts source from destination: `dst = dst - src`
+Subtracts source from destination: `dst = dst - src`. Same two
+directions `ADD` has: `<ea>,Dn` into a data register (any addressing
+mode), or `Dn,<ea>` into memory (memory-alterable modes only - see
+`ADD` above for the exact restriction).
 
 **Sizes**: B, W, L
-**Cycles**: 4-6
+**Cycles**: 4 (`<ea>,Dn`), 8/12 byte-word/long (`Dn,<ea>`)
 **Flags**: N, Z, V, C, X
 
 **Examples**:
 ```asm
 SUB.L   D1,D0          ; D0 -= D1
 SUB.W   #5,D0          ; D0 -= 5
+SUB.B   D0,(A1)        ; Memory[A1] -= D0 (memory destination)
 ```
 
 ### SUBA - Subtract Address
@@ -585,36 +599,48 @@ NBCD    D0              ; D0 = 0 - 1 = $99, decimal "-1"
 
 ### AND - Bitwise AND
 ```
-AND src,dst
+AND <ea>,Dn
+AND Dn,<ea>
 ```
 
-Performs bitwise AND: `dst = dst & src`
+Performs bitwise AND: `dst = dst & src`. Same two directions `ADD` has:
+`<ea>,Dn` into a data register (any addressing mode), or `Dn,<ea>` into
+memory (memory-alterable modes only - see `ADD` above). `Dn,<ea>`'s
+mode `000`/`001` slot in this particular top nibble is reserved for
+`ABCD`'s register form instead (a real hardware split, not incidental -
+see `ABCD` above), which is exactly the set `Dn,<ea>` never uses anyway
+since its `<ea>` excludes `Dn`/`An` already.
 
 **Sizes**: B, W, L
-**Cycles**: 4-6
+**Cycles**: 4 (`<ea>,Dn`), 8/12 byte-word/long (`Dn,<ea>`)
 **Flags**: N, Z, C (0), V (0)
 
 **Examples**:
 ```asm
 AND.L   D1,D0          ; D0 &= D1
 AND.W   #$FF,D0        ; D0 &= 0xFF (mask low byte)
+AND.B   D0,(A1)        ; Memory[A1] &= D0 (memory destination)
 ```
 
 ### OR - Bitwise OR
 ```
-OR src,dst
+OR <ea>,Dn
+OR Dn,<ea>
 ```
 
-Performs bitwise OR: `dst = dst | src`
+Performs bitwise OR: `dst = dst | src`. Same two directions `AND` has,
+including the same `SBCD`-reserved mode `000`/`001` split in `Dn,<ea>`'s
+top nibble (see `AND` above).
 
 **Sizes**: B, W, L
-**Cycles**: 4-6
+**Cycles**: 4 (`<ea>,Dn`), 8/12 byte-word/long (`Dn,<ea>`)
 **Flags**: N, Z, C (0), V (0)
 
 **Examples**:
 ```asm
 OR.L    D1,D0          ; D0 |= D1
 OR.W    #$FF00,D0      ; D0 |= 0xFF00
+OR.B    D0,(A1)        ; Memory[A1] |= D0 (memory destination)
 ```
 
 ### XOR - Bitwise XOR

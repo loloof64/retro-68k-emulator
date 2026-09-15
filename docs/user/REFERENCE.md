@@ -144,9 +144,9 @@ A first handful of real instructions is wired in, grouped below the way Motorola
 
 | Mnemonic | Syntax | Sizes | Cycles | Flags affected | Description |
 |---|---|---|---|---|---|
-| `ADD` | `ADD.size src,Dn` | byte, word, long | 4 | N, Z, V, C, X | Adds `src` to a data register, in place. |
+| `ADD` | `ADD.size src,Dn` / `ADD.size Dn,dst` | byte, word, long | 4 (Dn), 8/12 byte-word/long (mem) | N, Z, V, C, X | Adds `src` into a data register, or a data register into memory — see [below](#how-does-the-memory-destination-direction-work) for the second form's addressing restriction and why the cycle count is higher. |
 | `ADDA` | `ADDA.size src,An` | word, long | 8 (word), 6 (long) | none | `ADD`'s `An`-destination form: always a full 32-bit add, word `src` sign-extended first. Same relationship `MOVEA` has to `MOVE` — no flags touched at all, not even the ones a same-size `ADD` would set. |
-| `SUB` | `SUB.size src,Dn` | byte, word, long | 4 | N, Z, V, C, X | Subtracts `src` from a data register, in place. |
+| `SUB` | `SUB.size src,Dn` / `SUB.size Dn,dst` | byte, word, long | 4 (Dn), 8/12 byte-word/long (mem) | N, Z, V, C, X | Subtracts `src` from a data register, or a data register from memory — same two directions `ADD` has, see [below](#how-does-the-memory-destination-direction-work). |
 | `SUBA` | `SUBA.size src,An` | word, long | 8 (word), 6 (long) | none | `SUB`'s `An`-destination form — same rules `ADDA` follows. |
 | `ADDQ`/`SUBQ` | `ADDQ #data,dst` / `SUBQ #data,dst` | byte, word, long | 4 | N, Z, V, C, X (`An`: none) | Adds/subtracts a small immediate (`1`-`8`) straight into `dst`, packed into the opcode itself. `dst = An` is always a full 32-bit op with no flags touched, regardless of size — same rule `MOVEA` follows. |
 | `CMP` | `CMP.size src,Dn` | byte, word, long | 4 | N, Z, V, C | Subtracts `src` from a data register like `SUB`, but only sets flags — the register itself is unchanged. Typically followed by a `Bcc`. |
@@ -173,8 +173,8 @@ A first handful of real instructions is wired in, grouped below the way Motorola
 
 | Mnemonic | Syntax | Sizes | Cycles | Flags affected | Description |
 |---|---|---|---|---|---|
-| `AND` | `AND.size src,Dn` | byte, word, long | 4 | N, Z, V (0), C (0) | Bitwise ANDs `src` into a data register, in place. |
-| `OR` | `OR.size src,Dn` | byte, word, long | 4 | N, Z, V (0), C (0) | Bitwise ORs `src` into a data register, in place. |
+| `AND` | `AND.size src,Dn` / `AND.size Dn,dst` | byte, word, long | 4 (Dn), 8/12 byte-word/long (mem) | N, Z, V (0), C (0) | Bitwise ANDs `src` into a data register, or a data register into memory — see [below](#how-does-the-memory-destination-direction-work). |
+| `OR` | `OR.size src,Dn` / `OR.size Dn,dst` | byte, word, long | 4 (Dn), 8/12 byte-word/long (mem) | N, Z, V (0), C (0) | Bitwise ORs `src` into a data register, or a data register into memory — see [below](#how-does-the-memory-destination-direction-work). |
 | `XOR` | `XOR.size Dn,dst` | byte, word, long | 4 | N, Z, V (0), C (0) | Bitwise XORs a data register into `dst` — the one bitwise op where the *source* is always `Dn` and `dst` can be memory. |
 | `NOT` | `NOT.size dst` | byte, word, long | 4 | N, Z, V (0), C (0) | Bitwise inverts `dst` in place (one's complement: `dst = ~dst`). |
 
@@ -261,6 +261,22 @@ See [TRAP System Calls](#trap-system-calls) below for `TRAP`.
 **U** — [UNLK](#program-control)
 
 **X** — [XOR](#logical)
+
+### How does the memory-destination direction work?
+
+`ADD`, `SUB`, `AND`, and `OR` each support two directions that share one mnemonic:
+
+- **`<ea>,Dn`** — read a value from anywhere (any addressing mode, including `#imm`) and combine it into a data register. This is the form used everywhere else on this page.
+- **`Dn,<ea>`** — the mirror image: combine a data register's value into `<ea>` instead, writing the result back to `<ea>` rather than to `Dn`. `<ea>` here must be a *memory-alterable* address — not `Dn`, not `An`, no `#imm`, no PC-relative — the same restriction the [memory-operand shift/rotate form](#how-does-the-memory-operand-shift-and-rotate-form-work) uses.
+
+```asm
+MOVE.B  #5,D0
+ADD.B   D0,(A1)          ; Memory[A1] += D0, not D0 += Memory[A1]
+```
+
+The memory-destination form costs more than the flat `4` cycles the `<ea>,Dn` direction uses: `8` for byte or word, `12` for long — writing the result back to memory is a real extra bus cycle the register-destination form doesn't pay.
+
+`AND`'s and `OR`'s `Dn,<ea>` form has one more wrinkle worth knowing if you're hand-encoding opcodes: their byte-sized `mode 000`/`001` slot is reserved on real hardware for `ABCD` (in `AND`'s case) or `SBCD` (in `OR`'s case) — see [How does packed BCD arithmetic work?](#how-does-packed-bcd-arithmetic-work). This isn't a conflict in practice: `Dn,<ea>`'s own `<ea>` already excludes `Dn`/`An` (mode `000`/`001`), so the two instructions never actually compete for the same encoding — the split just happens to land exactly where `Dn,<ea>` was never going to use anyway.
 
 ### How does TAS work as a lock?
 

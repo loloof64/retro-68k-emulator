@@ -137,6 +137,19 @@ function xorWord(srcReg: number, opmode: number, destMode: number, destReg: numb
   return (0b1011 << 12) | (srcReg << 9) | ((0b100 | opmode) << 6) | (destMode << 3) | destReg
 }
 
+// ADD/SUB/AND/OR's memory-destination direction (Dn,<ea>) - same shape as
+// xorWord above: srcReg is the Dn source, destMode/destReg is the <ea>
+// destination, opmode's bit 8 forced to 1 for this direction.
+function dnToMemWord(
+  topNibble: 0b1101 | 0b1001 | 0b1100 | 0b1000,
+  srcReg: number,
+  opmode: number,
+  destMode: number,
+  destReg: number
+) {
+  return (topNibble << 12) | (srcReg << 9) | ((0b100 | opmode) << 6) | (destMode << 3) | destReg
+}
+
 function notWord(size: 0b00 | 0b01 | 0b10, mode: number, reg: number) {
   return (0b0100011000000000) | (size << 6) | (mode << 3) | reg
 }
@@ -1233,6 +1246,128 @@ describe('XOR', () => {
     step(cpu, memory, opcodeTable)
 
     expect(memory.read32(0x2000 + 4)).toBe(0xffff0000)
+  })
+})
+
+describe('ADD/SUB/AND/OR to memory (Dn,<ea>)', () => {
+  it('ADD.B Dn,(An) adds Dn into a memory byte, setting flags', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.D1, 5, 'byte')
+    writeRegister(cpu, Register.A0, 0x3000, 'long')
+    memory.write8(0x3000, 10)
+    memory.write16(0x2000, dnToMemWord(0b1101, 1, 0b00, 0b010, 0)) // ADD.B D1,(A0)
+
+    const cycles = step(cpu, memory, opcodeTable)
+
+    expect(memory.read8(0x3000)).toBe(15)
+    expect(cpu.registers[Register.D1] & 0xff).toBe(5) // source untouched
+    expect(cycles).toBe(8)
+  })
+
+  it('ADD.L Dn,(An) costs 12 cycles and sets X/C on overflow', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.D1, 1, 'long')
+    writeRegister(cpu, Register.A0, 0x3000, 'long')
+    memory.write32(0x3000, 0xffffffff)
+    memory.write16(0x2000, dnToMemWord(0b1101, 1, OPMODE_LONG, 0b010, 0)) // ADD.L D1,(A0)
+
+    const cycles = step(cpu, memory, opcodeTable)
+
+    expect(memory.read32(0x3000)).toBe(0)
+    expect(cpu.status.C).toBe(true)
+    expect(cpu.status.X).toBe(true)
+    expect(cycles).toBe(12)
+  })
+
+  it('SUB.W Dn,(An) subtracts Dn from a memory word', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.D1, 1, 'word')
+    writeRegister(cpu, Register.A0, 0x3000, 'long')
+    memory.write16(0x3000, 10)
+    memory.write16(0x2000, dnToMemWord(0b1001, 1, 0b01, 0b010, 0)) // SUB.W D1,(A0)
+
+    step(cpu, memory, opcodeTable)
+
+    expect(memory.read16(0x3000)).toBe(9)
+  })
+
+  it('AND.B Dn,(An) ANDs Dn into memory, clearing V/C', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    cpu.status.V = true
+    cpu.status.C = true
+    writeRegister(cpu, Register.D1, 0b1010, 'byte')
+    writeRegister(cpu, Register.A0, 0x3000, 'long')
+    memory.write8(0x3000, 0b1100)
+    memory.write16(0x2000, dnToMemWord(0b1100, 1, 0b00, 0b010, 0)) // AND.B D1,(A0)
+
+    step(cpu, memory, opcodeTable)
+
+    expect(memory.read8(0x3000)).toBe(0b1000)
+    expect(cpu.status.V).toBe(false)
+    expect(cpu.status.C).toBe(false)
+  })
+
+  it('OR.B Dn,(An) ORs Dn into memory', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.D1, 0b0011, 'byte')
+    writeRegister(cpu, Register.A0, 0x3000, 'long')
+    memory.write8(0x3000, 0b1100)
+    memory.write16(0x2000, dnToMemWord(0b1000, 1, 0b00, 0b010, 0)) // OR.B D1,(A0)
+
+    step(cpu, memory, opcodeTable)
+
+    expect(memory.read8(0x3000)).toBe(0b1111)
+  })
+
+  it('rejects Dn as a destination (reserved for ABCD/SBCD, mode structurally excluded)', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    memory.write32(ILLEGAL_INSTRUCTION_VECTOR, 0x3000)
+    memory.write16(0x2000, dnToMemWord(0b1101, 1, 0b00, 0b000, 0)) // "ADD.B D1,D0" - not a real encoding
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.pc).toBe(0x3000)
+  })
+
+  it('rejects An direct as a destination', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    memory.write32(ILLEGAL_INSTRUCTION_VECTOR, 0x3000)
+    memory.write16(0x2000, dnToMemWord(0b1101, 1, 0b00, 0b001, 0)) // "ADD.B D1,A0" - not a real encoding
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.pc).toBe(0x3000)
+  })
+
+  it("ABCD's register form still resolves to ABCD, not AND's memory-destination form (shared opcode slot)", () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.D0, 0x09, 'byte')
+    writeRegister(cpu, Register.D1, 0x01, 'byte')
+    memory.write16(0x2000, abcdWord(1, false, 0)) // ABCD D0,D1
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.registers[Register.D1] & 0xff).toBe(0x10) // ABCD's effect (BCD 9+1=10), not AND's
+  })
+
+  it("SBCD's register form still resolves to SBCD, not OR's memory-destination form (shared opcode slot)", () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.D0, 0x01, 'byte')
+    writeRegister(cpu, Register.D1, 0x10, 'byte')
+    memory.write16(0x2000, sbcdWord(1, false, 0)) // SBCD D0,D1
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.registers[Register.D1] & 0xff).toBe(0x09) // SBCD's effect, not OR's
   })
 })
 

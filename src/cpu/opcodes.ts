@@ -1063,6 +1063,126 @@ const XOR: OpcodeDefinition = {
   },
 }
 
+// --- ADD/SUB/AND/OR Dn,<ea> - the missing memory-destination direction --
+//
+// `ADD`/`SUB`/`AND`/`OR` above only cover `<ea>,Dn -> Dn` (opmode `0xx`);
+// real 68000 also has the mirror image, `Dn,<ea> -> <ea>` (opmode `1xx`),
+// writing the result to memory instead of a data register - the same
+// direction `EOR` already uses above (`EOR` just never had the other
+// direction to begin with). `<ea>` here must be a *memory-alterable*
+// mode - not `Dn`, not `An` - unlike `EOR`'s own `decodeDnAndEa`, which
+// allows `Dn` too (a real `EOR` restriction this codebase doesn't
+// enforce, same class of gap as `CLR`/`NEG`/`NOT`/`TST`/`Scc`'s `An`
+// laxity). `decodeMemAlterableEA` (below, shared with the shift/rotate
+// memory form) already rejects exactly `Dn`/`An`, so it's reused here
+// with an explicit size instead of its `ASL`-family default of `word`.
+//
+// This restriction isn't just correctness for its own sake: `Dn`/`An`
+// (mode `000`/`001`) are *structurally* excluded from every valid
+// encoding here, because real hardware reuses exactly that slot for
+// `ABCD`/`SBCD` (bit 8 = `1`, byte size, mode `000`/`001`) in the `AND`/
+// `OR` top nibbles specifically - the same reserved-encoding split this
+// codebase already resolved with an opcodeTable-ordering trick. `ADD`/
+// `SUB`'s own top nibbles don't have that particular collision (no BCD
+// instruction lives there), but the restriction is identical either way
+// since it's a real, not incidental, hardware rule.
+//
+// Cycles are higher than the `<ea>,Dn` direction's flat `4`: writing
+// back to memory costs a real extra bus cycle on top of the read, split
+// cleanly by size (byte/word vs. long) the same way this codebase
+// already models `ADDA`/`SUBA`'s split.
+
+function decodeDnAndMemDest(cpu: CPUState, memory: Memory, opcodeWord: number) {
+  const srcReg = (opcodeWord >> 9) & 0b111
+  const size = decodeStandardOpSize((opcodeWord >> 6) & 0b011)
+  const destMode = (opcodeWord >> 3) & 0b111
+  const destReg = opcodeWord & 0b111
+
+  const src = decodeEA(cpu, memory, 0b000, srcReg, size)
+  const dest = decodeMemAlterableEA(cpu, memory, destMode, destReg, size)
+  return { src, dest, size }
+}
+
+const ADD_MEM: OpcodeDefinition = {
+  mnemonic: 'ADD',
+  encoding: '1101rrr1ssmmmrrr',
+  size: 'variable',
+  handler: (cpu: CPUState, memory: Memory, args: unknown[]) => {
+    const { src, dest, size } = decodeDnAndMemDest(cpu, memory, opcodeWordOf(args))
+    if (!dest) return 34
+
+    const { result, flags } = addWithFlags(dest.read(), src.read(), size)
+    dest.write(result)
+
+    cpu.status.N = flags.N
+    cpu.status.Z = flags.Z
+    cpu.status.V = flags.V
+    cpu.status.C = flags.C
+    cpu.status.X = flags.X
+
+    return size === 'long' ? 12 : 8
+  },
+}
+
+const SUB_MEM: OpcodeDefinition = {
+  mnemonic: 'SUB',
+  encoding: '1001rrr1ssmmmrrr',
+  size: 'variable',
+  handler: (cpu: CPUState, memory: Memory, args: unknown[]) => {
+    const { src, dest, size } = decodeDnAndMemDest(cpu, memory, opcodeWordOf(args))
+    if (!dest) return 34
+
+    const { result, flags } = subWithFlags(dest.read(), src.read(), size)
+    dest.write(result)
+
+    cpu.status.N = flags.N
+    cpu.status.Z = flags.Z
+    cpu.status.V = flags.V
+    cpu.status.C = flags.C
+    cpu.status.X = flags.X
+
+    return size === 'long' ? 12 : 8
+  },
+}
+
+const AND_MEM: OpcodeDefinition = {
+  mnemonic: 'AND',
+  encoding: '1100rrr1ssmmmrrr',
+  size: 'variable',
+  handler: (cpu: CPUState, memory: Memory, args: unknown[]) => {
+    const { src, dest, size } = decodeDnAndMemDest(cpu, memory, opcodeWordOf(args))
+    if (!dest) return 34
+
+    const result = dest.read() & src.read()
+    dest.write(result)
+
+    updateFlags(cpu, result, size)
+    cpu.status.V = false
+    cpu.status.C = false
+
+    return size === 'long' ? 12 : 8
+  },
+}
+
+const OR_MEM: OpcodeDefinition = {
+  mnemonic: 'OR',
+  encoding: '1000rrr1ssmmmrrr',
+  size: 'variable',
+  handler: (cpu: CPUState, memory: Memory, args: unknown[]) => {
+    const { src, dest, size } = decodeDnAndMemDest(cpu, memory, opcodeWordOf(args))
+    if (!dest) return 34
+
+    const result = dest.read() | src.read()
+    dest.write(result)
+
+    updateFlags(cpu, result, size)
+    cpu.status.V = false
+    cpu.status.C = false
+
+    return size === 'long' ? 12 : 8
+  },
+}
+
 // --- NOT <ea> ($4600) -----------------------------------------------------
 
 function decodeByteWordLongSize(bits: number): Size {
@@ -1750,12 +1870,12 @@ const ROXR: OpcodeDefinition = {
 // `#imm`/PC-relative fall through to decodeEA's own write()-throws, same
 // as every other memory-alterable instruction in this file.
 
-function decodeMemAlterableEA(cpu: CPUState, memory: Memory, mode: number, reg: number) {
+function decodeMemAlterableEA(cpu: CPUState, memory: Memory, mode: number, reg: number, size: Size = 'word') {
   if (mode === 0b000 || mode === 0b001) {
     raiseException(cpu, memory, ILLEGAL_INSTRUCTION_VECTOR, 'Illegal Instruction')
     return null
   }
-  return decodeEA(cpu, memory, mode, reg, 'word')
+  return decodeEA(cpu, memory, mode, reg, size)
 }
 
 const ASL_MEM: OpcodeDefinition = {
@@ -2063,7 +2183,9 @@ export const opcodeTable: readonly OpcodeEntry[] = [
   { mask: 0xf0c0, pattern: 0x90c0, definition: SUBA },
   { mask: 0xf0c0, pattern: 0xb0c0, definition: CMPA },
   { mask: 0xf100, pattern: 0xd000, definition: ADD },
+  { mask: 0xf100, pattern: 0xd100, definition: ADD_MEM },
   { mask: 0xf100, pattern: 0x9000, definition: SUB },
+  { mask: 0xf100, pattern: 0x9100, definition: SUB_MEM },
   { mask: 0xf100, pattern: 0xb000, definition: CMP },
   { mask: 0xf100, pattern: 0xb100, definition: XOR },
   { mask: 0xf1c0, pattern: 0xc0c0, definition: MULU },
@@ -2074,6 +2196,8 @@ export const opcodeTable: readonly OpcodeEntry[] = [
   { mask: 0xf100, pattern: 0x8000, definition: OR },
   { mask: 0xf1f0, pattern: 0xc100, definition: ABCD },
   { mask: 0xf1f0, pattern: 0x8100, definition: SBCD },
+  { mask: 0xf100, pattern: 0xc100, definition: AND_MEM },
+  { mask: 0xf100, pattern: 0x8100, definition: OR_MEM },
   { mask: 0xf100, pattern: 0x7000, definition: MOVEQ },
   { mask: 0xff00, pattern: 0x6100, definition: BSR },
   { mask: 0xf000, pattern: 0x6000, definition: Bcc },
