@@ -1305,6 +1305,168 @@ const ROR: OpcodeDefinition = {
   },
 }
 
+// --- ASL/ASR/LSL/LSR/ROL/ROR <ea> ($E0C0-$E7FE) - memory-operand form ---
+//
+// The register form above only shifts/rotates a Dn in place, by a count of
+// 1-8 (or a dynamic count from another Dn). The 68000 also has a second,
+// distinct form that operates directly on a memory <ea> instead — always
+// exactly a *single* bit, word-sized only (there's no count field or size
+// field left to encode anything else with).
+//
+// It reuses the register form's opcode space at the bit level: bits 7-6
+// (the register form's size field) only ever take 00/01/10 there —
+// decodeByteWordLongSize throws on 11 — and this form sets exactly that
+// otherwise-reserved 11 to mean "memory-operand form" instead, with bits
+// 11-9 (the register form's count/register field) repurposed as padding
+// and bits 4-3 (the register form's type field) moved to bits 10-9. That
+// makes this form's opcodeTable entries far more specific (mask 0xffc0,
+// vs the register form's 0xf118) — so, same trick as EXT/MOVEM and
+// SWAP/PEA, they have to be listed *before* the six register-form entries
+// for that reserved size value to resolve here instead.
+//
+// Valid <ea>: the "memory alterable" modes — anything except `Dn`, `An`,
+// `#imm`, and PC-relative. `Dn`/`An` are a genuinely reserved encoding
+// here (the register form is what shifts a `Dn`, and there's no such
+// thing as shifting an address register), so they're rejected the same
+// way MOVEA's byte-size or BTST's `An` destination are — decodeEA can't
+// catch `An` on its own since, unlike the PC-relative modes, it's a
+// perfectly normal writable destination for every *other* instruction.
+// `#imm`/PC-relative fall through to decodeEA's own write()-throws, same
+// as every other memory-alterable instruction in this file.
+
+function decodeMemAlterableEA(cpu: CPUState, memory: Memory, mode: number, reg: number) {
+  if (mode === 0b000 || mode === 0b001) {
+    raiseException(cpu, memory, ILLEGAL_INSTRUCTION_VECTOR, 'Illegal Instruction')
+    return null
+  }
+  return decodeEA(cpu, memory, mode, reg, 'word')
+}
+
+const ASL_MEM: OpcodeDefinition = {
+  mnemonic: 'ASL',
+  encoding: '1110000111mmmrrr',
+  size: 'word',
+  handler: (cpu: CPUState, memory: Memory, args: unknown[]) => {
+    const opcodeWord = opcodeWordOf(args)
+    const ea = decodeMemAlterableEA(cpu, memory, (opcodeWord >> 3) & 0b111, opcodeWord & 0b111)
+    if (!ea) return 34
+
+    const { result, carry, overflow } = shiftLeft(ea.read(), 1, 'word', true)
+    ea.write(result)
+
+    updateFlags(cpu, result, 'word')
+    cpu.status.V = overflow
+    cpu.status.C = carry
+    cpu.status.X = carry
+
+    return 8
+  },
+}
+
+const ASR_MEM: OpcodeDefinition = {
+  mnemonic: 'ASR',
+  encoding: '1110000011mmmrrr',
+  size: 'word',
+  handler: (cpu: CPUState, memory: Memory, args: unknown[]) => {
+    const opcodeWord = opcodeWordOf(args)
+    const ea = decodeMemAlterableEA(cpu, memory, (opcodeWord >> 3) & 0b111, opcodeWord & 0b111)
+    if (!ea) return 34
+
+    const { result, carry } = arithmeticShiftRight(ea.read(), 1, 'word')
+    ea.write(result)
+
+    updateFlags(cpu, result, 'word')
+    cpu.status.V = false
+    cpu.status.C = carry
+    cpu.status.X = carry
+
+    return 8
+  },
+}
+
+const LSL_MEM: OpcodeDefinition = {
+  mnemonic: 'LSL',
+  encoding: '1110001111mmmrrr',
+  size: 'word',
+  handler: (cpu: CPUState, memory: Memory, args: unknown[]) => {
+    const opcodeWord = opcodeWordOf(args)
+    const ea = decodeMemAlterableEA(cpu, memory, (opcodeWord >> 3) & 0b111, opcodeWord & 0b111)
+    if (!ea) return 34
+
+    const { result, carry } = shiftLeft(ea.read(), 1, 'word', false)
+    ea.write(result)
+
+    updateFlags(cpu, result, 'word')
+    cpu.status.V = false
+    cpu.status.C = carry
+    cpu.status.X = carry
+
+    return 8
+  },
+}
+
+const LSR_MEM: OpcodeDefinition = {
+  mnemonic: 'LSR',
+  encoding: '1110001011mmmrrr',
+  size: 'word',
+  handler: (cpu: CPUState, memory: Memory, args: unknown[]) => {
+    const opcodeWord = opcodeWordOf(args)
+    const ea = decodeMemAlterableEA(cpu, memory, (opcodeWord >> 3) & 0b111, opcodeWord & 0b111)
+    if (!ea) return 34
+
+    const { result, carry } = shiftRight(ea.read(), 1, 'word')
+    ea.write(result)
+
+    updateFlags(cpu, result, 'word')
+    cpu.status.V = false
+    cpu.status.C = carry
+    cpu.status.X = carry
+
+    return 8
+  },
+}
+
+const ROL_MEM: OpcodeDefinition = {
+  mnemonic: 'ROL',
+  encoding: '1110011111mmmrrr',
+  size: 'word',
+  handler: (cpu: CPUState, memory: Memory, args: unknown[]) => {
+    const opcodeWord = opcodeWordOf(args)
+    const ea = decodeMemAlterableEA(cpu, memory, (opcodeWord >> 3) & 0b111, opcodeWord & 0b111)
+    if (!ea) return 34
+
+    const { result, carry } = rotateLeft(ea.read(), 1, 'word')
+    ea.write(result)
+
+    updateFlags(cpu, result, 'word')
+    cpu.status.V = false
+    cpu.status.C = carry
+    // Real 68000: ROL/ROR never touch X, unlike the shift instructions.
+
+    return 8
+  },
+}
+
+const ROR_MEM: OpcodeDefinition = {
+  mnemonic: 'ROR',
+  encoding: '1110011011mmmrrr',
+  size: 'word',
+  handler: (cpu: CPUState, memory: Memory, args: unknown[]) => {
+    const opcodeWord = opcodeWordOf(args)
+    const ea = decodeMemAlterableEA(cpu, memory, (opcodeWord >> 3) & 0b111, opcodeWord & 0b111)
+    if (!ea) return 34
+
+    const { result, carry } = rotateRight(ea.read(), 1, 'word')
+    ea.write(result)
+
+    updateFlags(cpu, result, 'word')
+    cpu.status.V = false
+    cpu.status.C = carry
+
+    return 8
+  },
+}
+
 // --- TRAP #n ($4E40-$4E4F) ----------------------------------------------
 
 export type TrapHandler = (cpu: CPUState, memory: Memory, vector: number) => void
@@ -1363,6 +1525,12 @@ export const opcodeTable: readonly OpcodeEntry[] = [
   { mask: 0xffff, pattern: 0x4e75, definition: RTS },
   { mask: 0xffc0, pattern: 0x4e80, definition: JSR },
   { mask: 0xf1c0, pattern: 0x41c0, definition: LEA },
+  { mask: 0xffc0, pattern: 0xe1c0, definition: ASL_MEM },
+  { mask: 0xffc0, pattern: 0xe0c0, definition: ASR_MEM },
+  { mask: 0xffc0, pattern: 0xe3c0, definition: LSL_MEM },
+  { mask: 0xffc0, pattern: 0xe2c0, definition: LSR_MEM },
+  { mask: 0xffc0, pattern: 0xe7c0, definition: ROL_MEM },
+  { mask: 0xffc0, pattern: 0xe6c0, definition: ROR_MEM },
   { mask: 0xf118, pattern: 0xe100, definition: ASL },
   { mask: 0xf118, pattern: 0xe000, definition: ASR },
   { mask: 0xf118, pattern: 0xe108, definition: LSL },

@@ -174,10 +174,11 @@ A first handful of real instructions is wired in, grouped below the way Motorola
 
 ### Shift and Rotate
 
-Register-only for now: `Dn` shifted/rotated in place by either an
-immediate count (`#n`, 1-8, with `#0` meaning 8) or a dynamic count taken
-from another data register (mod 64). The `<ea>` memory-operand shift form
-isn't implemented.
+`Dn` shifted/rotated in place by either an immediate count (`#n`, 1-8,
+with `#0` meaning 8) or a dynamic count taken from another data register
+(mod 64). There's also a second form that shifts/rotates a memory `<ea>`
+directly, always by exactly one bit — see [below](#how-does-the-memory-operand-shift-and-rotate-form-work) for its addressing modes, size
+restriction, and cycle cost.
 
 | Mnemonic | Syntax | Sizes | Cycles | Flags affected | Description |
 |---|---|---|---|---|---|
@@ -324,6 +325,20 @@ Two quirks worth knowing before hand-encoding one:
 2. **Word-size loads sign-extend.** `MOVEM.W src,list` sign-extends each 16-bit value it reads to the full 32 bits of its register — unlike `MOVE.W`, which only overwrites the low word and leaves the high word alone. `MOVEM.W list,dst` (storing) just writes each register's low 16 bits, no extension involved.
 
 **Cycles**: `8 + 4n` (register→memory, word) / `8 + 8n` (long); `12 + 4n` (memory→register, word) / `12 + 8n` (long) — `n` is the number of registers actually transferred, not 16.
+
+### How does the memory-operand shift and rotate form work?
+
+Every `ASL`/`ASR`/`LSL`/`LSR`/`ROL`/`ROR` in [Shift and Rotate](#shift-and-rotate) above also has a second form that shifts/rotates a memory `<ea>` directly instead of a `Dn` — always by exactly one bit (there's no room left in the opcode for a count once `<ea>` is encoded), and word-sized only (same reason — no size field left either).
+
+Valid `<ea>`: `(An)`, `(An)+`, `-(An)`, `d16(An)`, `d8(An,Xn)`, `xxx.W`, or `xxx.L` — anything except `Dn`, `An` direct, `#imm`, or a PC-relative address (see [Addressing Modes](#addressing-modes)). `Dn` and `An` both raise the [Illegal Instruction exception](#exceptions) here: shifting a `Dn` is what the register form above is for, and there's no such thing as shifting an address register.
+
+**Cycles**: 8, flat, regardless of addressing mode.
+
+**Example** — shift a value already sitting in memory, without loading it into a register first:
+
+```
+ASL     (A0)                ; Memory[A0] <<= 1, in place
+```
 
 **Example** — add two numbers and write a white pixel, using a direct absolute address:
 

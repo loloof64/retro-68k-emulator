@@ -148,6 +148,13 @@ function shiftWord(
   return (0b1110 << 12) | (countOrReg << 9) | (dr << 8) | (size << 6) | ((isRegisterCount ? 1 : 0) << 5) | (tt << 3) | reg
 }
 
+// Memory-operand shift/rotate ($E0C0-$E7FE): reuses the register form's
+// otherwise-reserved size=11 to mean "memory operand, word, one bit" —
+// see decodeMemAlterableEA in opcodes.ts.
+function memShiftWord(dr: 0 | 1, tt: 0b00 | 0b01 | 0b11, mode: number, reg: number) {
+  return 0xe0c0 | (tt << 9) | (dr << 8) | (mode << 3) | reg
+}
+
 const MOVE_L_IMM_TO_Dn = 0b10 // long
 const OPMODE_LONG = 0b010
 
@@ -1287,6 +1294,134 @@ describe('ROR', () => {
 
     expect(cpu.registers[Register.D0] & 0xff).toBe(0x80)
     expect(cpu.status.C).toBe(true)
+  })
+})
+
+describe('ASL/ASR/LSL/LSR/ROL/ROR <ea> (memory-operand form)', () => {
+  it('ASL shifts a memory word left by exactly one bit, tracking overflow', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.A0, 0x3000, 'long')
+    memory.write16(0x3000, 0xc001) // 1100_0000_0000_0001
+    memory.write16(0x2000, memShiftWord(1, 0b00, 0b010, 0)) // ASL (A0)
+
+    const cycles = step(cpu, memory, opcodeTable)
+
+    expect(memory.read16(0x3000)).toBe(0x8002)
+    expect(cpu.status.C).toBe(true) // bit 15 (1) shifted out
+    expect(cpu.status.X).toBe(true)
+    expect(cpu.status.V).toBe(false) // sign stayed negative (1 -> 1)
+    expect(cycles).toBe(8)
+  })
+
+  it('ASR sign-extends a memory word right by one bit', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.A0, 0x3000, 'long')
+    memory.write16(0x3000, 0x8001)
+    memory.write16(0x2000, memShiftWord(0, 0b00, 0b010, 0)) // ASR (A0)
+
+    step(cpu, memory, opcodeTable)
+
+    expect(memory.read16(0x3000)).toBe(0xc000)
+    expect(cpu.status.C).toBe(true)
+    expect(cpu.status.X).toBe(true)
+    expect(cpu.status.V).toBe(false)
+  })
+
+  it('LSL shifts a memory word left, filling with 0', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.A0, 0x3000, 'long')
+    memory.write16(0x3000, 0x8001)
+    memory.write16(0x2000, memShiftWord(1, 0b01, 0b010, 0)) // LSL (A0)
+
+    step(cpu, memory, opcodeTable)
+
+    expect(memory.read16(0x3000)).toBe(0x0002)
+    expect(cpu.status.C).toBe(true)
+    expect(cpu.status.V).toBe(false)
+  })
+
+  it('LSR shifts a memory word right, filling with 0, and reads/writes an absolute long address', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    memory.write16(0x40000, 0x0003)
+    memory.write16(0x2000, memShiftWord(0, 0b01, 0b111, 0b001)) // LSR $40000.L
+    memory.write32(0x2002, 0x00040000)
+
+    step(cpu, memory, opcodeTable)
+
+    expect(memory.read16(0x40000)).toBe(0x0001)
+    expect(cpu.status.C).toBe(true)
+    expect(cpu.pc).toBe(0x2006)
+  })
+
+  it('ROL rotates a memory word left, wrapping the top bit into bit 0', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.A0, 0x3000, 'long')
+    memory.write16(0x3000, 0x8001)
+    memory.write16(0x2000, memShiftWord(1, 0b11, 0b010, 0)) // ROL (A0)
+
+    step(cpu, memory, opcodeTable)
+
+    expect(memory.read16(0x3000)).toBe(0x0003)
+    expect(cpu.status.C).toBe(true)
+  })
+
+  it('ROR rotates a memory word right, wrapping bit 0 into the top bit', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.A0, 0x3000, 'long')
+    memory.write16(0x3000, 0x0001)
+    memory.write16(0x2000, memShiftWord(0, 0b11, 0b010, 0)) // ROR (A0)
+
+    step(cpu, memory, opcodeTable)
+
+    expect(memory.read16(0x3000)).toBe(0x8000)
+    expect(cpu.status.C).toBe(true)
+  })
+
+  it('rejects Dn as a destination (reserved - that is what the register form is for)', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    memory.write32(ILLEGAL_INSTRUCTION_VECTOR, 0x3000)
+    memory.write16(0x2000, memShiftWord(1, 0b00, 0b000, 0)) // ASL D0 - not valid in this form
+    memory.write16(0x3000, RTS_WORD)
+
+    step(cpu, memory, opcodeTable) // raises -> pc = 0x3000
+    step(cpu, memory, opcodeTable) // RTS -> back to right after the faulting word
+
+    expect(cpu.pc).toBe(0x2002)
+  })
+
+  it('rejects An as a destination', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    memory.write32(ILLEGAL_INSTRUCTION_VECTOR, 0x3000)
+    memory.write16(0x2000, memShiftWord(1, 0b00, 0b001, 0)) // ASL A0 - not valid
+    memory.write16(0x3000, RTS_WORD)
+
+    step(cpu, memory, opcodeTable)
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.pc).toBe(0x2002)
+  })
+
+  it('the reserved size=11 still resolves to the memory form, not the register form', () => {
+    // As a register-form opcode, size bits = 11 (encoded by memShiftWord)
+    // would hit decodeByteWordLongSize's throw for unsupported size bits -
+    // so successfully reaching a plain result here proves the more
+    // specific memory-form opcodeTable entry won the match instead.
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.A0, 0x3000, 'long')
+    memory.write16(0x3000, 0x0001)
+    memory.write16(0x2000, memShiftWord(1, 0b00, 0b010, 0)) // ASL (A0)
+
+    expect(() => step(cpu, memory, opcodeTable)).not.toThrow()
+    expect(memory.read16(0x3000)).toBe(0x0002)
   })
 })
 

@@ -496,20 +496,50 @@ BEQ     A_NOT_PRESSED      ; Z=1 -> bit was clear
 
 ## Shift and Rotate Operations
 
+Two forms exist for every shift/rotate mnemonic below: a **register form**
+(`Dn` shifted/rotated in place, by an immediate count of 1-8 or a dynamic
+count from another `Dn`, mod 64) and a **memory-operand form** (`<ea>`
+shifted/rotated in place, always by exactly one bit — there's no room left
+in the opcode for a count or a size field once `<ea>` is encoded, so it's
+word-sized only). The two share a mnemonic but not an opcode shape:
+`src/cpu/opcodes.ts`'s `decodeShiftRotate` handles the register form; the
+memory form has its own six `OpcodeDefinition`s (`ASL_MEM` etc.) built
+around `decodeMemAlterableEA`.
+
+The memory form reuses the register form's opcode space at the bit level:
+bits 7-6 there are a size field that only ever takes `00`/`01`/`10` — the
+register form's `decodeByteWordLongSize` throws on `11` — and the memory
+form sets exactly that otherwise-reserved value to mean "this is the
+memory-operand form" instead. That makes the memory form's `opcodeTable`
+entries (mask `0xffc0`) far more specific than the register form's (mask
+`0xf118`), so — same trick as `EXT`/`MOVEM` and `SWAP`/`PEA` — they're
+listed first in `opcodeTable` for that reserved size value to resolve to
+the memory form rather than misrouting into the register form's decoder.
+
+Valid `<ea>` for the memory form: the "memory alterable" modes — anything
+except `Dn`, `An`, `#imm`, and PC-relative. `Dn`/`An` are a genuinely
+reserved encoding here (the register form is what shifts a `Dn`, and
+there's no such thing as shifting an address register), so both raise the
+[Illegal Instruction exception](#cpu-exception-vector-table) — `decodeEA`
+can't reject `An` on its own the way it does the PC-relative modes, since
+`An` is a perfectly normal writable destination for every *other*
+instruction, so `decodeMemAlterableEA` checks for it explicitly.
+
 ### ASL/ASR - Arithmetic Shift
 ```
 ASL #n,Dn     ; Shift left by n bits (1-8; 0 encodes 8)
 ASR #n,Dn     ; Shift right by n bits
 ASL Dx,Dn     ; Shift left by the count in Dx, mod 64
 ASR Dx,Dn     ; Shift right by the count in Dx, mod 64
+ASL <ea>      ; Shift left 1 bit (memory, word only)
+ASR <ea>      ; Shift right by exactly 1 bit
 ```
 
 Arithmetic shifts preserve sign bit: `ASR` copies the original sign back in
 at each step, `ASL` sets V if the sign bit changes value at any point
-during the shift. Only the register form is implemented — the `<ea>`
-memory-operand form (always a single-bit shift) isn't.
+during the shift.
 
-**Cycles**: 6 + 2*n
+**Cycles**: 6 + 2*n (register form); 8 flat (memory form)
 **Flags**: N, Z, V, C, X (a dynamic count of 0 clears C but leaves X
 untouched — no shift happened)
 
@@ -517,6 +547,7 @@ untouched — no shift happened)
 ```asm
 ASL #1,D0              ; D0 <<= 1 (multiply by 2)
 ASR #2,D1              ; D1 >>= 2 (divide by 4, signed)
+ASL (A0)                ; Memory[A0] <<= 1
 ```
 
 ### LSL/LSR - Logical Shift
@@ -525,12 +556,13 @@ LSL #n,Dn     ; Shift left by n bits (1-8; 0 encodes 8)
 LSR #n,Dn     ; Shift right by n bits
 LSL Dx,Dn     ; Shift left by the count in Dx, mod 64
 LSR Dx,Dn     ; Shift right by the count in Dx, mod 64
+LSL <ea>      ; Shift left 1 bit (memory, word only)
+LSR <ea>      ; Shift right by exactly 1 bit
 ```
 
-Logical shifts don't preserve sign — both directions fill with `0`. Only
-the register form is implemented, same as `ASL`/`ASR`.
+Logical shifts don't preserve sign — both directions fill with `0`.
 
-**Cycles**: 6 + 2*n
+**Cycles**: 6 + 2*n (register form); 8 flat (memory form)
 **Flags**: N, Z, V (0), C, X (a dynamic count of 0 clears C but
 leaves X untouched)
 
@@ -538,6 +570,7 @@ leaves X untouched)
 ```asm
 LSL #3,D0              ; D0 <<= 3 (multiply by 8)
 LSR #1,D1              ; D1 >>= 1 (unsigned divide by 2)
+LSR $1000.W             ; Memory[$1000] >>= 1
 ```
 
 ### ROL/ROR - Rotate
@@ -546,19 +579,22 @@ ROL #n,Dn     ; Rotate left (1-8; 0 encodes 8)
 ROR #n,Dn     ; Rotate right
 ROL Dx,Dn     ; Rotate left by the count in Dx, mod 64
 ROR Dx,Dn     ; Rotate right by the count in Dx, mod 64
+ROL <ea>      ; Rotate left 1 bit (memory, word only)
+ROR <ea>      ; Rotate right by exactly 1 bit
 ```
 
 Rotates bits in a circular manner — the bit that rotates out one end comes
-back in the other. Only the register form is implemented. Unlike the
-shifts above, `X` is never affected by a rotate on real 68000 hardware.
+back in the other. Unlike the shifts above, `X` is never affected by a
+rotate on real 68000 hardware.
 
-**Cycles**: 6 + 2*n
+**Cycles**: 6 + 2*n (register form); 8 flat (memory form)
 **Flags**: N, Z, V (0), C
 
 **Examples**:
 ```asm
 ROL #4,D0              ; Rotate D0 left by 4 bits
 ROR #1,D1              ; Rotate D1 right by 1 bit
+ROL (A0)                ; Rotate Memory[A0] left by 1 bit
 ```
 
 ## Branch Instructions
