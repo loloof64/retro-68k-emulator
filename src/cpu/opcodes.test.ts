@@ -48,6 +48,10 @@ function dbraWord(reg: number) {
   return 0x51c8 | reg
 }
 
+function dbccWord(cc: number, reg: number) {
+  return 0x50c8 | (cc << 8) | reg
+}
+
 function jsrWord(mode: number, reg: number) {
   return 0x4e80 | (mode << 3) | reg
 }
@@ -1170,6 +1174,68 @@ describe('DBRA', () => {
     step(cpu, memory, opcodeTable)
 
     expect(cpu.registers[Register.D0]).toBe(0x12340004)
+  })
+})
+
+describe('DBcc', () => {
+  it('stops looping immediately when the condition is already true, without decrementing Dn', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    cpu.status.Z = true
+    writeRegister(cpu, Register.D0, 5, 'word')
+    memory.write16(0x2000, dbccWord(0b0111, 0)) // DBEQ D0,<disp>
+    memory.write16(0x2002, 0xfff0) // would branch backward if taken
+
+    const cycles = step(cpu, memory, opcodeTable)
+
+    expect(cpu.registers[Register.D0] & 0xffff).toBe(5) // untouched
+    expect(cpu.pc).toBe(0x2004) // past the extension word, no branch
+    expect(cycles).toBe(12)
+  })
+
+  it('decrements and branches when the condition is false and the counter has not reached -1', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    cpu.status.Z = false
+    writeRegister(cpu, Register.D0, 3, 'word')
+    memory.write16(0x2000, dbccWord(0b0111, 0)) // DBEQ D0,<disp>
+    memory.write16(0x2002, 0xfffc) // -4: loop back to 0x2000
+
+    const cycles = step(cpu, memory, opcodeTable)
+
+    expect(cpu.registers[Register.D0] & 0xffff).toBe(2)
+    // base is 0x2002 (right after the opcode word) - 4 = 0x1ffe
+    expect(cpu.pc).toBe(0x1ffe)
+    expect(cycles).toBe(10)
+  })
+
+  it('falls through without branching once a false condition drives the counter to -1', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    cpu.status.Z = false
+    writeRegister(cpu, Register.D0, 0, 'word') // decrements to -1 (0xffff)
+    memory.write16(0x2000, dbccWord(0b0111, 0)) // DBEQ D0,<disp>
+    memory.write16(0x2002, 0xfff0) // would branch backward if taken
+
+    const cycles = step(cpu, memory, opcodeTable)
+
+    expect(cpu.registers[Register.D0] & 0xffff).toBe(0xffff)
+    expect(cpu.pc).toBe(0x2004) // past the extension word, no branch
+    expect(cycles).toBe(14)
+  })
+
+  it('DBNE loops on a different condition than DBEQ, for the same Z flag', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    cpu.status.Z = false // NE is true, so DBNE stops immediately
+    writeRegister(cpu, Register.D0, 5, 'word')
+    memory.write16(0x2000, dbccWord(0b0110, 0)) // DBNE D0,<disp>
+    memory.write16(0x2002, 0xfff0)
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.registers[Register.D0] & 0xffff).toBe(5) // untouched
+    expect(cpu.pc).toBe(0x2004) // no branch
   })
 })
 

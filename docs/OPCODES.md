@@ -494,20 +494,23 @@ BLT     LESS_100       ; Branch if D0 < 100
 BGE     GTE_100        ; Branch if D0 >= 100
 ```
 
-### DBRA - Decrement and Branch
+### DBcc - Decrement and Branch Conditionally
 ```
-DBRA Dn,label
+DBcc Dn,label
 ```
 
-Decrements the low 16 bits of `Dn` (the high word is untouched) and
-branches to `label` unless the result is `-1`. Only `DBRA` is
-implemented — not the full `DBcc` family (`DBEQ`, `DBNE`, ...), which
-would need the same kind of condition-code table `Bcc` uses, over the
-`Scc`/`DBcc` truth table rather than the branch one. Unlike `Bcc`, the
-branch displacement is always a 16-bit extension word — there's no 8-bit
-inline form.
+Tests the condition `cc` — the same 16-entry table `Bcc` uses (`T`, `F`,
+`HI`, `LS`, `CC`, `CS`, `NE`, `EQ`, `VC`, `VS`, `PL`, `MI`, `GE`, `LT`,
+`GT`, `LE`). If it's already true, the loop stops immediately and `Dn` is
+left untouched. Otherwise, decrements the low 16 bits of `Dn` (the high
+word is untouched) and branches to `label` unless the result is `-1`.
+`DBRA` (a.k.a. `DBF`) is this same instruction with `cc` fixed to `F`
+(always false), which is why it always decrements — see
+`branchConditionTrue` in `src/cpu/opcodes.ts` for the reference
+implementation, shared with `Bcc`. Unlike `Bcc`, the branch displacement
+is always a 16-bit extension word — there's no 8-bit inline form.
 
-**Cycles**: 10 (branch), 12 (no branch)
+**Cycles**: 10 (branch taken), 12 (condition already true, loop stops), 14 (condition false, counter reaches `-1`)
 
 **Example**:
 ```asm
@@ -515,6 +518,12 @@ MOVE.W  #100,D0        ; Counter = 100
 LOOP:
   ADD.W   #1,D1        ; D1 += 1
   DBRA    D0,LOOP      ; D0--, loop if D0 != -1
+```
+
+```asm
+LOOP:
+  BTST    #0,D2         ; test some condition
+  DBEQ    D0,LOOP       ; D0--, loop unless the condition was already true (Z=1)
 ```
 
 ## Subroutine Control
@@ -600,7 +609,7 @@ Does nothing, useful for timing/padding.
 | Logical | AND, OR, XOR, NOT |
 | Bit | BTST |
 | Shift/Rotate | ASL, ASR, LSL, LSR, ROL, ROR |
-| Branches | BRA, BEQ, BNE, BLT, BLE, BGT, BGE, BHI, BLS, BCS, BCC, BVS, BVC, BPL, BMI, DBRA |
+| Branches | BRA, BEQ, BNE, BLT, BLE, BGT, BGE, BHI, BLS, BCS, BCC, BVS, BVC, BPL, BMI, DBcc (DBRA/DBF, DBT, DBEQ, DBNE, ...) |
 | Subroutines | JSR, BSR, RTS |
 | System | TRAP, NOP |
 
@@ -608,8 +617,10 @@ Does nothing, useful for timing/padding.
 
 Every mnemonic documented above, A-Z, linking back to its section. The
 conditional `Bcc` variants (`BEQ`, `BNE`, ...) all share the one
-[Conditional Branches](#conditional-branches) table rather than having a
-section each.
+[Conditional Branches](#conditional-branches) table, and the conditional
+`DBcc` variants (`DBEQ`, `DBNE`, ...) all share the one
+[DBcc](#dbcc---decrement-and-branch-conditionally) section, rather than
+having a section each.
 
 **A** — [ADD](#add---add) · [AND](#and---bitwise-and) · [ASL](#aslasr---arithmetic-shift) · [ASR](#aslasr---arithmetic-shift)
 
@@ -617,7 +628,7 @@ section each.
 
 **C** — [CLR](#clr---clear) · [CMP](#cmp---compare)
 
-**D** — [DBRA](#dbra---decrement-and-branch) · [DIVS](#div---divide) · [DIVU](#div---divide)
+**D** — [DBCC](#dbcc---decrement-and-branch-conditionally) · [DBCS](#dbcc---decrement-and-branch-conditionally) · [DBEQ](#dbcc---decrement-and-branch-conditionally) · [DBGE](#dbcc---decrement-and-branch-conditionally) · [DBGT](#dbcc---decrement-and-branch-conditionally) · [DBHI](#dbcc---decrement-and-branch-conditionally) · [DBLE](#dbcc---decrement-and-branch-conditionally) · [DBLS](#dbcc---decrement-and-branch-conditionally) · [DBLT](#dbcc---decrement-and-branch-conditionally) · [DBMI](#dbcc---decrement-and-branch-conditionally) · [DBNE](#dbcc---decrement-and-branch-conditionally) · [DBPL](#dbcc---decrement-and-branch-conditionally) · [DBRA](#dbcc---decrement-and-branch-conditionally) · [DBT](#dbcc---decrement-and-branch-conditionally) · [DBVC](#dbcc---decrement-and-branch-conditionally) · [DBVS](#dbcc---decrement-and-branch-conditionally) · [DIVS](#div---divide) · [DIVU](#div---divide)
 
 **E** — [EXT](#ext---sign-extend)
 

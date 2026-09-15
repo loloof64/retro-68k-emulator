@@ -229,10 +229,17 @@ const MOVEQ: OpcodeDefinition = {
 
 // --- Bcc / BRA ($6000-$6FFE; cc=0000 is BRA, cc=0001 (BSR) unimplemented)
 
+// This is the 68000's one shared 16-entry condition-code table — Bcc uses
+// it directly ("branch if true"), and DBcc reuses the exact same table
+// ("stop looping if true"). cc=0b0001 is never reached via Bcc (that
+// opcode slot is BSR, matched first in opcodeTable), but DBcc does use it:
+// it's "F" (always false), the condition behind DBRA/DBF.
 function branchConditionTrue(cc: number, status: StatusFlags): boolean {
   switch (cc) {
     case 0b0000:
-      return true // BRA
+      return true // BRA / DBT
+    case 0b0001:
+      return false // DBF / DBRA
     case 0b0010:
       return !status.C && !status.Z // BHI
     case 0b0011:
@@ -295,26 +302,34 @@ const Bcc: OpcodeDefinition = {
   },
 }
 
-// --- DBRA Dn,<disp> ($51C8-$51CF) - decrement and branch unless -1 ------
+// --- DBcc Dn,<disp> ($50C8-$5FC8, low 3 bits = Dn) ----------------------
 //
-// Only DBRA (the "always decrement" DBcc, condition code F) is implemented
-// — not the full DBcc family (DBEQ, DBNE, ...), which would need the same
-// condition-code table as Bcc but over a different truth table (Scc/DBcc
-// conditions, not branch conditions). Unlike Bcc, DBcc's displacement is
-// always a 16-bit extension word — there's no 8-bit inline form.
+// Full conditional family (DBT, DBF/DBRA, DBHI, DBLS, DBCC, DBCS, DBNE,
+// DBEQ, DBVC, DBVS, DBPL, DBMI, DBGE, DBLT, DBGT, DBLE), sharing Bcc's
+// condition-code table. Unlike Bcc, the displacement is always a 16-bit
+// extension word — there's no 8-bit inline form — and the condition means
+// something different: if cc is already true, the loop stops immediately
+// (Dn is *not* decremented); only when cc is false does Dn get decremented
+// and the branch considered, same as DBRA's "decrement unless -1" always
+// did (DBRA is cc=F, always false, so it always decrements).
 
-const DBRA: OpcodeDefinition = {
-  mnemonic: 'DBRA',
-  encoding: '0101000111001rrr',
+const DBcc: OpcodeDefinition = {
+  mnemonic: 'DBcc',
+  encoding: '0101cccc11001rrr',
   size: 'variable',
   handler: (cpu: CPUState, memory: Memory, args: unknown[]) => {
     const opcodeWord = opcodeWordOf(args)
+    const cc = (opcodeWord >> 8) & 0xf
     const reg = (Register.D0 + (opcodeWord & 0b111)) as Register
 
     // Same "relative to the address of the extension word" base as Bcc.
     const base = cpu.pc
     const displacement = toSigned16(memory.read16(cpu.pc))
     cpu.pc += 2
+
+    if (branchConditionTrue(cc, cpu.status)) {
+      return 12 // condition already true: loop stops, Dn untouched
+    }
 
     const decremented = (readRegister(cpu, reg, 'word') - 1) & 0xffff
     writeRegister(cpu, reg, decremented, 'word')
@@ -324,7 +339,7 @@ const DBRA: OpcodeDefinition = {
       return 10
     }
 
-    return 12
+    return 14 // counter reached -1: loop stops without branching
   },
 }
 
@@ -1095,6 +1110,6 @@ export const opcodeTable: readonly OpcodeEntry[] = [
   { mask: 0xf100, pattern: 0x7000, definition: MOVEQ },
   { mask: 0xff00, pattern: 0x6100, definition: BSR },
   { mask: 0xf000, pattern: 0x6000, definition: Bcc },
-  { mask: 0xfff8, pattern: 0x51c8, definition: DBRA },
+  { mask: 0xf0f8, pattern: 0x50c8, definition: DBcc },
   { mask: 0xc000, pattern: 0x0000, definition: MOVE },
 ]

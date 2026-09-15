@@ -195,7 +195,7 @@ isn't implemented.
 | `JSR` | `JSR target` | word | 16 | none | Pushes the return address onto the stack, then jumps to `target`. Accepts any addressing mode that names a memory location without a register side effect: `(An)`, `d16(An)`, `d8(An,Xn)`, `xxx.W`, `xxx.L`, `d16(PC)`, `d8(PC,Xn)` — not `Dn`, `An`, `(An)+`, `-(An)`, or `#imm`. |
 | `BSR` | `BSR target` | word | 18 | none | Like `JSR`, but PC-relative — pushes the return address, then always branches to `target`. |
 | `RTS` | `RTS` | word | 16 | none | Pops a return address pushed by `JSR`/`BSR` and jumps there. |
-| `DBRA` | `DBRA Dn,target` | word | 10 (branch), 12 (no branch) | none | Decrements the low 16 bits of `Dn` and jumps to `target` unless the result is `-1`. Only this "always decrement" form is implemented, not the full conditional `DBcc` family. |
+| `DBcc` | `DBcc Dn,target` | word | 10 (branch taken), 12 (condition already true), 14 (condition false, counter reaches `-1`) | none | Tests condition `cc` (same table as `Bcc`); if already true, the loop stops and `Dn` is untouched. Otherwise decrements the low 16 bits of `Dn` and jumps to `target` unless the result is `-1`. `DBRA` (a.k.a. `DBF`) is this instruction with `cc` fixed to "always false", which is why it always decrements. |
 
 ### System
 
@@ -213,7 +213,7 @@ See [TRAP System Calls](#trap-system-calls) below for `TRAP`.
 
 **C** — [CLR](#arithmetic) · [CMP](#arithmetic)
 
-**D** — [DBRA](#program-control) · [DIVS](#arithmetic) · [DIVU](#arithmetic)
+**D** — [DBcc](#program-control) · [DIVS](#arithmetic) · [DIVU](#arithmetic)
 
 **E** — [EXT](#arithmetic)
 
@@ -307,7 +307,7 @@ ADD.L   D0,D0              ; D0 += D0
 RTS                        ; back to the caller
 ```
 
-The rest of the ~80-instruction set (the full conditional `DBcc` family, ...) lands in upcoming sessions — each one gets its own entry here as it becomes real.
+The rest of the ~80-instruction set lands in upcoming sessions — each one gets its own entry here as it becomes real.
 
 ## TRAP System Calls
 
