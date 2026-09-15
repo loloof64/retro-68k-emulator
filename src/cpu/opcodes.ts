@@ -186,6 +186,92 @@ const SUB: OpcodeDefinition = {
   },
 }
 
+// --- ABCD/SBCD Dy,Dx / -(Ay),-(Ax) ($C100-$C1F8 / $8100-$81F8) ----------
+//
+// Packed-BCD add/subtract with extend: two decimal digits per byte (a
+// "hundreds" nibble and a "tens" nibble aren't a thing here — just two
+// 0-9 digits packed high/low), used to build decimal arithmetic wider
+// than one byte by chaining bytes together through the X flag exactly
+// like ADDX/SUBX would for binary. Register form operates on `Dy`/`Dx`
+// directly; the `-(Ay),-(Ax)` memory form predecrements *two* address
+// registers, source before destination (same "source before
+// destination" order `decodeEaAndDest` documents), so a chain reads
+// backward through memory the same way `MOVEM`'s predecrement store
+// does. Bit 8 is fixed at `1` in both encodings, which is exactly what
+// keeps this family from ever colliding with `AND`/`OR`/`MULU`/`MULS`/
+// `DIVU`/`DIVS`'s own reserved-opmode slots in the same `$C000`/`$8000`
+// nibble - those all require bit 8 clear, so no opcodeTable-ordering
+// trick is needed here despite living in the same top nibble.
+//
+// Flags follow the real (undefined-flag-heavy) 68000 definition rather
+// than this codebase's usual "compute N from the sign bit" default: `N`
+// and `V` are genuinely undefined on real hardware for a BCD result (a
+// packed-decimal byte's bit 7 isn't a sign bit), so - same principle
+// `CHK` established for its own undefined flags - they're simply left
+// untouched. `Z` has its own unusual rule too: cleared if the result is
+// non-zero, *left alone* if it's zero - not a plain assignment - so a
+// multi-byte chain can clear `Z` once up front and have it read true at
+// the end only if every byte came out zero.
+
+function bcdAdd(src: number, dst: number, x: number): { result: number; carry: number } {
+  let sum = src + dst + x
+  if (((src & 0x0f) + (dst & 0x0f) + x) > 9) sum += 6
+  let carry = 0
+  if (sum > 0x99) {
+    sum += 0x60
+    carry = 1
+  }
+  return { result: sum & 0xff, carry }
+}
+
+function bcdSub(src: number, dst: number, x: number): { result: number; carry: number } {
+  let diff = dst - src - x
+  if (((dst & 0x0f) - (src & 0x0f) - x) < 0) diff -= 6
+  let carry = 0
+  if (diff < 0) {
+    diff -= 0x60
+    carry = 1
+  }
+  return { result: diff & 0xff, carry }
+}
+
+function bcdHandler(op: (src: number, dst: number, x: number) => { result: number; carry: number }) {
+  return (cpu: CPUState, memory: Memory, args: unknown[]) => {
+    const opcodeWord = opcodeWordOf(args)
+    const destReg = (opcodeWord >> 9) & 0b111
+    const isMemoryForm = ((opcodeWord >> 3) & 1) === 1
+    const srcReg = opcodeWord & 0b111
+    const mode = isMemoryForm ? 0b100 : 0b000
+
+    const src = decodeEA(cpu, memory, mode, srcReg, 'byte')
+    const dst = decodeEA(cpu, memory, mode, destReg, 'byte')
+
+    const x = cpu.status.X ? 1 : 0
+    const { result, carry } = op(src.read(), dst.read(), x)
+    dst.write(result)
+
+    cpu.status.X = carry === 1
+    cpu.status.C = carry === 1
+    if (result !== 0) cpu.status.Z = false
+
+    return isMemoryForm ? 18 : 6
+  }
+}
+
+const ABCD: OpcodeDefinition = {
+  mnemonic: 'ABCD',
+  encoding: '1100xxx10000ryyy',
+  size: 'byte',
+  handler: bcdHandler(bcdAdd),
+}
+
+const SBCD: OpcodeDefinition = {
+  mnemonic: 'SBCD',
+  encoding: '1000xxx10000ryyy',
+  size: 'byte',
+  handler: bcdHandler(bcdSub),
+}
+
 // --- ADDQ/SUBQ #data,<ea> ($5000-$5FFE, bit8=0 ADDQ/1 SUBQ) -------------
 //
 // Adds/subtracts a small immediate (1-8, encoded in 3 bits with 0 = 8)
@@ -1127,6 +1213,50 @@ const NEG: OpcodeDefinition = {
   },
 }
 
+// --- NBCD <ea> ($4800-$483F) - negate a packed-BCD byte with extend -----
+//
+// `NBCD`'s the single-operand sibling of `ABCD`/`SBCD`: `dst = 0 - dst -
+// X`, packed BCD, reusing the same `bcdSub` helper (negation is just
+// subtraction from zero). Real 68000 detail this reproduces for free by
+// reusing `bcdSub` rather than writing a separate negate path: `NBCD` on
+// a zero byte with `X` set doesn't stay zero - it borrows, producing
+// `$99` with the carry set - which is exactly what propagates a borrow
+// through a multi-byte chain (negate the low byte first, then each
+// higher byte's `NBCD` sees the previous byte's borrow via `X`).
+//
+// Lands in a fresh slot in the `$48xx` byte (no `EXT`/`MOVEM`/`SWAP`/
+// `PEA`-style opcodeTable-ordering trick needed here, unlike its
+// neighbors in that same byte). `An` direct is rejected as a reserved
+// encoding, same as `BTST`/`CHK`/`TAS`.
+
+const NBCD: OpcodeDefinition = {
+  mnemonic: 'NBCD',
+  encoding: '0100100000mmmrrr',
+  size: 'byte',
+  handler: (cpu: CPUState, memory: Memory, args: unknown[]) => {
+    const opcodeWord = opcodeWordOf(args)
+    const mode = (opcodeWord >> 3) & 0b111
+    const reg = opcodeWord & 0b111
+
+    if (mode === 0b001) {
+      raiseException(cpu, memory, ILLEGAL_INSTRUCTION_VECTOR, 'Illegal Instruction')
+      return 34
+    }
+
+    const ea = decodeEA(cpu, memory, mode, reg, 'byte')
+
+    const x = cpu.status.X ? 1 : 0
+    const { result, carry } = bcdSub(ea.read(), 0, x)
+    ea.write(result)
+
+    cpu.status.X = carry === 1
+    cpu.status.C = carry === 1
+    if (result !== 0) cpu.status.Z = false
+
+    return mode === 0b000 ? 6 : 8
+  },
+}
+
 // --- TST <ea> ($4A00) - like CMP against 0, doesn't write back ------------
 
 const TST: OpcodeDefinition = {
@@ -1801,6 +1931,7 @@ export const opcodeTable: readonly OpcodeEntry[] = [
   { mask: 0xff00, pattern: 0x4600, definition: NOT },
   { mask: 0xff00, pattern: 0x4200, definition: CLR },
   { mask: 0xff00, pattern: 0x4400, definition: NEG },
+  { mask: 0xffc0, pattern: 0x4800, definition: NBCD },
   { mask: 0xffc0, pattern: 0x4ac0, definition: TAS },
   { mask: 0xff00, pattern: 0x4a00, definition: TST },
   { mask: 0xfff8, pattern: 0x4840, definition: SWAP },
@@ -1839,6 +1970,8 @@ export const opcodeTable: readonly OpcodeEntry[] = [
   { mask: 0xf1c0, pattern: 0x81c0, definition: DIVS },
   { mask: 0xf100, pattern: 0xc000, definition: AND },
   { mask: 0xf100, pattern: 0x8000, definition: OR },
+  { mask: 0xf1f0, pattern: 0xc100, definition: ABCD },
+  { mask: 0xf1f0, pattern: 0x8100, definition: SBCD },
   { mask: 0xf100, pattern: 0x7000, definition: MOVEQ },
   { mask: 0xff00, pattern: 0x6100, definition: BSR },
   { mask: 0xf000, pattern: 0x6000, definition: Bcc },

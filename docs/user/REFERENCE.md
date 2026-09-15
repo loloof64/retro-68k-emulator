@@ -158,6 +158,14 @@ A first handful of real instructions is wired in, grouped below the way Motorola
 | `DIVU` | `DIVU.W src,Dn` | word (source) | 138 (10 on overflow, 38 on zero divide) | N, Z, V, C (0) | Unsigned divide: `Dn` (32-bit) ÷ `src` (16-bit) → quotient in `Dn`'s low word, remainder in the high word. If the quotient doesn't fit in 16 bits, `V` is set and `Dn` is left unmodified. Dividing by zero raises the [Zero Divide exception](#exceptions) instead. |
 | `DIVS` | `DIVS.W src,Dn` | word (source) | 158 (10 on overflow, 38 on zero divide) | N, Z, V, C (0) | Signed divide, same layout as `DIVU`. Truncates toward zero; the remainder takes the dividend's sign. |
 
+### Binary Coded Decimal
+
+| Mnemonic | Syntax | Sizes | Cycles | Flags affected | Description |
+|---|---|---|---|---|---|
+| `ABCD` | `ABCD Dy,Dx` / `ABCD -(Ay),-(Ax)` | byte | 6 (register), 18 (memory) | X, C, Z (see below); N, V undefined | Adds two packed-BCD digits plus `X`: `Dx = Dx + Dy + X`. See [below](#how-does-packed-bcd-arithmetic-work) for what "packed BCD" means and why the flags behave differently here. |
+| `SBCD` | `SBCD Dy,Dx` / `SBCD -(Ay),-(Ax)` | byte | 6 (register), 18 (memory) | X, C, Z (see below); N, V undefined | Subtracts two packed-BCD digits plus `X`: `Dx = Dx - Dy - X`. |
+| `NBCD` | `NBCD dst` | byte | 6 (`Dn`), 8 (memory) | X, C, Z (see below); N, V undefined | Negates a packed-BCD byte plus `X`: `dst = 0 - dst - X`. `An` direct isn't valid — see [below](#how-does-packed-bcd-arithmetic-work). |
+
 ### Logical
 
 | Mnemonic | Syntax | Sizes | Cycles | Flags affected | Description |
@@ -219,7 +227,7 @@ See [TRAP System Calls](#trap-system-calls) below for `TRAP`.
 
 ### Alphabetical Index
 
-**A** — [ADD](#arithmetic) · [ADDQ](#arithmetic) · [AND](#logical) · [ASL](#shift-and-rotate) · [ASR](#shift-and-rotate)
+**A** — [ABCD](#binary-coded-decimal) · [ADD](#arithmetic) · [ADDQ](#arithmetic) · [AND](#logical) · [ASL](#shift-and-rotate) · [ASR](#shift-and-rotate)
 
 **B** — [Bcc](#program-control) · [BRA](#program-control) · [BSR](#program-control) · [BTST](#bit-manipulation)
 
@@ -235,7 +243,7 @@ See [TRAP System Calls](#trap-system-calls) below for `TRAP`.
 
 **M** — [MOVE](#data-movement) · [MOVEA](#data-movement) · [MOVEM](#data-movement) · [MOVEQ](#data-movement) · [MULS](#arithmetic) · [MULU](#arithmetic)
 
-**N** — [NEG](#arithmetic) · [NOP](#system) · [NOT](#logical)
+**N** — [NBCD](#binary-coded-decimal) · [NEG](#arithmetic) · [NOP](#system) · [NOT](#logical)
 
 **O** — [OR](#logical)
 
@@ -243,7 +251,7 @@ See [TRAP System Calls](#trap-system-calls) below for `TRAP`.
 
 **R** — [ROL](#shift-and-rotate) · [ROR](#shift-and-rotate) · [ROXL](#shift-and-rotate) · [ROXR](#shift-and-rotate) · [RTS](#program-control)
 
-**S** — [Scc](#program-control) · [SUB](#arithmetic) · [SUBQ](#arithmetic) · [SWAP](#data-movement)
+**S** — [SBCD](#binary-coded-decimal) · [Scc](#program-control) · [SUB](#arithmetic) · [SUBQ](#arithmetic) · [SWAP](#data-movement)
 
 **T** — [TAS](#arithmetic) · [TST](#arithmetic)
 
@@ -269,6 +277,27 @@ If `FLAG`'s bit 7 was already `1`, `N` comes out set and the loop spins — some
 This emulator has no concurrency (no threads, no interrupts preempting mid-instruction) to actually race against, so a plain read followed by a plain write already behaves identically to the indivisible version — the idiom above works the same way it would on real hardware, just without anything else that could ever contend for the lock.
 
 `An` direct isn't a valid `dst` — there's no such thing as test-and-setting an address register — so it raises the [Illegal Instruction exception](#exceptions) instead, the same restriction `BTST`/`CHK` have on their own `<ea>`.
+
+### How does packed BCD arithmetic work?
+
+Packed BCD stores two decimal digits, `0`-`9` each, one per nibble of a byte — a completely different interpretation of the bits than plain binary. `$09` means the decimal digit 9 either way, but `$99` is decimal 99 in packed BCD, not 153 like it would be read as plain binary. Adding `$09` and `$01` as ordinary binary gives `$0A` — not a valid pair of decimal digits — which is exactly the problem `ABCD` corrects for, producing `$10` instead: the same digits ("1", "0") you'd get adding 9 and 1 by hand and carrying.
+
+```asm
+MOVE.B  #$09,D0
+MOVE.B  #$01,D1
+ABCD    D0,D1           ; D1 = 9 + 1 = $10, not the binary $0A
+```
+
+All three instructions are byte-only and thread `X` through as a carry/borrow, so a decimal number wider than one byte can be processed one byte at a time, low byte first — the same chaining idiom `ADDX`/`SUBX`/`NEGX` use for plain binary (not yet implemented here, but the principle is identical). `ABCD`/`SBCD`'s `-(Ay),-(Ax)` form exists specifically for this: it walks two multi-byte BCD numbers backward through memory together, one digit-pair at a time.
+
+A real consequence of `NBCD` being defined as `0 - dst - X`: negating a zero byte with `X` already set doesn't stay zero — it borrows, producing `$99` with `C`/`X` set. That's not a bug, it's what makes negating a multi-byte BCD number work: negate the low byte first, then each higher byte's `NBCD` sees the previous byte's borrow via `X` and accounts for it.
+
+Two flag quirks worth knowing before relying on them:
+
+- **`N` and `V` are genuinely undefined** on real 68000 hardware for a BCD result — a packed-decimal byte's top bit isn't a sign bit, so there's no meaningful value to compute. This emulator leaves them untouched rather than inventing one, the same choice [CHK](#which-values-does-chk-accept) makes for its own undefined flags.
+- **`Z` is *cleared* if the result is non-zero, but *left alone* if the result is zero** — not a plain assignment like every other instruction on this page. That's deliberate: it lets a multi-byte chain clear `Z` once before the first byte, then read `Z=1` at the end only if *every* byte in the chain came out zero, without each individual byte's instruction able to falsely set `Z` back to `1` on its own.
+
+`NBCD`'s `dst` follows the same restriction `BTST`/`CHK`/`TAS` place on their own operands: `An` direct raises the [Illegal Instruction exception](#exceptions) instead of being treated as a value to negate.
 
 ### Which Bcc do I want?
 

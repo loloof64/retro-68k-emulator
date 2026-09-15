@@ -430,6 +430,98 @@ EXT.W   D0              ; low byte -> low word (sign-extended)
 EXT.L   D0              ; low word -> full long (sign-extended)
 ```
 
+## Binary Coded Decimal (BCD)
+
+Packed BCD stores two decimal digits (`0`-`9` each) per byte, one per
+nibble, rather than treating the byte as a plain binary number. `ADD`ing
+`$09` and `$01` as binary gives `$0A` — not a valid two-digit decimal
+value — but `ABCD` corrects for that, producing `$10` (the decimal digits
+"1" and "0"), the same result you'd get adding the decimal numbers 9 and
+1 by hand. All three instructions below are byte-only and thread the `X`
+flag through as a carry/borrow, so a multi-byte decimal number can be
+processed one byte at a time, low byte first, chaining through `X`
+exactly like `ADDX`/`SUBX`/`NEGX` would for plain binary.
+
+Real 68000 hardware leaves `N` and `V` genuinely undefined for a BCD
+result (a packed-decimal byte's top bit isn't a sign bit) — this
+emulator leaves them untouched rather than inventing a value, the same
+choice `CHK` makes for its own undefined flags. `Z` also works
+differently than usual here: it's *cleared* if the result is non-zero,
+but *left alone* if the result is zero — so a chain of BCD instructions
+across multiple bytes only reads `Z=1` at the end if every byte in the
+chain came out zero, exactly the accumulate-across-bytes behavior a
+multi-byte "is the whole number zero?" check needs.
+
+### ABCD - Add Decimal with Extend
+```
+ABCD Dy,Dx
+ABCD -(Ay),-(Ax)
+```
+
+`Dx = Dx + Dy + X`, as packed BCD. The `-(Ay),-(Ax)` form predecrements
+*two* address registers — source (`Ay`) before destination (`Ax`), same
+order the general `<ea>`-then-`Dn` instructions already decode in —
+letting a multi-byte BCD number be walked backward through memory one
+byte at a time, low byte first.
+
+**Sizes**: B (always)
+**Cycles**: 6 (register), 18 (memory)
+**Flags**: X, C (see above); N, V undefined (untouched); Z (see above)
+
+**Example**:
+```asm
+MOVE.B  #$09,D0
+MOVE.B  #$01,D1
+ABCD    D0,D1          ; D1 = 9 + 1 = $10 (decimal 10)
+```
+
+### SBCD - Subtract Decimal with Extend
+```
+SBCD Dy,Dx
+SBCD -(Ay),-(Ax)
+```
+
+`Dx = Dx - Dy - X`, as packed BCD — the same addressing/chaining rules
+`ABCD` uses, just subtracting.
+
+**Sizes**: B (always)
+**Cycles**: 6 (register), 18 (memory)
+**Flags**: X, C (see above); N, V undefined (untouched); Z (see above)
+
+**Example**:
+```asm
+MOVE.B  #$10,D1
+MOVE.B  #$01,D0
+SBCD    D0,D1          ; D1 = 10 - 1 = $09 (decimal 9)
+```
+
+### NBCD - Negate Decimal with Extend
+```
+NBCD dst
+```
+
+`dst = 0 - dst - X`, as packed BCD — `SBCD`'s single-operand sibling,
+implemented as the same subtraction with `0` as the left-hand side. A
+real consequence of that: negating a zero byte with `X` already set
+doesn't stay zero — it borrows, producing `$99` with `C`/`X` set — which
+is exactly what's needed to propagate a borrow through a multi-byte
+negate (negate the low byte first, then each higher byte's `NBCD` sees
+the previous byte's borrow via `X`).
+
+**Addressing**: any data addressing mode except `An` direct (mode `001`)
+— a genuinely reserved encoding here, rejected the same way `BTST`/`CHK`/
+`TAS` reject their own restricted addressing modes.
+
+**Sizes**: B (always)
+**Cycles**: 6 (`Dn`), 8 (memory)
+**Flags**: X, C (see above); N, V undefined (untouched); Z (see above)
+
+**Example**:
+```asm
+MOVE.B  #$01,D0
+NBCD    D0              ; D0 = 0 - 1 = $99, decimal "-1"
+```
+
 ## Logical Operations
 
 ### AND - Bitwise AND
@@ -940,6 +1032,7 @@ Does nothing, useful for timing/padding.
 |----------|--------------|
 | Data Movement | MOVE, MOVEA, MOVEQ, LEA, PEA, SWAP |
 | Arithmetic | ADD, SUB, ADDQ, SUBQ, MUL, DIV, CMP, CLR, NEG, TST, TAS, EXT |
+| BCD | ABCD, SBCD, NBCD |
 | Logical | AND, OR, XOR, NOT |
 | Bit | BTST |
 | Shift/Rotate | ASL, ASR, LSL, LSR, ROL, ROR |
@@ -958,7 +1051,7 @@ conditional `Scc` variants (`SEQ`, `SNE`, ...) all share the one
 [Scc](#scc---set-conditionally) section, rather than having a section
 each.
 
-**A** — [ADD](#add---add) · [ADDQ](#addqsubq---addsubtract-quick) · [AND](#and---bitwise-and) · [ASL](#aslasr---arithmetic-shift) · [ASR](#aslasr---arithmetic-shift)
+**A** — [ABCD](#abcd---add-decimal-with-extend) · [ADD](#add---add) · [ADDQ](#addqsubq---addsubtract-quick) · [AND](#and---bitwise-and) · [ASL](#aslasr---arithmetic-shift) · [ASR](#aslasr---arithmetic-shift)
 
 **B** — [BCC](#conditional-branches) · [BCS](#conditional-branches) · [BEQ](#conditional-branches) · [BGE](#conditional-branches) · [BGT](#conditional-branches) · [BHI](#conditional-branches) · [BLE](#conditional-branches) · [BLS](#conditional-branches) · [BLT](#conditional-branches) · [BMI](#conditional-branches) · [BNE](#conditional-branches) · [BPL](#conditional-branches) · [BRA](#bra---branch-always) · [BSR](#bsr---branch-to-subroutine) · [BTST](#btst---test-bit) · [BVC](#conditional-branches) · [BVS](#conditional-branches)
 
@@ -974,7 +1067,7 @@ each.
 
 **M** — [MOVE](#move---move-data) · [MOVEA](#movea---move-address) · [MOVEQ](#moveq---move-quick) · [MULS](#mul---multiply) · [MULU](#mul---multiply)
 
-**N** — [NEG](#neg---negate) · [NOP](#nop---no-operation) · [NOT](#not---bitwise-not)
+**N** — [NBCD](#nbcd---negate-decimal-with-extend) · [NEG](#neg---negate) · [NOP](#nop---no-operation) · [NOT](#not---bitwise-not)
 
 **O** — [OR](#or---bitwise-or)
 
@@ -982,7 +1075,7 @@ each.
 
 **R** — [ROL](#rolror---rotate) · [ROR](#rolror---rotate) · [RTS](#rts---return-from-subroutine)
 
-**S** — [SCC](#scc---set-conditionally) · [SEQ](#scc---set-conditionally) · [SF](#scc---set-conditionally) · [SGE](#scc---set-conditionally) · [SGT](#scc---set-conditionally) · [SHI](#scc---set-conditionally) · [SLE](#scc---set-conditionally) · [SLS](#scc---set-conditionally) · [SLT](#scc---set-conditionally) · [SMI](#scc---set-conditionally) · [SNE](#scc---set-conditionally) · [SPL](#scc---set-conditionally) · [ST](#scc---set-conditionally) · [SUB](#sub---subtract) · [SUBQ](#addqsubq---addsubtract-quick) · [SVC](#scc---set-conditionally) · [SVS](#scc---set-conditionally) · [SWAP](#swap---swap-register-halves)
+**S** — [SBCD](#sbcd---subtract-decimal-with-extend) · [SCC](#scc---set-conditionally) · [SEQ](#scc---set-conditionally) · [SF](#scc---set-conditionally) · [SGE](#scc---set-conditionally) · [SGT](#scc---set-conditionally) · [SHI](#scc---set-conditionally) · [SLE](#scc---set-conditionally) · [SLS](#scc---set-conditionally) · [SLT](#scc---set-conditionally) · [SMI](#scc---set-conditionally) · [SNE](#scc---set-conditionally) · [SPL](#scc---set-conditionally) · [ST](#scc---set-conditionally) · [SUB](#sub---subtract) · [SUBQ](#addqsubq---addsubtract-quick) · [SVC](#scc---set-conditionally) · [SVS](#scc---set-conditionally) · [SWAP](#swap---swap-register-halves)
 
 **T** — [TAS](#tas---test-and-set-an-operand) · [TRAP](#trap---software-trap) · [TST](#tst---test)
 

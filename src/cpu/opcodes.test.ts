@@ -33,6 +33,19 @@ function subWord(destReg: number, opmode: number, srcMode: number, srcReg: numbe
   return (0b1001 << 12) | (destReg << 9) | (opmode << 6) | (srcMode << 3) | srcReg
 }
 
+// isMemoryForm: false -> Dy,Dx register form; true -> -(Ay),-(Ax) form.
+function abcdWord(destReg: number, isMemoryForm: boolean, srcReg: number) {
+  return 0xc100 | (destReg << 9) | ((isMemoryForm ? 1 : 0) << 3) | srcReg
+}
+
+function sbcdWord(destReg: number, isMemoryForm: boolean, srcReg: number) {
+  return 0x8100 | (destReg << 9) | ((isMemoryForm ? 1 : 0) << 3) | srcReg
+}
+
+function nbcdWord(mode: number, reg: number) {
+  return 0x4800 | (mode << 3) | reg
+}
+
 // data: 1-8 (8 encodes as 0b000). size: 0b00=byte, 0b01=word, 0b10=long.
 function addqSubqWord(sub: boolean, data: number, size: number, mode: number, reg: number) {
   const dataBits = data === 8 ? 0 : data
@@ -537,6 +550,216 @@ describe('SUB', () => {
     expect(cpu.status.C).toBe(true)
     expect(cpu.status.X).toBe(true)
     expect(cpu.status.N).toBe(true)
+  })
+})
+
+describe('ABCD/SBCD', () => {
+  it('ABCD adds two packed-BCD digits, register form', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.D0, 0x09, 'byte')
+    writeRegister(cpu, Register.D1, 0x01, 'byte')
+    memory.write16(0x2000, abcdWord(1, false, 0)) // ABCD D0,D1 (D1 = D1+D0+X)
+
+    const cycles = step(cpu, memory, opcodeTable)
+
+    expect(cpu.registers[Register.D1] & 0xff).toBe(0x10) // 9 + 1 = 10
+    expect(cpu.status.C).toBe(false)
+    expect(cpu.status.X).toBe(false)
+    expect(cycles).toBe(6)
+  })
+
+  it('ABCD folds in the X flag from a previous byte in a chain', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    cpu.status.X = true
+    writeRegister(cpu, Register.D0, 0x05, 'byte')
+    writeRegister(cpu, Register.D1, 0x05, 'byte')
+    memory.write16(0x2000, abcdWord(1, false, 0)) // ABCD D0,D1
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.registers[Register.D1] & 0xff).toBe(0x11) // 5 + 5 + 1 = 11
+  })
+
+  it('ABCD sets C/X on a decimal carry, wrapping the result', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.D0, 0x99, 'byte')
+    writeRegister(cpu, Register.D1, 0x01, 'byte')
+    memory.write16(0x2000, abcdWord(1, false, 0)) // ABCD D0,D1
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.registers[Register.D1] & 0xff).toBe(0x00) // 99 + 1 = 100 -> 00 carry 1
+    expect(cpu.status.C).toBe(true)
+    expect(cpu.status.X).toBe(true)
+  })
+
+  it("Z is cleared on a non-zero result but left alone on a zero result (multi-byte chain accumulator)", () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    cpu.status.Z = true
+    writeRegister(cpu, Register.D0, 0x01, 'byte')
+    writeRegister(cpu, Register.D1, 0x01, 'byte')
+    memory.write16(0x2000, abcdWord(1, false, 0)) // ABCD D0,D1 -> 2, non-zero
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.status.Z).toBe(false) // forced false: result was non-zero
+
+    // Now a byte that comes out to zero (99+1 wraps to 00) shouldn't touch
+    // an already-false Z, so a chain's Z only ends up true if every byte
+    // was zero.
+    cpu.status.Z = false
+    writeRegister(cpu, Register.D0, 0x99, 'byte')
+    writeRegister(cpu, Register.D1, 0x01, 'byte')
+    memory.write16(0x2002, abcdWord(1, false, 0)) // ABCD D0,D1, again
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.registers[Register.D1] & 0xff).toBe(0x00)
+    expect(cpu.status.Z).toBe(false) // left alone, not set to true
+  })
+
+  it('ABCD leaves N and V untouched (genuinely undefined on real hardware)', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    cpu.status.N = true
+    cpu.status.V = true
+    writeRegister(cpu, Register.D0, 0x01, 'byte')
+    writeRegister(cpu, Register.D1, 0x01, 'byte')
+    memory.write16(0x2000, abcdWord(1, false, 0)) // ABCD D0,D1
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.status.N).toBe(true)
+    expect(cpu.status.V).toBe(true)
+  })
+
+  it('ABCD memory form predecrements both address registers, source before destination', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.A0, 0x3001, 'long') // source (Ay)
+    writeRegister(cpu, Register.A1, 0x4001, 'long') // destination (Ax)
+    memory.write8(0x3000, 0x09)
+    memory.write8(0x4000, 0x01)
+    memory.write16(0x2000, abcdWord(1, true, 0)) // ABCD -(A0),-(A1)
+
+    const cycles = step(cpu, memory, opcodeTable)
+
+    expect(cpu.registers[Register.A0]).toBe(0x3000)
+    expect(cpu.registers[Register.A1]).toBe(0x4000)
+    expect(memory.read8(0x4000)).toBe(0x10) // 9 + 1 = 10
+    expect(cycles).toBe(18)
+  })
+
+  it('SBCD subtracts two packed-BCD digits, register form', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.D0, 0x01, 'byte')
+    writeRegister(cpu, Register.D1, 0x10, 'byte')
+    memory.write16(0x2000, sbcdWord(1, false, 0)) // SBCD D0,D1 (D1 = D1-D0-X)
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.registers[Register.D1] & 0xff).toBe(0x09) // 10 - 1 = 9
+    expect(cpu.status.C).toBe(false)
+  })
+
+  it('SBCD borrows across the decimal boundary, wrapping to 99', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.D0, 0x01, 'byte')
+    writeRegister(cpu, Register.D1, 0x00, 'byte')
+    memory.write16(0x2000, sbcdWord(1, false, 0)) // SBCD D0,D1
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.registers[Register.D1] & 0xff).toBe(0x99) // 0 - 1 = -1 -> 99 borrow
+    expect(cpu.status.C).toBe(true)
+    expect(cpu.status.X).toBe(true)
+  })
+
+  it('SBCD memory form predecrements both address registers', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.A0, 0x3001, 'long')
+    writeRegister(cpu, Register.A1, 0x4001, 'long')
+    memory.write8(0x3000, 0x01)
+    memory.write8(0x4000, 0x10)
+    memory.write16(0x2000, sbcdWord(1, true, 0)) // SBCD -(A0),-(A1)
+
+    const cycles = step(cpu, memory, opcodeTable)
+
+    expect(memory.read8(0x4000)).toBe(0x09)
+    expect(cpu.registers[Register.A0]).toBe(0x3000)
+    expect(cpu.registers[Register.A1]).toBe(0x4000)
+    expect(cycles).toBe(18)
+  })
+})
+
+describe('NBCD', () => {
+  it('negates a packed-BCD byte, borrowing to 99 with C/X set', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.D0, 0x01, 'byte')
+    memory.write16(0x2000, nbcdWord(0b000, 0)) // NBCD D0
+
+    const cycles = step(cpu, memory, opcodeTable)
+
+    expect(cpu.registers[Register.D0] & 0xff).toBe(0x99) // 0 - 1 = -1 -> 99 borrow
+    expect(cpu.status.C).toBe(true)
+    expect(cpu.status.X).toBe(true)
+    expect(cycles).toBe(6)
+  })
+
+  it('negating zero with X clear stays zero, no borrow', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.D0, 0x00, 'byte')
+    memory.write16(0x2000, nbcdWord(0b000, 0)) // NBCD D0
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.registers[Register.D0] & 0xff).toBe(0x00)
+    expect(cpu.status.C).toBe(false)
+  })
+
+  it('negating zero with X set borrows to 99 (chain propagation)', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    cpu.status.X = true
+    writeRegister(cpu, Register.D0, 0x00, 'byte')
+    memory.write16(0x2000, nbcdWord(0b000, 0)) // NBCD D0
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.registers[Register.D0] & 0xff).toBe(0x99)
+    expect(cpu.status.C).toBe(true)
+  })
+
+  it('operates on a memory destination at the flat memory cost', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.A0, 0x3000, 'long')
+    memory.write8(0x3000, 0x01)
+    memory.write16(0x2000, nbcdWord(0b010, 0)) // NBCD (A0)
+
+    const cycles = step(cpu, memory, opcodeTable)
+
+    expect(memory.read8(0x3000)).toBe(0x99)
+    expect(cycles).toBe(8)
+  })
+
+  it('rejects An direct as a reserved encoding', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    memory.write32(ILLEGAL_INSTRUCTION_VECTOR, 0x3000)
+    memory.write16(0x2000, nbcdWord(0b001, 0)) // NBCD A0
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.pc).toBe(0x3000)
   })
 })
 
