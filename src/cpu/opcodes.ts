@@ -1091,13 +1091,12 @@ const TST: OpcodeDefinition = {
   },
 }
 
-// --- ASL/ASR/LSL/LSR/ROL/ROR ($E000-$E1FF) - register shifts/rotates ----
+// --- ASL/ASR/LSL/LSR/ROL/ROR/ROXL/ROXR ($E000-$E1FF) - register form ----
 //
-// Only the register form is implemented (shift/rotate a Dn in place by an
-// immediate 1-8 count or a dynamic count from another Dn, mod 64) — the
-// $E0C0-family memory-operand form (always a single-bit shift on an <ea>)
-// isn't decoded here. ROXL/ROXR (rotate-through-extend, type bits 10) also
-// aren't implemented; only ASx/LSx/ROx (type bits 00/01/11).
+// Shifts/rotates a Dn in place by an immediate 1-8 count or a dynamic
+// count from another Dn, mod 64. The $E0C0-family memory-operand form
+// (always a single-bit shift/rotate on an <ea>) is decoded separately,
+// further down this file, right after ROXR_MEM.
 
 function maskFor(size: Size): number {
   return size === 'byte' ? 0xff : size === 'word' ? 0xffff : 0xffffffff
@@ -1196,6 +1195,42 @@ function rotateRight(value: number, count: number, size: Size) {
     carry = bitOut
   }
   return { result: v, carry }
+}
+
+// ROXL/ROXR rotate *through* X: the extend bit is part of the rotation
+// (an N+1-bit rotate, not an N-bit one) — the bit shifted out becomes the
+// new X, and the bit shifted *in* is whatever X held before this step,
+// not the bit that just came out the other end like a plain ROL/ROR.
+// Threading `x` through the loop like this also gets the "zero count"
+// case right for free: with 0 iterations, the returned `x` is just the
+// `xIn` the caller passed in — which is exactly correct, since real
+// 68000 ROXL/ROXR always sets C to X's (possibly unchanged) value, even
+// when the count is 0, unlike every other shift/rotate here where a
+// zero count leaves both flags alone (LSx/ASx) or just clears C (ROx).
+function rotateLeftExtend(value: number, count: number, size: Size, xIn: boolean) {
+  const mask = maskFor(size)
+  const signBit = signBitFor(size)
+  let v = value & mask
+  let x = xIn
+  for (let i = 0; i < count; i++) {
+    const bitOut = (v & signBit) !== 0
+    v = ((v << 1) & mask) | (x ? 1 : 0)
+    x = bitOut
+  }
+  return { result: v, x }
+}
+
+function rotateRightExtend(value: number, count: number, size: Size, xIn: boolean) {
+  const mask = maskFor(size)
+  const signBit = signBitFor(size)
+  let v = value & mask
+  let x = xIn
+  for (let i = 0; i < count; i++) {
+    const bitOut = (v & 1) !== 0
+    v = (v >>> 1) | (x ? signBit : 0)
+    x = bitOut
+  }
+  return { result: v, x }
 }
 
 const ASL: OpcodeDefinition = {
@@ -1300,6 +1335,51 @@ const ROR: OpcodeDefinition = {
     updateFlags(cpu, result, size)
     cpu.status.V = false
     cpu.status.C = carry
+
+    return 6 + 2 * count
+  },
+}
+
+// --- ROXL/ROXR Dn ($E110/$E010) - rotate *through* the X flag -----------
+//
+// Like ROL/ROR, but the rotation includes X as an extra bit: the bit
+// shifted out becomes the new X (and C — the two always end up equal
+// here), and the bit shifted in is the *old* X, not a wraparound of the
+// bit that just left. Shares the register-form's count/size encoding
+// (immediate 1-8, or dynamic from a Dn mod 64) with the rest of this
+// family — see decodeShiftRotate above.
+
+const ROXL: OpcodeDefinition = {
+  mnemonic: 'ROXL',
+  encoding: '1110ccc1ssi10rrr',
+  size: 'variable',
+  handler: (cpu: CPUState, _memory: Memory, args: unknown[]) => {
+    const { reg, count, size } = decodeShiftRotate(cpu, opcodeWordOf(args))
+    const { result, x } = rotateLeftExtend(readRegister(cpu, reg, size), count, size, cpu.status.X)
+
+    writeRegister(cpu, reg, result, size)
+    updateFlags(cpu, result, size)
+    cpu.status.V = false
+    cpu.status.C = x
+    cpu.status.X = x
+
+    return 6 + 2 * count
+  },
+}
+
+const ROXR: OpcodeDefinition = {
+  mnemonic: 'ROXR',
+  encoding: '1110ccc0ssi10rrr',
+  size: 'variable',
+  handler: (cpu: CPUState, _memory: Memory, args: unknown[]) => {
+    const { reg, count, size } = decodeShiftRotate(cpu, opcodeWordOf(args))
+    const { result, x } = rotateRightExtend(readRegister(cpu, reg, size), count, size, cpu.status.X)
+
+    writeRegister(cpu, reg, result, size)
+    updateFlags(cpu, result, size)
+    cpu.status.V = false
+    cpu.status.C = x
+    cpu.status.X = x
 
     return 6 + 2 * count
   },
@@ -1467,6 +1547,50 @@ const ROR_MEM: OpcodeDefinition = {
   },
 }
 
+// --- ROXL/ROXR <ea> ($E4C0/$E5C0) - rotate-through-X, memory form -------
+
+const ROXL_MEM: OpcodeDefinition = {
+  mnemonic: 'ROXL',
+  encoding: '1110010111mmmrrr',
+  size: 'word',
+  handler: (cpu: CPUState, memory: Memory, args: unknown[]) => {
+    const opcodeWord = opcodeWordOf(args)
+    const ea = decodeMemAlterableEA(cpu, memory, (opcodeWord >> 3) & 0b111, opcodeWord & 0b111)
+    if (!ea) return 34
+
+    const { result, x } = rotateLeftExtend(ea.read(), 1, 'word', cpu.status.X)
+    ea.write(result)
+
+    updateFlags(cpu, result, 'word')
+    cpu.status.V = false
+    cpu.status.C = x
+    cpu.status.X = x
+
+    return 8
+  },
+}
+
+const ROXR_MEM: OpcodeDefinition = {
+  mnemonic: 'ROXR',
+  encoding: '1110010011mmmrrr',
+  size: 'word',
+  handler: (cpu: CPUState, memory: Memory, args: unknown[]) => {
+    const opcodeWord = opcodeWordOf(args)
+    const ea = decodeMemAlterableEA(cpu, memory, (opcodeWord >> 3) & 0b111, opcodeWord & 0b111)
+    if (!ea) return 34
+
+    const { result, x } = rotateRightExtend(ea.read(), 1, 'word', cpu.status.X)
+    ea.write(result)
+
+    updateFlags(cpu, result, 'word')
+    cpu.status.V = false
+    cpu.status.C = x
+    cpu.status.X = x
+
+    return 8
+  },
+}
+
 // --- TRAP #n ($4E40-$4E4F) ----------------------------------------------
 
 export type TrapHandler = (cpu: CPUState, memory: Memory, vector: number) => void
@@ -1531,12 +1655,16 @@ export const opcodeTable: readonly OpcodeEntry[] = [
   { mask: 0xffc0, pattern: 0xe2c0, definition: LSR_MEM },
   { mask: 0xffc0, pattern: 0xe7c0, definition: ROL_MEM },
   { mask: 0xffc0, pattern: 0xe6c0, definition: ROR_MEM },
+  { mask: 0xffc0, pattern: 0xe5c0, definition: ROXL_MEM },
+  { mask: 0xffc0, pattern: 0xe4c0, definition: ROXR_MEM },
   { mask: 0xf118, pattern: 0xe100, definition: ASL },
   { mask: 0xf118, pattern: 0xe000, definition: ASR },
   { mask: 0xf118, pattern: 0xe108, definition: LSL },
   { mask: 0xf118, pattern: 0xe008, definition: LSR },
   { mask: 0xf118, pattern: 0xe118, definition: ROL },
   { mask: 0xf118, pattern: 0xe018, definition: ROR },
+  { mask: 0xf118, pattern: 0xe110, definition: ROXL },
+  { mask: 0xf118, pattern: 0xe010, definition: ROXR },
   { mask: 0xf100, pattern: 0xd000, definition: ADD },
   { mask: 0xf100, pattern: 0x9000, definition: SUB },
   { mask: 0xf100, pattern: 0xb000, definition: CMP },

@@ -597,6 +597,38 @@ ROR #1,D1              ; Rotate D1 right by 1 bit
 ROL (A0)                ; Rotate Memory[A0] left by 1 bit
 ```
 
+### ROXL/ROXR - Rotate through Extend
+```
+ROXL #n,Dn    ; Rotate left through X (1-8; 0=8)
+ROXR #n,Dn    ; Rotate right through X
+ROXL Dx,Dn    ; Rotate left through X, count in Dx
+ROXR Dx,Dn    ; Rotate right through X, count in Dx
+ROXL <ea>     ; Rotate left 1 bit through X (memory, word)
+ROXR <ea>     ; Rotate right 1 bit through X
+```
+
+Like `ROL`/`ROR`, but the extend bit (`X`) is part of the rotation instead
+of being left out of it — an N+1-bit rotate, not an N-bit one. The bit
+shifted out becomes the new `X` (and `C`; the two always end up equal
+here), and the bit shifted *in* is whatever `X` held *before* this
+instruction ran, not a wraparound of the bit that just left (which is
+what makes this different from `ROL`/`ROR` — see the worked example
+below). A rotate count of `0` still sets `C` to `X`'s value — every other
+instruction in this family either leaves both flags alone (`ASx`/`LSx`)
+or clears `C` (`ROx`) when nothing actually shifted.
+
+**Cycles**: 6 + 2*n (register form); 8 flat (memory form)
+**Flags**: N, Z, V (0), C, X (`C` and `X` always end up equal, and both
+are set even when the rotate count is `0`)
+
+**Examples**:
+```asm
+; D0 = %0000_0010, X = 1
+ROXL    #1,D0            ; D0 = %0000_0101 (X into bit 0 -
+                          ; a plain ROL would give %0000_0100)
+ROXR    (A0)              ; rotates Memory[A0] through X
+```
+
 ## Branch Instructions
 
 ### BRA - Branch Always

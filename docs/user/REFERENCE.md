@@ -188,8 +188,10 @@ restriction, and cycle cost.
 | `LSR` | `LSR #n,Dn / Dx,Dn` | byte, word, long | 6 + 2×count | N, Z, V (0), C, X | Logical shift right, filling with `0`. |
 | `ROL` | `ROL #n,Dn / Dx,Dn` | byte, word, long | 6 + 2×count | N, Z, V (0), C | Rotates left — the bit rotated out of the top wraps back into bit 0. `X` is never touched. |
 | `ROR` | `ROR #n,Dn / Dx,Dn` | byte, word, long | 6 + 2×count | N, Z, V (0), C | Rotates right — the bit rotated out of bit 0 wraps back into the top. `X` is never touched. |
+| `ROXL` | `ROXL #n,Dn / Dx,Dn` | byte, word, long | 6 + 2×count | N, Z, V (0), C, X | Rotates left *through* `X` — the bit rotated out becomes the new `X`/`C`; the *old* `X` rotates in where `ROL` would wrap the outgoing bit. See [below](#how-does-rotating-through-x-differ-from-a-plain-rotate). |
+| `ROXR` | `ROXR #n,Dn / Dx,Dn` | byte, word, long | 6 + 2×count | N, Z, V (0), C, X | Rotates right *through* `X`, mirroring `ROXL`. |
 
-*(A dynamic count of `0` — only possible with the `Dx,Dn` form — does nothing: `C` comes out cleared, but `X` is left exactly as it was.)*
+*(A dynamic count of `0` — only possible with the `Dx,Dn` form — does nothing to the value. For every instruction here except `ROXL`/`ROXR`: `C` comes out cleared, `X` is left exactly as it was. `ROXL`/`ROXR` are the one exception — see [below](#how-does-rotating-through-x-differ-from-a-plain-rotate).)*
 
 ### Program Control
 
@@ -235,7 +237,7 @@ See [TRAP System Calls](#trap-system-calls) below for `TRAP`.
 
 **P** — [PEA](#data-movement)
 
-**R** — [ROL](#shift-and-rotate) · [ROR](#shift-and-rotate) · [RTS](#program-control)
+**R** — [ROL](#shift-and-rotate) · [ROR](#shift-and-rotate) · [ROXL](#shift-and-rotate) · [ROXR](#shift-and-rotate) · [RTS](#program-control)
 
 **S** — [Scc](#program-control) · [SUB](#arithmetic) · [SUBQ](#arithmetic) · [SWAP](#data-movement)
 
@@ -328,7 +330,7 @@ Two quirks worth knowing before hand-encoding one:
 
 ### How does the memory-operand shift and rotate form work?
 
-Every `ASL`/`ASR`/`LSL`/`LSR`/`ROL`/`ROR` in [Shift and Rotate](#shift-and-rotate) above also has a second form that shifts/rotates a memory `<ea>` directly instead of a `Dn` — always by exactly one bit (there's no room left in the opcode for a count once `<ea>` is encoded), and word-sized only (same reason — no size field left either).
+Every `ASL`/`ASR`/`LSL`/`LSR`/`ROL`/`ROR`/`ROXL`/`ROXR` in [Shift and Rotate](#shift-and-rotate) above also has a second form that shifts/rotates a memory `<ea>` directly instead of a `Dn` — always by exactly one bit (there's no room left in the opcode for a count once `<ea>` is encoded), and word-sized only (same reason — no size field left either).
 
 Valid `<ea>`: `(An)`, `(An)+`, `-(An)`, `d16(An)`, `d8(An,Xn)`, `xxx.W`, or `xxx.L` — anything except `Dn`, `An` direct, `#imm`, or a PC-relative address (see [Addressing Modes](#addressing-modes)). `Dn` and `An` both raise the [Illegal Instruction exception](#exceptions) here: shifting a `Dn` is what the register form above is for, and there's no such thing as shifting an address register.
 
@@ -338,6 +340,21 @@ Valid `<ea>`: `(An)`, `(An)+`, `-(An)`, `d16(An)`, `d8(An,Xn)`, `xxx.W`, or `xxx
 
 ```
 ASL     (A0)                ; Memory[A0] <<= 1, in place
+```
+
+### How does rotating through X differ from a plain rotate?
+
+`ROXL`/`ROXR` rotate through the `X` flag instead of leaving it out of the loop the way `ROL`/`ROR` do — the bit that gets rotated out becomes the new `X` (and `C` — the two always end up equal here), but the bit that rotates back *in* is whatever `X` held *before* the instruction ran, not the bit that just left. A `ROL`/`ROR` never has this extra step: the outgoing bit wraps straight back in on its own.
+
+One consequence worth knowing: a rotate count of `0` (only possible with the `Dx,Dn` form) still sets `C` to `X`'s value. Every other instruction in this family either leaves `C`/`X` alone (`ASL`/`ASR`/`LSL`/`LSR`) or clears `C` (`ROL`/`ROR`) when nothing actually shifted — `ROXL`/`ROXR` are the one case where "nothing shifted" still changes a flag.
+
+**Example** — the same rotate, with and without `X`:
+
+```
+; D0 = %0000_0010, X = 1
+ROL     #1,D0        ; -> %0000_0100 (bit 7 wraps in)
+; ...reset D0 to %0000_0010...
+ROXL    #1,D0        ; -> %0000_0101 (old X wraps in)
 ```
 
 **Example** — add two numbers and write a white pixel, using a direct absolute address:

@@ -137,9 +137,10 @@ function tstWord(size: 0b00 | 0b01 | 0b10, mode: number, reg: number) {
 // dr: 1=left 0=right. tt: 0b00=ASx 0b01=LSx 0b11=ROx. isRegisterCount:
 // false -> countOrReg is the immediate count (1-7, 0 means 8); true ->
 // countOrReg is the Dn holding the dynamic count.
+// tt: 0b00=ASx 0b01=LSx 0b10=ROXx 0b11=ROx
 function shiftWord(
   dr: 0 | 1,
-  tt: 0b00 | 0b01 | 0b11,
+  tt: 0b00 | 0b01 | 0b10 | 0b11,
   isRegisterCount: boolean,
   countOrReg: number,
   size: 0b00 | 0b01 | 0b10,
@@ -151,7 +152,7 @@ function shiftWord(
 // Memory-operand shift/rotate ($E0C0-$E7FE): reuses the register form's
 // otherwise-reserved size=11 to mean "memory operand, word, one bit" —
 // see decodeMemAlterableEA in opcodes.ts.
-function memShiftWord(dr: 0 | 1, tt: 0b00 | 0b01 | 0b11, mode: number, reg: number) {
+function memShiftWord(dr: 0 | 1, tt: 0b00 | 0b01 | 0b10 | 0b11, mode: number, reg: number) {
   return 0xe0c0 | (tt << 9) | (dr << 8) | (mode << 3) | reg
 }
 
@@ -1297,7 +1298,85 @@ describe('ROR', () => {
   })
 })
 
-describe('ASL/ASR/LSL/LSR/ROL/ROR <ea> (memory-operand form)', () => {
+describe('ROXL', () => {
+  it('rotates left through X: the bit shifted out becomes the new X/C', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.D0, 0x81, 'byte') // 1000_0001
+    cpu.status.X = false
+    memory.write16(0x2000, shiftWord(1, 0b10, false, 1, 0b00, 0)) // ROXL.B #1,D0
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.registers[Register.D0] & 0xff).toBe(0x02) // old bit 7 (1) shifted out, old X (0) shifted in
+    expect(cpu.status.C).toBe(true)
+    expect(cpu.status.X).toBe(true)
+  })
+
+  it('shifts the old X value in at bit 0, unlike a plain ROL', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.D0, 0x02, 'byte') // 0000_0010
+    cpu.status.X = true
+    memory.write16(0x2000, shiftWord(1, 0b10, false, 1, 0b00, 0)) // ROXL.B #1,D0
+
+    step(cpu, memory, opcodeTable)
+
+    // A plain ROL would give 0x04 (bit 7, which is 0, wraps to bit 0).
+    // ROXL instead brings in the *old X* (1), giving 0x05.
+    expect(cpu.registers[Register.D0] & 0xff).toBe(0x05)
+    expect(cpu.status.X).toBe(false) // old bit 7 (0) is the new X
+  })
+
+  it('a dynamic count of 0 still sets C to X, unlike ROL', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.D0, 0xff, 'byte')
+    writeRegister(cpu, Register.D1, 0, 'long')
+    cpu.status.X = true
+    cpu.status.C = false
+    memory.write16(0x2000, shiftWord(1, 0b10, true, 1, 0b00, 0)) // ROXL.B D1,D0
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.registers[Register.D0] & 0xff).toBe(0xff) // unchanged - count was 0
+    expect(cpu.status.C).toBe(true) // still set to X, even though nothing rotated
+    expect(cpu.status.X).toBe(true)
+  })
+})
+
+describe('ROXR', () => {
+  it('rotates right through X: the bit shifted out becomes the new X/C', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.D0, 0x01, 'byte')
+    cpu.status.X = false
+    memory.write16(0x2000, shiftWord(0, 0b10, false, 1, 0b00, 0)) // ROXR.B #1,D0
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.registers[Register.D0] & 0xff).toBe(0x00) // old bit 0 (1) shifted out, old X (0) shifted in
+    expect(cpu.status.C).toBe(true)
+    expect(cpu.status.X).toBe(true)
+  })
+
+  it('shifts the old X value in at the top bit, unlike a plain ROR', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.D0, 0x00, 'byte')
+    cpu.status.X = true
+    memory.write16(0x2000, shiftWord(0, 0b10, false, 1, 0b00, 0)) // ROXR.B #1,D0
+
+    step(cpu, memory, opcodeTable)
+
+    // A plain ROR would give 0x00 (bit 0, which is 0, wraps to the top).
+    // ROXR instead brings in the *old X* (1), giving 0x80.
+    expect(cpu.registers[Register.D0] & 0xff).toBe(0x80)
+    expect(cpu.status.X).toBe(false) // old bit 0 (0) is the new X
+  })
+})
+
+describe('ASL/ASR/LSL/LSR/ROL/ROR/ROXL/ROXR <ea> (memory-operand form)', () => {
   it('ASL shifts a memory word left by exactly one bit, tracking overflow', () => {
     const cpu = createCPU(0x2000)
     const memory = new SystemMemory()
@@ -1381,6 +1460,50 @@ describe('ASL/ASR/LSL/LSR/ROL/ROR <ea> (memory-operand form)', () => {
 
     expect(memory.read16(0x3000)).toBe(0x8000)
     expect(cpu.status.C).toBe(true)
+  })
+
+  it('ROXL rotates a memory word left through X, bringing the old X in at bit 0', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.A0, 0x3000, 'long')
+    memory.write16(0x3000, 0x0001) // bit 15 clear
+    cpu.status.X = true
+    memory.write16(0x2000, memShiftWord(1, 0b10, 0b010, 0)) // ROXL (A0)
+
+    step(cpu, memory, opcodeTable)
+
+    // A plain ROL would give 0x0002 (bit 15, which is 0, wraps to bit 0).
+    // ROXL instead brings in the old X (1), giving 0x0003.
+    expect(memory.read16(0x3000)).toBe(0x0003)
+    expect(cpu.status.C).toBe(false) // old bit 15 (0) is the new X/C
+    expect(cpu.status.X).toBe(false)
+  })
+
+  it('ROXR rotates a memory word right through X, bringing the old X in at the top bit', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.A0, 0x3000, 'long')
+    memory.write16(0x3000, 0x0000)
+    cpu.status.X = true
+    memory.write16(0x2000, memShiftWord(0, 0b10, 0b010, 0)) // ROXR (A0)
+
+    step(cpu, memory, opcodeTable)
+
+    // A plain ROR would give 0x0000 (bit 0, which is 0, wraps to the top).
+    // ROXR instead brings in the old X (1), giving 0x8000.
+    expect(memory.read16(0x3000)).toBe(0x8000)
+    expect(cpu.status.C).toBe(false) // old bit 0 (0) is the new X/C
+    expect(cpu.status.X).toBe(false)
+  })
+
+  it('the reserved size=11 resolves to the memory form for ROXL too, not the register form', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.A0, 0x3000, 'long')
+    memory.write16(0x3000, 0x0001)
+    memory.write16(0x2000, memShiftWord(1, 0b10, 0b010, 0)) // ROXL (A0)
+
+    expect(() => step(cpu, memory, opcodeTable)).not.toThrow()
   })
 
   it('rejects Dn as a destination (reserved - that is what the register form is for)', () => {
