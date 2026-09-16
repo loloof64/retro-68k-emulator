@@ -346,6 +346,54 @@ ADDA.W  D0,A0          ; A0 += D0 (sign-extended)
 ADDA.L  #$1000,A1      ; A1 += $1000
 ```
 
+### ADDX - Add Extended
+```
+ADDX Dy,Dx
+ADDX -(Ay),-(Ax)
+```
+
+`ADD`'s extend-carry sibling: `dst = dst + src + X`, threading the `X`
+flag through so several bytes/words/longs can be chained into one wider
+addition, one piece at a time - the binary counterpart to `ABCD`'s
+packed-BCD chaining (see [above](#binary-coded-decimal-bcd)). Same two forms
+`ABCD`/`SBCD` have - register (`Dy,Dx`) or dual-predecrement memory
+(`-(Ay),-(Ax)`, source before destination) - but with a real size field,
+since there's no BCD-style byte-only restriction here.
+
+Shares opcode space with `ADD Dn,<ea>` (the memory-destination
+direction) at the bit level, the same way `ABCD` shares space with
+`AND`'s own memory-destination form: `ADD Dn,<ea>`'s `<ea>` is
+memory-alterable only (never `Dn`/`An` direct), and real hardware
+reserves exactly that excluded mode `000`/`001` slot for `ADDX` - not
+incidental, a genuine hardware split. `ADDX`'s narrower opcodeTable
+entry has to be listed before `ADD`'s memory-destination one for that
+reason.
+
+`Z` follows the same chaining rule `ABCD`/`SBCD` use: cleared if the
+result is non-zero, left alone if it's zero - so a multi-piece chain can
+clear `Z` once up front and read it back true only if every piece came
+out zero. Unlike `ABCD`/`SBCD`, `N`/`V` *are* well-defined here (this is
+ordinary binary arithmetic, not packed BCD), computed by chaining two
+ordinary additions (`dst + src`, then that result `+ X`) and OR-ing each
+step's own carry/overflow - either step overflowing means the real
+three-operand operation does too.
+
+**Sizes**: B, W, L
+**Cycles**: 4 (register, byte/word), 8 (register, long), 18 (memory,
+byte/word), 30 (memory, long)
+**Flags**: N, Z (see above), V, C, X
+
+**Example** — add two 32-bit numbers stored across 4 bytes each, one
+byte at a time:
+```asm
+; A0/A1 point one past the low byte of each 4-byte number
+; clear X first (e.g. MOVEQ #0,D0 / ADD.B D0,D0 sets X=0 and Z=1)
+ADDX.B  -(A0),-(A1)    ; byte 3 (lowest), X <- carry out
+ADDX.B  -(A0),-(A1)    ; byte 2, carries in via X
+ADDX.B  -(A0),-(A1)    ; byte 1
+ADDX.B  -(A0),-(A1)    ; byte 0 (highest)
+```
+
 ### SUB - Subtract
 ```
 SUB <ea>,Dn
@@ -406,6 +454,27 @@ word source sign-extended, no flags touched).
 ```asm
 SUBA.W  D0,A0          ; A0 -= D0 (sign-extended)
 SUBA.L  #$100,A1       ; A1 -= $100
+```
+
+### SUBX - Subtract Extended
+```
+SUBX Dy,Dx
+SUBX -(Ay),-(Ax)
+```
+
+`SUB`'s extend-carry sibling: `dst = dst - src - X`, same relationship
+`ADDX` has to `ADD` - see `ADDX` above for the chaining idiom, the `Z`
+rule, and the opcode-space split with `SUB Dn,<ea>` (identical here,
+just in `SUB`'s own top nibble).
+
+**Sizes**: B, W, L
+**Cycles**: 4 (register, byte/word), 8 (register, long), 18 (memory,
+byte/word), 30 (memory, long)
+**Flags**: N, Z (see `ADDX` above), V, C, X
+
+**Example**:
+```asm
+SUBX.B  -(A0),-(A1)    ; one byte of a chained subtraction
 ```
 
 ### ADDQ/SUBQ - Add/Subtract Quick
@@ -557,6 +626,29 @@ Sets `dst` to zero.
 ```asm
 CLR.L   D0             ; D0 = 0
 CLR.W   (A0)           ; Memory word at A0 = 0
+```
+
+### NEGX - Negate Extended
+```
+NEGX dst
+```
+
+`NEG`'s extend-carry sibling, `ADDX`/`SUBX`'s single-operand relative:
+`dst = 0 - dst - X`. Same use case as `ADDX`/`SUBX` - negating a value
+wider than one register, one piece at a time, `X` threading the borrow
+between pieces - applied to `NEG`'s one-operand shape. `Z` follows the
+same chaining rule (see [ADDX](#addx---add-extended) above): cleared if
+the result is non-zero, left alone if it's zero.
+
+**Sizes**: B, W, L
+**Cycles**: 4 (flat, same simplification `CLR`/`NEG`/`NOT`/`TST` already
+use for this family - real hardware's per-size/per-mode split isn't
+modeled by any of those four either)
+**Flags**: N, Z (see above), V, C, X
+
+**Example**:
+```asm
+NEGX.B  D0             ; D0 = -D0 - X, one piece of a chain
 ```
 
 ### NEG - Negate
@@ -1451,20 +1543,20 @@ yet, same as the instructions below.
 
 Beyond the privileged group above, a handful of ordinary instructions
 were never on any implementation list and aren't implemented either:
-`ADDX`/`SUBX`/`NEGX` (extend-carry arithmetic, for chaining an operation
-across a multi-byte value one piece at a time — the counterpart
-`ABCD`/`SBCD`'s BCD forms already use for decimal numbers), `CMPM`
-(compares two memory locations directly, both post-incrementing), `RTR`
-(like `RTS`, but also restores the flags), and `MOVE` to/from `CCR`.
+`CMPM` (compares two memory locations directly, both post-incrementing),
+`RTR` (like `RTS`, but also restores the flags), and `MOVE` to/from
+`CCR`.
 
 `ADDI`/`SUBI`/`ANDI`/`ORI`/`EORI`/`CMPI` (immediate operand directly
 against `<ea>`, no register involved — distinct opcodes from `ADD
 #imm,Dn` and friends, which are implemented as part of `ADD`'s normal
-`<ea>,Dn` form) *are* now implemented — see `ADDI`/`SUBI`/`CMPI` under
-[Arithmetic Operations](#arithmetic-operations) and `ANDI`/`ORI`/`EORI`
-under [Logical Operations](#logical-operations) above. Their own
-`#imm,CCR`/`#imm,SR` special-case sub-forms (`ANDI`/`ORI`/`EORI` only)
-are a separate exception, folded into the general remaining-gaps list
+`<ea>,Dn` form) and `ADDX`/`SUBX`/`NEGX` (extend-carry arithmetic — the
+counterpart `ABCD`/`SBCD`'s BCD forms already use for decimal numbers)
+*are* now implemented — see `ADDI`/`SUBI`/`CMPI`/`ADDX`/`SUBX`/`NEGX`
+under [Arithmetic Operations](#arithmetic-operations) and
+`ANDI`/`ORI`/`EORI` under [Logical Operations](#logical-operations)
+above. `ANDI`/`ORI`/`EORI`'s own `#imm,CCR`/`#imm,SR` special-case
+sub-forms are a separate exception, folded into the remaining-gaps list
 below for that reason.
 
 **None of the remaining gaps fail cleanly.** Unlike a genuinely
@@ -1478,7 +1570,6 @@ broader entry happens to be, rather than erroring cleanly:
 | Real instruction | Currently runs as |
 |---|---|
 | `ANDI`/`ORI`/`EORI` to `CCR`/`SR` | `ANDI`/`ORI`/`EORI`'s own general form, which then throws `decodeEA`'s generic immediate-write error — no longer silently `MOVE`, but not a clean exception either |
-| `ADDX`/`SUBX`/`NEGX` | `ADD`/`SUB`/`NEG` |
 | `MOVE` to/from `CCR` | `NEG` |
 | `RTR` | throws `Unknown instruction` (fails loudly, no silent misdecode) |
 
@@ -1487,17 +1578,16 @@ one specific case (see [ILLEGAL](#illegal---deliberately-raise-an-illegal-instru
 above): a broad, pre-existing entry's mask doesn't rule out a reserved
 bit pattern that real hardware assigns to something else entirely.
 **Don't hand-encode any of the opcodes in the table above** until they
-land — `ADDX`/`SUBX`/`NEGX` and `MOVE` to/from `CCR` still fail silently
-(running as a different, unrelated instruction); `ANDI`/`ORI`/`EORI` to
-`CCR`/`SR` and `RTR` at least throw now, but neither is a clean,
-catchable CPU exception yet.
+land — `MOVE` to/from `CCR` still fails silently (running as `NEG`);
+`ANDI`/`ORI`/`EORI` to `CCR`/`SR` and `RTR` at least throw now, but
+neither is a clean, catchable CPU exception yet.
 
 ## Instruction Summary Table
 
 | Category | Instructions |
 |----------|--------------|
 | Data Movement | MOVE, MOVEA, MOVEQ, MOVEM, MOVEP, LEA, PEA, SWAP, EXG |
-| Arithmetic | ADD, ADDI, ADDA, SUB, SUBI, SUBA, ADDQ, SUBQ, MUL, DIV, CMP, CMPI, CMPA, CLR, NEG, TST, TAS, EXT |
+| Arithmetic | ADD, ADDI, ADDX, ADDA, SUB, SUBI, SUBX, SUBA, ADDQ, SUBQ, MUL, DIV, CMP, CMPI, CMPA, CLR, NEG, NEGX, TST, TAS, EXT |
 | BCD | ABCD, SBCD, NBCD |
 | Logical | AND, ANDI, OR, ORI, XOR, EORI, NOT |
 | Bit | BTST, BCHG, BCLR, BSET |
@@ -1517,7 +1607,7 @@ conditional `Scc` variants (`SEQ`, `SNE`, ...) all share the one
 [Scc](#scc---set-conditionally) section, rather than having a section
 each.
 
-**A** — [ABCD](#abcd---add-decimal-with-extend) · [ADD](#add---add) · [ADDA](#adda---add-address) · [ADDI](#addi---add-immediate) · [ADDQ](#addqsubq---addsubtract-quick) · [AND](#and---bitwise-and) · [ANDI](#andi---and-immediate) · [ASL](#aslasr---arithmetic-shift) · [ASR](#aslasr---arithmetic-shift)
+**A** — [ABCD](#abcd---add-decimal-with-extend) · [ADD](#add---add) · [ADDA](#adda---add-address) · [ADDI](#addi---add-immediate) · [ADDQ](#addqsubq---addsubtract-quick) · [ADDX](#addx---add-extended) · [AND](#and---bitwise-and) · [ANDI](#andi---and-immediate) · [ASL](#aslasr---arithmetic-shift) · [ASR](#aslasr---arithmetic-shift)
 
 **B** — [BCC](#conditional-branches) · [BCHG](#bchgbclrbset---changeclearset-bit) · [BCLR](#bchgbclrbset---changeclearset-bit) · [BCS](#conditional-branches) · [BEQ](#conditional-branches) · [BGE](#conditional-branches) · [BGT](#conditional-branches) · [BHI](#conditional-branches) · [BLE](#conditional-branches) · [BLS](#conditional-branches) · [BLT](#conditional-branches) · [BMI](#conditional-branches) · [BNE](#conditional-branches) · [BPL](#conditional-branches) · [BRA](#bra---branch-always) · [BSET](#bchgbclrbset---changeclearset-bit) · [BSR](#bsr---branch-to-subroutine) · [BTST](#btst---test-bit) · [BVC](#conditional-branches) · [BVS](#conditional-branches)
 
@@ -1535,7 +1625,7 @@ each.
 
 **M** — [MOVE](#move---move-data) · [MOVEA](#movea---move-address) · [MOVEM](#movem---move-multiple-registers) · [MOVEP](#movep---move-peripheral-data) · [MOVEQ](#moveq---move-quick) · [MULS](#mul---multiply) · [MULU](#mul---multiply)
 
-**N** — [NBCD](#nbcd---negate-decimal-with-extend) · [NEG](#neg---negate) · [NOP](#nop---no-operation) · [NOT](#not---bitwise-not)
+**N** — [NBCD](#nbcd---negate-decimal-with-extend) · [NEG](#neg---negate) · [NEGX](#negx---negate-extended) · [NOP](#nop---no-operation) · [NOT](#not---bitwise-not)
 
 **O** — [OR](#or---bitwise-or) · [ORI](#ori---or-immediate)
 
@@ -1543,7 +1633,7 @@ each.
 
 **R** — [ROL](#rolror---rotate) · [ROR](#rolror---rotate) · [ROXL](#roxlroxr---rotate-through-extend) · [ROXR](#roxlroxr---rotate-through-extend) · [RTS](#rts---return-from-subroutine)
 
-**S** — [SBCD](#sbcd---subtract-decimal-with-extend) · [SCC](#scc---set-conditionally) · [SEQ](#scc---set-conditionally) · [SF](#scc---set-conditionally) · [SGE](#scc---set-conditionally) · [SGT](#scc---set-conditionally) · [SHI](#scc---set-conditionally) · [SLE](#scc---set-conditionally) · [SLS](#scc---set-conditionally) · [SLT](#scc---set-conditionally) · [SMI](#scc---set-conditionally) · [SNE](#scc---set-conditionally) · [SPL](#scc---set-conditionally) · [ST](#scc---set-conditionally) · [SUB](#sub---subtract) · [SUBA](#suba---subtract-address) · [SUBI](#subi---subtract-immediate) · [SUBQ](#addqsubq---addsubtract-quick) · [SVC](#scc---set-conditionally) · [SVS](#scc---set-conditionally) · [SWAP](#swap---swap-register-halves)
+**S** — [SBCD](#sbcd---subtract-decimal-with-extend) · [SCC](#scc---set-conditionally) · [SEQ](#scc---set-conditionally) · [SF](#scc---set-conditionally) · [SGE](#scc---set-conditionally) · [SGT](#scc---set-conditionally) · [SHI](#scc---set-conditionally) · [SLE](#scc---set-conditionally) · [SLS](#scc---set-conditionally) · [SLT](#scc---set-conditionally) · [SMI](#scc---set-conditionally) · [SNE](#scc---set-conditionally) · [SPL](#scc---set-conditionally) · [ST](#scc---set-conditionally) · [SUB](#sub---subtract) · [SUBA](#suba---subtract-address) · [SUBI](#subi---subtract-immediate) · [SUBQ](#addqsubq---addsubtract-quick) · [SUBX](#subx---subtract-extended) · [SVC](#scc---set-conditionally) · [SVS](#scc---set-conditionally) · [SWAP](#swap---swap-register-halves)
 
 **T** — [TAS](#tas---test-and-set-an-operand) · [TRAP](#trap---software-trap) · [TRAPV](#trapv---trap-on-overflow) · [TST](#tst---test)
 

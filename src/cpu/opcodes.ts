@@ -2,7 +2,7 @@ import { Register, type CPUState, type Memory, type OpcodeDefinition, type Statu
 import type { OpcodeEntry } from './index'
 import { readRegister, updateFlags, writeRegister } from './index'
 import { decodeEA, decodeControlAddress, type Size } from './addressing'
-import { addWithFlags, subWithFlags } from './arithmetic'
+import { addWithFlags, subWithFlags, type ArithmeticFlags } from './arithmetic'
 import {
   CHK_VECTOR,
   ILLEGAL_INSTRUCTION_VECTOR,
@@ -271,6 +271,88 @@ const SBCD: OpcodeDefinition = {
   encoding: '1000xxx10000ryyy',
   size: 'byte',
   handler: bcdHandler(bcdSub),
+}
+
+// --- ADDX/SUBX Dy,Dx / -(Ay),-(Ax) ($D100-$D1F8 / $9100-$91F8) ----------
+//
+// The binary counterparts to ABCD/SBCD - same register-pair/predecrement-
+// pair shape and the same chaining use case (building an operation wider
+// than one register out of several, one piece at a time through X), but
+// ordinary binary arithmetic instead of packed BCD, and with a real size
+// field (byte/word/long) since there's no BCD-style "always one byte"
+// restriction here.
+//
+// `dst = dst +/- src +/- X` is computed as two chained addWithFlags/
+// subWithFlags calls (dst OP src, then that result OP x) rather than a
+// bespoke three-operand version of those helpers: N/Z come from the
+// final result, but C/V/X each have to be the OR of *both* steps' own
+// C/V - either step overflowing/carrying means the real three-operand
+// operation does too. Z follows the same "cleared if non-zero, left
+// alone if zero" chaining rule ABCD/SBCD already use, for the same
+// reason (a multi-word chain needs to read Z back only if every piece
+// came out zero).
+
+function addExtend(destVal: number, srcVal: number, x: number, size: Size) {
+  const step1 = addWithFlags(destVal, srcVal, size)
+  const step2 = addWithFlags(step1.result, x, size)
+  const carry = step1.flags.C || step2.flags.C
+  return {
+    result: step2.result,
+    flags: { N: step2.flags.N, Z: step2.result === 0, V: step1.flags.V || step2.flags.V, C: carry, X: carry },
+  }
+}
+
+function subExtend(destVal: number, srcVal: number, x: number, size: Size) {
+  const step1 = subWithFlags(destVal, srcVal, size)
+  const step2 = subWithFlags(step1.result, x, size)
+  const carry = step1.flags.C || step2.flags.C
+  return {
+    result: step2.result,
+    flags: { N: step2.flags.N, Z: step2.result === 0, V: step1.flags.V || step2.flags.V, C: carry, X: carry },
+  }
+}
+
+function extendHandler(
+  combine: (destVal: number, srcVal: number, x: number, size: Size) => { result: number; flags: ArithmeticFlags }
+): OpcodeDefinition['handler'] {
+  return (cpu: CPUState, memory: Memory, args: unknown[]) => {
+    const opcodeWord = opcodeWordOf(args)
+    const destReg = (opcodeWord >> 9) & 0b111
+    const size = decodeStandardOpSize((opcodeWord >> 6) & 0b11)
+    const isMemoryForm = ((opcodeWord >> 3) & 1) === 1
+    const srcReg = opcodeWord & 0b111
+    const mode = isMemoryForm ? 0b100 : 0b000
+
+    const src = decodeEA(cpu, memory, mode, srcReg, size)
+    const dest = decodeEA(cpu, memory, mode, destReg, size)
+
+    const x = cpu.status.X ? 1 : 0
+    const { result, flags } = combine(dest.read(), src.read(), x, size)
+    dest.write(result)
+
+    cpu.status.N = flags.N
+    cpu.status.V = flags.V
+    cpu.status.C = flags.C
+    cpu.status.X = flags.X
+    if (result !== 0) cpu.status.Z = false
+
+    if (isMemoryForm) return size === 'long' ? 30 : 18
+    return size === 'long' ? 8 : 4
+  }
+}
+
+const ADDX: OpcodeDefinition = {
+  mnemonic: 'ADDX',
+  encoding: '1101xxx1ss00ryyy',
+  size: 'variable',
+  handler: extendHandler(addExtend),
+}
+
+const SUBX: OpcodeDefinition = {
+  mnemonic: 'SUBX',
+  encoding: '1001xxx1ss00ryyy',
+  size: 'variable',
+  handler: extendHandler(subExtend),
 }
 
 // --- ADDQ/SUBQ #data,<ea> ($5000-$5FFE, bit8=0 ADDQ/1 SUBQ) -------------
@@ -1549,6 +1631,45 @@ const NOT: OpcodeDefinition = {
   },
 }
 
+// --- NEGX <ea> ($4000) - dst = 0 - dst - X, ADDX/SUBX's single-operand --
+//
+// sibling: same "extend" chaining as ADDX/SUBX (X threaded in, Z cleared
+// on a non-zero result but left alone on zero - see ADDX/SUBX above),
+// applied to NEG's one-operand shape instead of a register/predecrement
+// pair. Reuses subExtend with a literal 0 as the "destination" being
+// subtracted from, the same way NEG reuses subWithFlags(0, ...).
+//
+// Cycles: flat 4, matching CLR/NEG/NOT/TST's own established
+// simplification for this exact family - real hardware's per-size/
+// per-mode split (4/6 register, 8/12 memory) isn't modeled by any of
+// those four either, so NEGX stays consistent with its immediate
+// siblings rather than introducing new precision unilaterally.
+
+const NEGX: OpcodeDefinition = {
+  mnemonic: 'NEGX',
+  encoding: '01000000ssmmmrrr',
+  size: 'variable',
+  handler: (cpu: CPUState, memory: Memory, args: unknown[]) => {
+    const opcodeWord = opcodeWordOf(args)
+    const size = decodeByteWordLongSize((opcodeWord >> 6) & 0b11)
+    const mode = (opcodeWord >> 3) & 0b111
+    const reg = opcodeWord & 0b111
+
+    const ea = decodeEA(cpu, memory, mode, reg, size)
+    const x = cpu.status.X ? 1 : 0
+    const { result, flags } = subExtend(0, ea.read(), x, size)
+    ea.write(result)
+
+    cpu.status.N = flags.N
+    cpu.status.V = flags.V
+    cpu.status.C = flags.C
+    cpu.status.X = flags.X
+    if (result !== 0) cpu.status.Z = false
+
+    return 4
+  },
+}
+
 // --- CLR <ea> ($4200) -----------------------------------------------------
 
 const CLR: OpcodeDefinition = {
@@ -2523,6 +2644,7 @@ export const opcodeTable: readonly OpcodeEntry[] = [
   { mask: 0xff00, pattern: 0x0a00, definition: EORI },
   { mask: 0xff00, pattern: 0x0c00, definition: CMPI },
   { mask: 0xff00, pattern: 0x4600, definition: NOT },
+  { mask: 0xff00, pattern: 0x4000, definition: NEGX },
   { mask: 0xff00, pattern: 0x4200, definition: CLR },
   { mask: 0xff00, pattern: 0x4400, definition: NEG },
   { mask: 0xffc0, pattern: 0x4800, definition: NBCD },
@@ -2561,8 +2683,10 @@ export const opcodeTable: readonly OpcodeEntry[] = [
   { mask: 0xf0c0, pattern: 0x90c0, definition: SUBA },
   { mask: 0xf0c0, pattern: 0xb0c0, definition: CMPA },
   { mask: 0xf100, pattern: 0xd000, definition: ADD },
+  { mask: 0xf130, pattern: 0xd100, definition: ADDX },
   { mask: 0xf100, pattern: 0xd100, definition: ADD_MEM },
   { mask: 0xf100, pattern: 0x9000, definition: SUB },
+  { mask: 0xf130, pattern: 0x9100, definition: SUBX },
   { mask: 0xf100, pattern: 0x9100, definition: SUB_MEM },
   { mask: 0xf100, pattern: 0xb000, definition: CMP },
   { mask: 0xf100, pattern: 0xb100, definition: XOR },

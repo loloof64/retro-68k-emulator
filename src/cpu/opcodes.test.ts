@@ -43,6 +43,18 @@ function sbcdWord(destReg: number, isMemoryForm: boolean, srcReg: number) {
   return 0x8100 | (destReg << 9) | ((isMemoryForm ? 1 : 0) << 3) | srcReg
 }
 
+function addxWord(destReg: number, size: 0b00 | 0b01 | 0b10, isMemoryForm: boolean, srcReg: number) {
+  return 0xd100 | (destReg << 9) | (size << 6) | ((isMemoryForm ? 1 : 0) << 3) | srcReg
+}
+
+function subxWord(destReg: number, size: 0b00 | 0b01 | 0b10, isMemoryForm: boolean, srcReg: number) {
+  return 0x9100 | (destReg << 9) | (size << 6) | ((isMemoryForm ? 1 : 0) << 3) | srcReg
+}
+
+function negxWord(size: 0b00 | 0b01 | 0b10, mode: number, reg: number) {
+  return 0x4000 | (size << 6) | (mode << 3) | reg
+}
+
 function nbcdWord(mode: number, reg: number) {
   return 0x4800 | (mode << 3) | reg
 }
@@ -772,6 +784,93 @@ describe('ABCD/SBCD', () => {
   })
 })
 
+describe('ADDX/SUBX/NEGX', () => {
+  it('ADDX adds two registers plus X', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.D0, 5, 'word')
+    writeRegister(cpu, Register.D1, 10, 'word')
+    cpu.status.X = true
+    memory.write16(0x2000, addxWord(1, 0b01, false, 0)) // ADDX.W D0,D1
+
+    const cycles = step(cpu, memory, opcodeTable)
+
+    expect(cpu.registers[Register.D1] & 0xffff).toBe(16) // 10 + 5 + 1
+    expect(cycles).toBe(4)
+  })
+
+  it("ADDX's Z flag is cleared on a non-zero result but left alone on a zero result (chaining)", () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.D0, 0, 'word')
+    writeRegister(cpu, Register.D1, 0, 'word')
+    cpu.status.X = false
+    cpu.status.Z = true // simulates a prior chained byte having come out zero
+    memory.write16(0x2000, addxWord(1, 0b01, false, 0)) // ADDX.W D0,D1: 0+0+0=0
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.registers[Register.D1] & 0xffff).toBe(0)
+    expect(cpu.status.Z).toBe(true) // left alone, not forced - chain still reads as "all zero so far"
+  })
+
+  it('ADDX -(Ay),-(Ax) adds two predecrementing memory operands', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.A0, 0x3001, 'long')
+    writeRegister(cpu, Register.A1, 0x4001, 'long')
+    memory.write8(0x3000, 0x05)
+    memory.write8(0x4000, 0x03)
+    cpu.status.X = true
+    memory.write16(0x2000, addxWord(1, 0b00, true, 0)) // ADDX.B -(A0),-(A1)
+
+    const cycles = step(cpu, memory, opcodeTable)
+
+    expect(memory.read8(0x4000)).toBe(0x09) // 3 + 5 + 1
+    expect(cpu.registers[Register.A0]).toBe(0x3000)
+    expect(cpu.registers[Register.A1]).toBe(0x4000)
+    expect(cycles).toBe(18)
+  })
+
+  it('SUBX subtracts a register and X from another', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.D0, 3, 'word')
+    writeRegister(cpu, Register.D1, 10, 'word')
+    cpu.status.X = true
+    memory.write16(0x2000, subxWord(1, 0b01, false, 0)) // SUBX.W D0,D1
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.registers[Register.D1] & 0xffff).toBe(6) // 10 - 3 - 1
+  })
+
+  it('NEGX negates a value and subtracts X', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.D0, 5, 'word')
+    cpu.status.X = true
+    memory.write16(0x2000, negxWord(0b01, 0b000, 0)) // NEGX.W D0
+
+    const cycles = step(cpu, memory, opcodeTable)
+
+    expect(cpu.registers[Register.D0] & 0xffff).toBe(0xfffa) // 0 - 5 - 1 = -6
+    expect(cycles).toBe(4)
+  })
+
+  it('none of the three silently decode as ADD/SUB/NEG any more', () => {
+    const cases: Array<[number, string]> = [
+      [addxWord(0, 0b01, false, 0), 'ADDX'],
+      [subxWord(0, 0b01, false, 0), 'SUBX'],
+      [negxWord(0b01, 0b000, 0), 'NEGX'],
+    ]
+    for (const [word, mnemonic] of cases) {
+      const entry = opcodeTable.find((e) => (word & e.mask) === e.pattern)
+      expect(entry?.definition.mnemonic).toBe(mnemonic)
+    }
+  })
+})
+
 describe('NBCD', () => {
   it('negates a packed-BCD byte, borrowing to 99 with C/X set', () => {
     const cpu = createCPU(0x2000)
@@ -1455,26 +1554,32 @@ describe('ADD/SUB/AND/OR to memory (Dn,<ea>)', () => {
     expect(memory.read8(0x3000)).toBe(0b1111)
   })
 
-  it('rejects Dn as a destination (reserved for ABCD/SBCD, mode structurally excluded)', () => {
+  it("ADDX's register form still resolves to ADDX, not ADD's memory-destination form (shared opcode slot, mode=000)", () => {
     const cpu = createCPU(0x2000)
     const memory = new SystemMemory()
-    memory.write32(ILLEGAL_INSTRUCTION_VECTOR, 0x3000)
-    memory.write16(0x2000, dnToMemWord(0b1101, 1, 0b00, 0b000, 0)) // "ADD.B D1,D0" - not a real encoding
+    writeRegister(cpu, Register.D0, 5, 'byte')
+    writeRegister(cpu, Register.D1, 10, 'byte')
+    memory.write16(0x2000, dnToMemWord(0b1101, 1, 0b00, 0b000, 0)) // shaped like "ADD.B D1,D0" - really ADDX.B D0,D1
 
     step(cpu, memory, opcodeTable)
 
-    expect(cpu.pc).toBe(0x3000)
+    expect(cpu.registers[Register.D1] & 0xff).toBe(15) // ADDX's effect (D1 += D0 + X), not ADD's
   })
 
-  it('rejects An direct as a destination', () => {
+  it("ADDX's memory form still resolves to ADDX, not ADD's memory-destination form (shared opcode slot, mode=001)", () => {
     const cpu = createCPU(0x2000)
     const memory = new SystemMemory()
-    memory.write32(ILLEGAL_INSTRUCTION_VECTOR, 0x3000)
-    memory.write16(0x2000, dnToMemWord(0b1101, 1, 0b00, 0b001, 0)) // "ADD.B D1,A0" - not a real encoding
+    writeRegister(cpu, Register.A0, 0x3001, 'long')
+    writeRegister(cpu, Register.A1, 0x4001, 'long')
+    memory.write8(0x3000, 5)
+    memory.write8(0x4000, 10)
+    memory.write16(0x2000, dnToMemWord(0b1101, 1, 0b00, 0b001, 0)) // shaped like "ADD.B D1,A0" - really ADDX.B -(A0),-(A1)
 
     step(cpu, memory, opcodeTable)
 
-    expect(cpu.pc).toBe(0x3000)
+    expect(memory.read8(0x4000)).toBe(15) // ADDX's effect, not an Illegal Instruction
+    expect(cpu.registers[Register.A0]).toBe(0x3000)
+    expect(cpu.registers[Register.A1]).toBe(0x4000)
   })
 
   it("ABCD's register form still resolves to ABCD, not AND's memory-destination form (shared opcode slot)", () => {

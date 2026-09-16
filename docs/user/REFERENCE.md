@@ -149,15 +149,18 @@ A first handful of real instructions is wired in, grouped below the way Motorola
 | `ADD` | `ADD.size src,Dn` / `ADD.size Dn,dst` | byte, word, long | 4 (Dn), 8/12 byte-word/long (mem) | N, Z, V, C, X | Adds `src` into a data register, or a data register into memory — see [below](#how-does-the-memory-destination-direction-work) for the second form's addressing restriction and why the cycle count is higher. |
 | `ADDI` | `ADDI.size #data,dst` | byte, word, long | 8/16 byte-word/long (`Dn`), 16/28 (mem) | N, Z, V, C, X | A different opcode from `ADD #imm,Dn` above — adds an immediate directly into `dst` (`Dn` or memory) with no register on the source side at all. See [below](#why-doesnt-this-emulator-implement-rtestopresetmove-sr) for the family of related immediate opcodes this codebase doesn't implement yet. |
 | `ADDA` | `ADDA.size src,An` | word, long | 8 (word), 6 (long) | none | `ADD`'s `An`-destination form: always a full 32-bit add, word `src` sign-extended first. Same relationship `MOVEA` has to `MOVE` — no flags touched at all, not even the ones a same-size `ADD` would set. |
+| `ADDX` | `ADDX Dy,Dx` / `ADDX -(Ay),-(Ax)` | byte, word, long | 4/8 byte-word/long (register), 18/30 (memory) | N, Z (see below), V, C, X | `ADD`'s extend-carry sibling: `dst = dst + src + X`, for chaining an addition wider than one register — the binary counterpart to `ABCD`'s decimal chaining. See [below](#how-does-packed-bcd-arithmetic-work) for the chaining idiom and the `Z` rule (identical here). |
 | `SUB` | `SUB.size src,Dn` / `SUB.size Dn,dst` | byte, word, long | 4 (Dn), 8/12 byte-word/long (mem) | N, Z, V, C, X | Subtracts `src` from a data register, or a data register from memory — same two directions `ADD` has, see [below](#how-does-the-memory-destination-direction-work). |
 | `SUBI` | `SUBI.size #data,dst` | byte, word, long | 8/16 byte-word/long (`Dn`), 16/28 (mem) | N, Z, V, C, X | `ADDI`'s subtraction counterpart, same relationship `SUB` has to `ADD` — subtracts an immediate directly from `dst`, no register on the source side. |
 | `SUBA` | `SUBA.size src,An` | word, long | 8 (word), 6 (long) | none | `SUB`'s `An`-destination form — same rules `ADDA` follows. |
+| `SUBX` | `SUBX Dy,Dx` / `SUBX -(Ay),-(Ax)` | byte, word, long | 4/8 byte-word/long (register), 18/30 (memory) | N, Z (see below), V, C, X | `SUB`'s extend-carry sibling: `dst = dst - src - X`, same relationship `ADDX` has to `ADD`. |
 | `ADDQ`/`SUBQ` | `ADDQ #data,dst` / `SUBQ #data,dst` | byte, word, long | 4 | N, Z, V, C, X (`An`: none) | Adds/subtracts a small immediate (`1`-`8`) straight into `dst`, packed into the opcode itself. `dst = An` is always a full 32-bit op with no flags touched, regardless of size — same rule `MOVEA` follows. |
 | `CMP` | `CMP.size src,Dn` | byte, word, long | 4 | N, Z, V, C | Subtracts `src` from a data register like `SUB`, but only sets flags — the register itself is unchanged. Typically followed by a `Bcc`. |
 | `CMPI` | `CMPI.size #data,dst` | byte, word, long | 8/14 byte-word/long (`Dn`), 12/20 (mem) | N, Z, V, C | `CMP`'s immediate counterpart — compares an immediate directly against `dst` (`Dn` or memory), only sets flags, same as `CMP`. `X` untouched. |
 | `CMPA` | `CMPA.size src,An` | word, long | 6 | N, Z, V, C | `CMP`'s `An`-destination form: compares the full 32-bit `An` against `src` (sign-extended if word), without modifying `An`. |
 | `CLR` | `CLR.size dst` | byte, word, long | 4 | N, Z, V (0), C (0) | Sets `dst` to `0`. |
 | `NEG` | `NEG.size dst` | byte, word, long | 4 | N, Z, V, C, X | Negates `dst` in place (two's complement: `dst = 0 - dst`). |
+| `NEGX` | `NEGX.size dst` | byte, word, long | 4 | N, Z (see below), V, C, X | `NEG`'s extend-carry sibling, `ADDX`/`SUBX`'s single-operand relative: `dst = 0 - dst - X`. |
 | `TST` | `TST.size dst` | byte, word, long | 4 | N, Z, V (0), C (0) | Sets flags from `dst`, like `CMP.size #0,dst` — doesn't modify it. |
 | `TAS` | `TAS dst` | byte | 4 (`Dn`), 14 (memory) | N, Z (from the value read), V (0), C (0) | Like `TST.B`, but also sets `dst`'s bit 7 to `1` afterward — a "busy" flag for a spinlock. See [below](#how-does-tas-work-as-a-lock) for the idiom. |
 | `EXT` | `EXT.size Dn` | word, long | 4 | N, Z, V (0), C (0) | Sign-extends `Dn`: `.W` extends the low byte into the low word (high word untouched); `.L` extends the low word into the full long. |
@@ -246,7 +249,7 @@ See [TRAP System Calls](#trap-system-calls) below for `TRAP`, and
 
 ### Alphabetical Index
 
-**A** — [ABCD](#binary-coded-decimal) · [ADD](#arithmetic) · [ADDA](#arithmetic) · [ADDI](#arithmetic) · [ADDQ](#arithmetic) · [AND](#logical) · [ANDI](#logical) · [ASL](#shift-and-rotate) · [ASR](#shift-and-rotate)
+**A** — [ABCD](#binary-coded-decimal) · [ADD](#arithmetic) · [ADDA](#arithmetic) · [ADDI](#arithmetic) · [ADDQ](#arithmetic) · [ADDX](#arithmetic) · [AND](#logical) · [ANDI](#logical) · [ASL](#shift-and-rotate) · [ASR](#shift-and-rotate)
 
 **B** — [Bcc](#program-control) · [BCHG](#bit-manipulation) · [BCLR](#bit-manipulation) · [BRA](#program-control) · [BSET](#bit-manipulation) · [BSR](#program-control) · [BTST](#bit-manipulation)
 
@@ -264,7 +267,7 @@ See [TRAP System Calls](#trap-system-calls) below for `TRAP`, and
 
 **M** — [MOVE](#data-movement) · [MOVEA](#data-movement) · [MOVEM](#data-movement) · [MOVEP](#data-movement) · [MOVEQ](#data-movement) · [MULS](#arithmetic) · [MULU](#arithmetic)
 
-**N** — [NBCD](#binary-coded-decimal) · [NEG](#arithmetic) · [NOP](#system) · [NOT](#logical)
+**N** — [NBCD](#binary-coded-decimal) · [NEG](#arithmetic) · [NEGX](#arithmetic) · [NOP](#system) · [NOT](#logical)
 
 **O** — [OR](#logical) · [ORI](#logical)
 
@@ -272,7 +275,7 @@ See [TRAP System Calls](#trap-system-calls) below for `TRAP`, and
 
 **R** — [ROL](#shift-and-rotate) · [ROR](#shift-and-rotate) · [ROXL](#shift-and-rotate) · [ROXR](#shift-and-rotate) · [RTS](#program-control)
 
-**S** — [SBCD](#binary-coded-decimal) · [Scc](#program-control) · [SUB](#arithmetic) · [SUBA](#arithmetic) · [SUBI](#arithmetic) · [SUBQ](#arithmetic) · [SWAP](#data-movement)
+**S** — [SBCD](#binary-coded-decimal) · [Scc](#program-control) · [SUB](#arithmetic) · [SUBA](#arithmetic) · [SUBI](#arithmetic) · [SUBQ](#arithmetic) · [SUBX](#arithmetic) · [SWAP](#data-movement)
 
 **T** — [TAS](#arithmetic) · [TRAPV](#system) · [TST](#arithmetic)
 
@@ -325,7 +328,7 @@ MOVE.B  #$01,D1
 ABCD    D0,D1           ; D1 = 9 + 1 = $10, not the binary $0A
 ```
 
-All three instructions are byte-only and thread `X` through as a carry/borrow, so a decimal number wider than one byte can be processed one byte at a time, low byte first — the same chaining idiom `ADDX`/`SUBX`/`NEGX` use for plain binary (not yet implemented here, but the principle is identical). `ABCD`/`SBCD`'s `-(Ay),-(Ax)` form exists specifically for this: it walks two multi-byte BCD numbers backward through memory together, one digit-pair at a time.
+All three instructions are byte-only and thread `X` through as a carry/borrow, so a decimal number wider than one byte can be processed one byte at a time, low byte first — the same chaining idiom [`ADDX`/`SUBX`/`NEGX`](#arithmetic) use for plain binary. `ABCD`/`SBCD`'s `-(Ay),-(Ax)` form exists specifically for this: it walks two multi-byte BCD numbers backward through memory together, one digit-pair at a time.
 
 A real consequence of `NBCD` being defined as `0 - dst - X`: negating a zero byte with `X` already set doesn't stay zero — it borrows, producing `$99` with `C`/`X` set. That's not a bug, it's what makes negating a multi-byte BCD number work: negate the low byte first, then each higher byte's `NBCD` sees the previous byte's borrow via `X` and accounts for it.
 
@@ -568,30 +571,29 @@ CCR` are *not* privileged on the real MC68000 this emulator targets —
 `MOVE from SR` only became privileged starting with the 68010, and `MOVE
 to CCR`/`RTR` were never privileged at all. None of the three are
 blocked by anything above; they're simply not implemented yet, along
-with a few other ordinary instructions that were never on any
-implementation list: `ADDX`/`SUBX`/`NEGX` (extend-carry arithmetic for
-chaining an operation across a multi-byte value, the binary counterpart
-to `ABCD`/`SBCD`'s decimal chaining), and `CMPM` (compares two memory
-locations directly).
+with `CMPM` (compares two memory locations directly), the only other
+ordinary instruction that was never on any implementation list.
 
 `ADDI`/`SUBI`/`ANDI`/`ORI`/`EORI`/`CMPI` — an immediate value directly
 against `<ea>`, no register involved, a different opcode from `ADD
-#imm,Dn` and friends — *are* implemented now, see the
-[Arithmetic](#arithmetic)/[Logical](#logical) tables above. Their own
-`#imm,CCR`/`#imm,SR` special-case sub-forms (`ANDI`/`ORI`/`EORI` only)
+#imm,Dn` and friends — and `ADDX`/`SUBX`/`NEGX` — extend-carry
+arithmetic, the binary counterpart to `ABCD`/`SBCD`'s decimal chaining
+(see [above](#how-does-packed-bcd-arithmetic-work)) — *are* implemented
+now, see the [Arithmetic](#arithmetic)/[Logical](#logical) tables above.
+`ANDI`/`ORI`/`EORI`'s own `#imm,CCR`/`#imm,SR` special-case sub-forms
 are still missing, folded into the list below since they're a narrower
 version of the same gap.
 
 **Hand-encoding any of the remaining gaps today doesn't fail cleanly** —
 most run as a *different*, unrelated instruction instead of raising a
 clean error, because they happen to share bit patterns an
-already-implemented instruction's opcode entry doesn't exclude:
-`ADDX`/`SUBX`/`NEGX` run as `ADD`/`SUB`/`NEG`; `MOVE` to/from `CCR` runs
-as `NEG`. `ANDI`/`ORI`/`EORI` to `CCR`/`SR` now reach `ANDI`/`ORI`/`EORI`'s
-own general form (no longer silently `MOVE`), which then throws a
-generic error rather than doing anything meaningful — an improvement,
-but still not a clean, catchable exception. `RTR` fails loudly too, with
-an "Unknown instruction" error. Best avoided until they land.
+already-implemented instruction's opcode entry doesn't exclude: `MOVE`
+to/from `CCR` runs as `NEG`. `ANDI`/`ORI`/`EORI` to `CCR`/`SR` now reach
+`ANDI`/`ORI`/`EORI`'s own general form (no longer silently `MOVE`),
+which then throws a generic error rather than doing anything meaningful
+— an improvement, but still not a clean, catchable exception. `RTR`
+fails loudly too, with an "Unknown instruction" error. Best avoided
+until they land.
 
 **Example** — add two numbers and write a white pixel, using a direct absolute address:
 
