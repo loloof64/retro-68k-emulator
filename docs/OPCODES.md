@@ -1026,6 +1026,38 @@ EORI.W  #$FFFF,D0      ; D0 ^= 0xFFFF (flip all bits)
 EORI.B  #1,(A0)        ; Memory[A0] ^= 1, no register involved
 ```
 
+### ANDI/ORI/EORI to CCR - Combine an Immediate into the Condition Codes
+```
+ANDI #<data>,CCR
+ORI  #<data>,CCR
+EORI #<data>,CCR
+```
+
+The `<ea>` = `#imm` (mode 111, reg 100) encodings `ANDI`/`ORI`/`EORI`
+repurpose as three completely different, fixed-opcode instructions,
+rather than combining the immediate into a memory/register `<ea>` the
+way their general form above does: this combines it directly into the
+condition codes, treating the 5 flags (`X`/`N`/`Z`/`V`/`C`, bit 4 down to
+bit 0, same packing `MOVE to CCR` uses) as one 5-bit value. Real hardware
+still fetches a full extension word for the immediate here, but only its
+low byte is significant — the high byte is reserved and ignored. Never
+privileged on any 68000-family part, unlike their `,SR` siblings (not
+implemented - see
+["Why doesn't this emulator implement RTE/STOP/RESET/MOVE SR?"](#why-doesnt-this-emulator-implement-rtestopresetmove-sr)).
+
+**Sizes**: B
+**Cycles**: 20
+**Flags**: X, N, Z, V, C (combined with the immediate; `ANDI`/`ORI` don't
+force V/C to 0 here the way their general `<ea>` form does — CCR's own
+V/C bits are themselves part of the combine)
+
+**Examples**:
+```asm
+ANDI    #%11110,CCR    ; clear C, leave X/N/Z/V as they are
+ORI     #%00001,CCR    ; set C, leave the rest as they are
+EORI    #%00100,CCR    ; toggle Z, leave the rest as they are
+```
+
 ### NOT - Bitwise NOT
 ```
 NOT dst
@@ -1630,17 +1662,20 @@ yet, same as the instructions below.
 
 ### Which opcodes aren't implemented, and what happens if you use one anyway?
 
-Beyond the privileged group above, only one small gap is left:
-`ANDI`/`ORI`/`EORI`'s own `#imm,CCR` special-case sub-forms (three exact
-opcodes, e.g. `ORI #imm,CCR` at `$003C`) — everything else originally
-listed here has since been implemented.
+Beyond the privileged group above, everything originally listed here has
+since been implemented, including the last remaining gap: `ANDI`/`ORI`/
+`EORI`'s own `#imm,CCR` special-case sub-forms (three exact opcodes,
+e.g. `ORI #imm,CCR` at `$003C`) — see
+[ANDI/ORI/EORI to CCR](#andiorieori-to-ccr---combine-an-immediate-into-the-condition-codes)
+above.
 
 `ADDI`/`SUBI`/`ANDI`/`ORI`/`EORI`/`CMPI` (immediate operand directly
 against `<ea>`, no register involved), `ADDX`/`SUBX`/`NEGX`
 (extend-carry arithmetic), `CMPM` (memory-to-memory compare), `RTR`
-(like `RTS`, but also restores the flags), and `MOVE SR`/`MOVE to CCR`
-(reading/loading the flags as a word) are all implemented now — see
-[Arithmetic Operations](#arithmetic-operations),
+(like `RTS`, but also restores the flags), `MOVE SR`/`MOVE to CCR`
+(reading/loading the flags as a word), and `ANDI`/`ORI`/`EORI #imm,CCR`
+(combining an immediate directly into the flags) are all implemented now
+— see [Arithmetic Operations](#arithmetic-operations),
 [Logical Operations](#logical-operations),
 [Subroutine Control](#subroutine-control), and
 [Data Movement](#data-movement) above. **Correction from an earlier
@@ -1649,24 +1684,16 @@ that instruction doesn't exist on the real MC68000 this codebase
 targets at all — Motorola only added it in the 68010, to compensate for
 `MOVE from SR` becoming privileged there. Nothing to implement.
 
-**The remaining gap doesn't fail cleanly.** Unlike a genuinely
-reserved/invalid encoding — which raises the catchable
-[Illegal Instruction exception](./MEMORY.md#cpu-exception-vector-table)
-the same way `ILLEGAL` does on purpose — `ANDI`/`ORI`/`EORI #imm,CCR`
-reaches `ANDI`/`ORI`/`EORI`'s own general form (their `<ea>` decode
-treats the special `#imm,CCR` bit pattern as an ordinary, if strange,
-addressing mode), which then throws `decodeEA`'s generic immediate-write
-error rather than doing anything meaningful.
-
-This is the same root cause `ILLEGAL`'s own opcodeTable entry fixed for
-one specific case (see [ILLEGAL](#illegal---deliberately-raise-an-illegal-instruction)
-above): a broad, pre-existing entry's mask doesn't rule out a reserved
-bit pattern that real hardware assigns to something else entirely.
-**Don't hand-encode `ANDI`/`ORI`/`EORI #imm,CCR`** until it lands — it
-throws instead of doing anything meaningful, at least, so this is no
-longer a *silent* misdecode, just not yet a clean, catchable exception.
-`ANDI`/`ORI`/`EORI #imm,SR` (the privileged sibling) reaches the same
-general form too, for the same reason.
+`ANDI`/`ORI`/`EORI #imm,SR` (the privileged sibling of the now-implemented
+`#imm,CCR` forms) is a genuine gap, but falls under the privileged group
+above rather than this one — same reasoning as `MOVE to SR`. It doesn't
+fail cleanly either: with no dedicated opcodeTable entry of its own, it
+still reaches `ANDI`/`ORI`/`EORI`'s general form (their `<ea>` decode
+treats the `#imm,SR` bit pattern as an ordinary, if strange, addressing
+mode), which throws `decodeEA`'s generic immediate-write error rather
+than raising a catchable
+[Illegal Instruction exception](./MEMORY.md#cpu-exception-vector-table).
+**Don't hand-encode `ANDI`/`ORI`/`EORI #imm,SR`** for this reason.
 
 ## Instruction Summary Table
 
@@ -1693,7 +1720,7 @@ conditional `Scc` variants (`SEQ`, `SNE`, ...) all share the one
 [Scc](#scc---set-conditionally) section, rather than having a section
 each.
 
-**A** — [ABCD](#abcd---add-decimal-with-extend) · [ADD](#add---add) · [ADDA](#adda---add-address) · [ADDI](#addi---add-immediate) · [ADDQ](#addqsubq---addsubtract-quick) · [ADDX](#addx---add-extended) · [AND](#and---bitwise-and) · [ANDI](#andi---and-immediate) · [ASL](#aslasr---arithmetic-shift) · [ASR](#aslasr---arithmetic-shift)
+**A** — [ABCD](#abcd---add-decimal-with-extend) · [ADD](#add---add) · [ADDA](#adda---add-address) · [ADDI](#addi---add-immediate) · [ADDQ](#addqsubq---addsubtract-quick) · [ADDX](#addx---add-extended) · [AND](#and---bitwise-and) · [ANDI](#andi---and-immediate) · [ANDI to CCR](#andiorieori-to-ccr---combine-an-immediate-into-the-condition-codes) · [ASL](#aslasr---arithmetic-shift) · [ASR](#aslasr---arithmetic-shift)
 
 **B** — [BCC](#conditional-branches) · [BCHG](#bchgbclrbset---changeclearset-bit) · [BCLR](#bchgbclrbset---changeclearset-bit) · [BCS](#conditional-branches) · [BEQ](#conditional-branches) · [BGE](#conditional-branches) · [BGT](#conditional-branches) · [BHI](#conditional-branches) · [BLE](#conditional-branches) · [BLS](#conditional-branches) · [BLT](#conditional-branches) · [BMI](#conditional-branches) · [BNE](#conditional-branches) · [BPL](#conditional-branches) · [BRA](#bra---branch-always) · [BSET](#bchgbclrbset---changeclearset-bit) · [BSR](#bsr---branch-to-subroutine) · [BTST](#btst---test-bit) · [BVC](#conditional-branches) · [BVS](#conditional-branches)
 
@@ -1701,7 +1728,7 @@ each.
 
 **D** — [DBCC](#dbcc---decrement-and-branch-conditionally) · [DBCS](#dbcc---decrement-and-branch-conditionally) · [DBEQ](#dbcc---decrement-and-branch-conditionally) · [DBGE](#dbcc---decrement-and-branch-conditionally) · [DBGT](#dbcc---decrement-and-branch-conditionally) · [DBHI](#dbcc---decrement-and-branch-conditionally) · [DBLE](#dbcc---decrement-and-branch-conditionally) · [DBLS](#dbcc---decrement-and-branch-conditionally) · [DBLT](#dbcc---decrement-and-branch-conditionally) · [DBMI](#dbcc---decrement-and-branch-conditionally) · [DBNE](#dbcc---decrement-and-branch-conditionally) · [DBPL](#dbcc---decrement-and-branch-conditionally) · [DBRA](#dbcc---decrement-and-branch-conditionally) · [DBT](#dbcc---decrement-and-branch-conditionally) · [DBVC](#dbcc---decrement-and-branch-conditionally) · [DBVS](#dbcc---decrement-and-branch-conditionally) · [DIVS](#div---divide) · [DIVU](#div---divide)
 
-**E** — [EORI](#eori---exclusive-or-immediate) · [EXG](#exg---exchange-registers) · [EXT](#ext---sign-extend)
+**E** — [EORI](#eori---exclusive-or-immediate) · [EORI to CCR](#andiorieori-to-ccr---combine-an-immediate-into-the-condition-codes) · [EXG](#exg---exchange-registers) · [EXT](#ext---sign-extend)
 
 **I** — [ILLEGAL](#illegal---deliberately-raise-an-illegal-instruction)
 
@@ -1713,7 +1740,7 @@ each.
 
 **N** — [NBCD](#nbcd---negate-decimal-with-extend) · [NEG](#neg---negate) · [NEGX](#negx---negate-extended) · [NOP](#nop---no-operation) · [NOT](#not---bitwise-not)
 
-**O** — [OR](#or---bitwise-or) · [ORI](#ori---or-immediate)
+**O** — [OR](#or---bitwise-or) · [ORI](#ori---or-immediate) · [ORI to CCR](#andiorieori-to-ccr---combine-an-immediate-into-the-condition-codes)
 
 **P** — [PEA](#pea---push-effective-address)
 

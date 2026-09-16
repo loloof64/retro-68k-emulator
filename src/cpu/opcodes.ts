@@ -1563,12 +1563,15 @@ function decodeByteWordLongSize(bits: number): Size {
 //
 // Real hardware also repurposes `<ea>` = `#imm` (mode 111, reg 100) as a
 // completely different instruction here - `ORI`/`ANDI`/`EORI #imm,CCR`
-// or `,SR` - which this doesn't implement. Left unhandled rather than
-// silently misdecoded: decodeEA's own #imm case still consumes an
-// extension word and then throws on `ea.write()`, the same "genuinely
-// invalid destination raises a plain error, not a clean CPU exception"
-// gap CLR/NEG/NOT/TST already have for their own `An` case above - not
-// silently wrong, just not yet a catchable Illegal Instruction either.
+// (implemented separately below, as ORI_TO_CCR/ANDI_TO_CCR/EORI_TO_CCR)
+// or `,SR` (not implemented - see docs/OPCODES.md's "Why doesn't this
+// emulator implement RTE/STOP/RESET/MOVE SR?"). The `,SR` encodings are
+// still left unhandled rather than silently misdecoded: decodeEA's own
+// #imm case still consumes an extension word and then throws on
+// `ea.write()`, the same "genuinely invalid destination raises a plain
+// error, not a clean CPU exception" gap CLR/NEG/NOT/TST already have for
+// their own `An` case above - not silently wrong, just not yet a
+// catchable Illegal Instruction either.
 
 function decodeImmediateAndEa(cpu: CPUState, memory: Memory, opcodeWord: number) {
   const size = decodeByteWordLongSize((opcodeWord >> 6) & 0b11)
@@ -1661,6 +1664,69 @@ const EORI: OpcodeDefinition = {
   encoding: '00001010ssmmmrrr',
   size: 'variable',
   handler: immediateLogicalHandler((dest, imm) => dest ^ imm),
+}
+
+// --- ANDI/ORI/EORI #<data>,CCR ($003C/$023C/$0A3C) ----------------------
+//
+// The `<ea>` = `#imm` (mode 111, reg 100) encodings that ANDI/ORI/EORI's
+// general `<ea>` form above repurposes as a completely different
+// instruction (see the comment on `decodeImmediateAndEa`): rather than
+// combining the immediate into a memory/register operand, it combines it
+// into the CCR itself. Each is a single fixed opcode word, not a range -
+// size is always effectively byte (the CCR only has 5 meaningful bits) -
+// but real hardware still fetches a full extension word for the
+// immediate, with the upper byte reserved/ignored, so this reads a word
+// and masks it down rather than reusing `decodeImmediateAndEa`'s
+// byte-size path (which expects a following `<ea>`, and there isn't one
+// here).
+//
+// Shares ORI/ANDI/EORI's own `$0000`/`$0200`/$0A00`-`$00FF`/`$02FF`/
+// `$0AFF` byte at the bit level (mode=111,reg=100 is one point inside
+// each one's otherwise-unconstrained `mmmrrr` field), so these narrower
+// entries have to be listed before the broader ones in opcodeTable - the
+// same trick MOVE_TO_CCR/MOVE_FROM_SR play against NEG/NEGX above.
+
+function logicalToCcrHandler(op: (ccr: number, imm: number) => number): OpcodeDefinition['handler'] {
+  return (cpu: CPUState, memory: Memory) => {
+    const immediate = memory.read16(cpu.pc) & 0xff
+    cpu.pc += 2
+
+    const ccr =
+      (cpu.status.C ? 0b00001 : 0) |
+      (cpu.status.V ? 0b00010 : 0) |
+      (cpu.status.Z ? 0b00100 : 0) |
+      (cpu.status.N ? 0b01000 : 0) |
+      (cpu.status.X ? 0b10000 : 0)
+    const result = op(ccr, immediate)
+    cpu.status.C = (result & 0b00001) !== 0
+    cpu.status.V = (result & 0b00010) !== 0
+    cpu.status.Z = (result & 0b00100) !== 0
+    cpu.status.N = (result & 0b01000) !== 0
+    cpu.status.X = (result & 0b10000) !== 0
+
+    return 20
+  }
+}
+
+const ANDI_TO_CCR: OpcodeDefinition = {
+  mnemonic: 'ANDI',
+  encoding: '0000001000111100',
+  size: 'byte',
+  handler: logicalToCcrHandler((ccr, imm) => ccr & imm),
+}
+
+const ORI_TO_CCR: OpcodeDefinition = {
+  mnemonic: 'ORI',
+  encoding: '0000000000111100',
+  size: 'byte',
+  handler: logicalToCcrHandler((ccr, imm) => ccr | imm),
+}
+
+const EORI_TO_CCR: OpcodeDefinition = {
+  mnemonic: 'EORI',
+  encoding: '0000101000111100',
+  size: 'byte',
+  handler: logicalToCcrHandler((ccr, imm) => ccr ^ imm),
 }
 
 const CMPI: OpcodeDefinition = {
@@ -2781,6 +2847,9 @@ export const opcodeTable: readonly OpcodeEntry[] = [
   { mask: 0xffc0, pattern: 0x0880, definition: BCLR },
   { mask: 0xffc0, pattern: 0x08c0, definition: BSET },
   { mask: 0xf138, pattern: 0x0108, definition: MOVEP },
+  { mask: 0xffff, pattern: 0x003c, definition: ORI_TO_CCR },
+  { mask: 0xffff, pattern: 0x023c, definition: ANDI_TO_CCR },
+  { mask: 0xffff, pattern: 0x0a3c, definition: EORI_TO_CCR },
   { mask: 0xff00, pattern: 0x0000, definition: ORI },
   { mask: 0xff00, pattern: 0x0200, definition: ANDI },
   { mask: 0xff00, pattern: 0x0400, definition: SUBI },

@@ -186,10 +186,13 @@ A first handful of real instructions is wired in, grouped below the way Motorola
 |---|---|---|---|---|---|
 | `AND` | `AND.size src,Dn` / `AND.size Dn,dst` | byte, word, long | 4 (Dn), 8/12 byte-word/long (mem) | N, Z, V (0), C (0) | Bitwise ANDs `src` into a data register, or a data register into memory — see [below](#how-does-the-memory-destination-direction-work). |
 | `ANDI` | `ANDI.size #data,dst` | byte, word, long | 8/16 byte-word/long (`Dn`), 16/28 (mem) | N, Z, V (0), C (0) | A different opcode from `AND #imm,Dn` above — ANDs an immediate directly into `dst` (`Dn` or memory) with no register on the source side. |
+| `ANDI to CCR` | `ANDI #data,CCR` | byte | 20 | X, N, Z, V, C | A fixed opcode `ANDI` repurposes for `<ea>` = `#imm,CCR` — ANDs an immediate directly into the flags, instead of into a memory/register `dst`. See [below](#why-doesnt-this-emulator-implement-rtestopresetmove-sr). |
 | `OR` | `OR.size src,Dn` / `OR.size Dn,dst` | byte, word, long | 4 (Dn), 8/12 byte-word/long (mem) | N, Z, V (0), C (0) | Bitwise ORs `src` into a data register, or a data register into memory — see [below](#how-does-the-memory-destination-direction-work). |
 | `ORI` | `ORI.size #data,dst` | byte, word, long | 8/16 byte-word/long (`Dn`), 16/28 (mem) | N, Z, V (0), C (0) | `ANDI`'s OR counterpart — ORs an immediate directly into `dst`, no register on the source side. |
+| `ORI to CCR` | `ORI #data,CCR` | byte | 20 | X, N, Z, V, C | `ANDI to CCR`'s OR counterpart — ORs an immediate directly into the flags. |
 | `XOR` | `XOR.size Dn,dst` | byte, word, long | 4 | N, Z, V (0), C (0) | Bitwise XORs a data register into `dst` — the one bitwise op where the *source* is always `Dn` and `dst` can be memory. |
 | `EORI` | `EORI.size #data,dst` | byte, word, long | 8/16 byte-word/long (`Dn`), 16/28 (mem) | N, Z, V (0), C (0) | `XOR`'s immediate counterpart (real mnemonic `EOR`) — XORs an immediate directly into `dst`, no register on the source side. |
+| `EORI to CCR` | `EORI #data,CCR` | byte | 20 | X, N, Z, V, C | `ANDI to CCR`'s XOR counterpart — XORs an immediate directly into the flags. |
 | `NOT` | `NOT.size dst` | byte, word, long | 4 | N, Z, V (0), C (0) | Bitwise inverts `dst` in place (one's complement: `dst = ~dst`). |
 
 ### Bit Manipulation
@@ -253,7 +256,7 @@ See [TRAP System Calls](#trap-system-calls) below for `TRAP`, and
 
 ### Alphabetical Index
 
-**A** — [ABCD](#binary-coded-decimal) · [ADD](#arithmetic) · [ADDA](#arithmetic) · [ADDI](#arithmetic) · [ADDQ](#arithmetic) · [ADDX](#arithmetic) · [AND](#logical) · [ANDI](#logical) · [ASL](#shift-and-rotate) · [ASR](#shift-and-rotate)
+**A** — [ABCD](#binary-coded-decimal) · [ADD](#arithmetic) · [ADDA](#arithmetic) · [ADDI](#arithmetic) · [ADDQ](#arithmetic) · [ADDX](#arithmetic) · [AND](#logical) · [ANDI](#logical) · [ANDI to CCR](#logical) · [ASL](#shift-and-rotate) · [ASR](#shift-and-rotate)
 
 **B** — [Bcc](#program-control) · [BCHG](#bit-manipulation) · [BCLR](#bit-manipulation) · [BRA](#program-control) · [BSET](#bit-manipulation) · [BSR](#program-control) · [BTST](#bit-manipulation)
 
@@ -261,7 +264,7 @@ See [TRAP System Calls](#trap-system-calls) below for `TRAP`, and
 
 **D** — [DBcc](#program-control) · [DIVS](#arithmetic) · [DIVU](#arithmetic)
 
-**E** — [EORI](#logical) · [EXG](#data-movement) · [EXT](#arithmetic)
+**E** — [EORI](#logical) · [EORI to CCR](#logical) · [EXG](#data-movement) · [EXT](#arithmetic)
 
 **I** — [ILLEGAL](#system)
 
@@ -273,7 +276,7 @@ See [TRAP System Calls](#trap-system-calls) below for `TRAP`, and
 
 **N** — [NBCD](#binary-coded-decimal) · [NEG](#arithmetic) · [NEGX](#arithmetic) · [NOP](#system) · [NOT](#logical)
 
-**O** — [OR](#logical) · [ORI](#logical)
+**O** — [OR](#logical) · [ORI](#logical) · [ORI to CCR](#logical)
 
 **P** — [PEA](#data-movement)
 
@@ -578,7 +581,10 @@ to CCR`/`RTR` were never privileged at all. Both are implemented now
 table above), along with `CMPM` (see [Arithmetic](#arithmetic)),
 `RTR` (see [Program Control](#program-control)), and
 `ADDI`/`SUBI`/`ANDI`/`ORI`/`EORI`/`CMPI`/`ADDX`/`SUBX`/`NEGX` (see the
-[Arithmetic](#arithmetic)/[Logical](#logical) tables) — every ordinary
+[Arithmetic](#arithmetic)/[Logical](#logical) tables), and
+`ANDI`/`ORI`/`EORI`'s own `#imm,CCR` special-case sub-forms (three fixed
+opcodes, e.g. `ORI #imm,CCR` at `$003C` — see `ANDI to CCR`/`ORI to
+CCR`/`EORI to CCR` in the [Logical](#logical) table) — every ordinary
 instruction that was ever on this page's gap list.
 
 **One more correction:** an earlier version of this section also listed
@@ -587,14 +593,12 @@ MC68000 at all. Motorola only added it in the 68010, to give user
 programs a way to read the flags after `MOVE from SR` became privileged
 there. Nothing to implement.
 
-**One small gap remains**: `ANDI`/`ORI`/`EORI`'s own `#imm,CCR`
-special-case sub-forms (three exact opcodes, e.g. `ORI #imm,CCR` at
-`$003C`). Hand-encoding one today doesn't do anything meaningful — it
-reaches `ANDI`/`ORI`/`EORI`'s own general form (no longer silently
-`MOVE`, that bug is fixed), which then throws a generic error instead.
-An improvement over silently running as the wrong instruction, but not
-yet a clean, catchable exception. `ANDI`/`ORI`/`EORI #imm,SR` (the
-privileged sibling) reaches the same general form for the same reason.
+`ANDI`/`ORI`/`EORI #imm,SR` (the privileged sibling of the now-implemented
+`#imm,CCR` forms) remains a genuine gap, alongside `MOVE to SR` above.
+Hand-encoding one today doesn't do anything meaningful — with no
+dedicated opcode entry of its own, it reaches `ANDI`/`ORI`/`EORI`'s own
+general form (no longer silently `MOVE`, that bug is fixed), which then
+throws a generic error instead of raising a catchable exception.
 
 **Example** — add two numbers and write a white pixel, using a direct absolute address:
 

@@ -243,6 +243,10 @@ function cmpiWord(size: 0b00 | 0b01 | 0b10, mode: number, reg: number) {
   return 0x0c00 | (size << 6) | (mode << 3) | reg
 }
 
+const ORI_TO_CCR_WORD = 0x003c
+const ANDI_TO_CCR_WORD = 0x023c
+const EORI_TO_CCR_WORD = 0x0a3c
+
 function swapWord(reg: number) {
   return 0x4840 | reg
 }
@@ -1821,6 +1825,82 @@ describe('ADDI/SUBI/ANDI/ORI/EORI/CMPI', () => {
     for (const [word, mnemonic] of cases) {
       const entry = opcodeTable.find((e) => (word & e.mask) === e.pattern)
       expect(entry?.definition.mnemonic).toBe(mnemonic)
+    }
+  })
+})
+
+describe('ANDI/ORI/EORI #<data>,CCR', () => {
+  it('ANDI to CCR clears flags not set in the immediate and costs 20 cycles', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    cpu.status.C = true
+    cpu.status.V = true
+    cpu.status.Z = true
+    cpu.status.N = true
+    cpu.status.X = true
+    memory.write16(0x2000, ANDI_TO_CCR_WORD)
+    memory.write16(0x2002, 0b10101) // keep X/Z/C, clear N/V
+
+    const cycles = step(cpu, memory, opcodeTable)
+
+    expect(cpu.status.X).toBe(true)
+    expect(cpu.status.N).toBe(false)
+    expect(cpu.status.Z).toBe(true)
+    expect(cpu.status.V).toBe(false)
+    expect(cpu.status.C).toBe(true)
+    expect(cycles).toBe(20)
+  })
+
+  it('ORI to CCR sets flags present in the immediate, leaving the rest untouched', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    cpu.status.N = true // not in the immediate - must survive the OR
+    memory.write16(0x2000, ORI_TO_CCR_WORD)
+    memory.write16(0x2002, 0b00001) // set C
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.status.C).toBe(true)
+    expect(cpu.status.N).toBe(true)
+    expect(cpu.status.Z).toBe(false)
+  })
+
+  it('EORI to CCR toggles flags present in the immediate', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    cpu.status.Z = true
+    cpu.status.C = true
+    memory.write16(0x2000, EORI_TO_CCR_WORD)
+    memory.write16(0x2002, 0b00101) // toggle Z and C
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.status.Z).toBe(false)
+    expect(cpu.status.C).toBe(false)
+  })
+
+  it('reads a full extension word but only the low byte is significant', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    memory.write16(0x2000, ORI_TO_CCR_WORD)
+    memory.write16(0x2002, 0xff00) // high byte must be ignored
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.status.C).toBe(false)
+    expect(cpu.pc).toBe(0x2004)
+  })
+
+  it('wins over the general ANDI/ORI/EORI #imm,<ea> form for the shared opcode slot', () => {
+    const cases: Array<[number, string]> = [
+      [ORI_TO_CCR_WORD, 'ORI'],
+      [ANDI_TO_CCR_WORD, 'ANDI'],
+      [EORI_TO_CCR_WORD, 'EORI'],
+    ]
+    for (const [word, mnemonic] of cases) {
+      const entry = opcodeTable.find((e) => (word & e.mask) === e.pattern)
+      expect(entry?.definition.mnemonic).toBe(mnemonic)
+      expect(entry?.definition.size).toBe('byte')
     }
   })
 })
