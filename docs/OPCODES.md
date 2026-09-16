@@ -356,7 +356,8 @@ needs its own encoding. `<ea>` can be `Dn` or a writable memory address.
 The immediate is read right after the opcode word, before any `<ea>`
 extension word (a displacement, an absolute address, ...).
 
-**Sizes**: B, W, L
+**Sizes**: B, W, L. An address register isn't a valid `<ea>` — that
+raises the [Illegal Instruction exception](#cpu-exception-vector-table).
 **Cycles**: 8 (`Dn`, byte/word), 16 (`Dn`, long); 16 (memory, byte/word),
 28 (memory, long)
 **Flags**: N, Z, V, C, X
@@ -469,7 +470,8 @@ immediate directly from memory with no register involved. `<ea>` can be
 `Dn` or a writable memory address; the immediate is read right after the
 opcode word, before any `<ea>` extension word.
 
-**Sizes**: B, W, L
+**Sizes**: B, W, L. An address register isn't a valid `<ea>` — that
+raises the [Illegal Instruction exception](#cpu-exception-vector-table).
 **Cycles**: 8 (`Dn`, byte/word), 16 (`Dn`, long); 16 (memory, byte/word),
 28 (memory, long)
 **Flags**: N, Z, V, C, X
@@ -621,7 +623,8 @@ but never written back. `<ea>` can be `Dn` or a writable memory address;
 the immediate is read right after the opcode word, before any `<ea>`
 extension word.
 
-**Sizes**: B, W, L
+**Sizes**: B, W, L. An address register isn't a valid `<ea>` — that
+raises the [Illegal Instruction exception](#cpu-exception-vector-table).
 **Cycles**: 8 (`Dn`, byte/word), 14 (`Dn`, long); 12 (memory, byte/word),
 20 (memory, long)
 **Flags**: N, Z, V, C (`X` untouched, same as `CMP`)
@@ -935,7 +938,8 @@ register involved. `<ea>` can be `Dn` or a writable memory address; the
 immediate is read right after the opcode word, before any `<ea>`
 extension word.
 
-**Sizes**: B, W, L
+**Sizes**: B, W, L. An address register isn't a valid `<ea>` — that
+raises the [Illegal Instruction exception](#cpu-exception-vector-table).
 **Cycles**: 8 (`Dn`, byte/word), 16 (`Dn`, long); 16 (memory, byte/word),
 28 (memory, long)
 **Flags**: N, Z, C (0), V (0)
@@ -978,7 +982,8 @@ register involved. `<ea>` can be `Dn` or a writable memory address; the
 immediate is read right after the opcode word, before any `<ea>`
 extension word.
 
-**Sizes**: B, W, L
+**Sizes**: B, W, L. An address register isn't a valid `<ea>` — that
+raises the [Illegal Instruction exception](#cpu-exception-vector-table).
 **Cycles**: 8 (`Dn`, byte/word), 16 (`Dn`, long); 16 (memory, byte/word),
 28 (memory, long)
 **Flags**: N, Z, C (0), V (0)
@@ -1019,7 +1024,8 @@ an immediate directly into memory with no register involved. `<ea>` can
 be `Dn` or a writable memory address; the immediate is read right after
 the opcode word, before any `<ea>` extension word.
 
-**Sizes**: B, W, L
+**Sizes**: B, W, L. An address register isn't a valid `<ea>` — that
+raises the [Illegal Instruction exception](#cpu-exception-vector-table).
 **Cycles**: 8 (`Dn`, byte/word), 16 (`Dn`, long); 16 (memory, byte/word),
 28 (memory, long)
 **Flags**: N, Z, C (0), V (0)

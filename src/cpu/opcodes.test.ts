@@ -1832,6 +1832,29 @@ describe('ADDI/SUBI/ANDI/ORI/EORI/CMPI', () => {
       expect(entry?.definition.mnemonic).toBe(mnemonic)
     }
   })
+
+  it('an address register target raises Illegal Instruction, for all six', () => {
+    const words = [
+      addiWord(0b01, 0b001, 0),
+      subiWord(0b01, 0b001, 0),
+      andiWord(0b01, 0b001, 0),
+      oriWord(0b01, 0b001, 0),
+      eoriWord(0b01, 0b001, 0),
+      cmpiWord(0b01, 0b001, 0),
+    ]
+    for (const word of words) {
+      const cpu = createCPU(0x2000)
+      const memory = new SystemMemory()
+      memory.write32(ILLEGAL_INSTRUCTION_VECTOR, 0x3000)
+      memory.write16(0x2000, word) // e.g. ADDI.W #imm,A0
+      memory.write16(0x3000, RTS_WORD)
+
+      step(cpu, memory, opcodeTable) // raises -> pc = 0x3000
+      step(cpu, memory, opcodeTable) // RTS -> back to right after the opcode word
+
+      expect(cpu.pc).toBe(0x2002) // no immediate extension word was ever read
+    }
+  })
 })
 
 describe('ANDI/ORI/EORI #<data>,CCR', () => {

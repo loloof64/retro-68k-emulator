@@ -1648,12 +1648,10 @@ function decodeByteWordLongSize(bits: number): Size {
 // SUB_MEM/etc. above, `Dn` *is* valid here (there's no separate register
 // form to collide with the way there is for ADD/SUB/AND/OR), so this
 // reuses plain `decodeEA` rather than `decodeMemAlterableEA`. `An` direct
-// isn't a valid destination on real hardware either, but - unlike CLR/
-// NEG/NOT/TST above, which now explicitly reject it - that isn't guarded
-// here yet; decodeEA still treats it as an ordinary writable register.
-// Not fixed as part of any single feature so far, so still a real,
-// if minor, gap - worth revisiting together with the other five of this
-// family (see decodeImmediateAndEa below) if this ever comes up again.
+// isn't a valid destination on real hardware either - rejected below in
+// `decodeImmediateAndEa` itself, the one shared entry point all six of
+// these go through, same restriction CLR/NEG/NOT/TST/NBCD/BTST/CHK/TAS
+// already enforce for their own `<ea>`.
 //
 // The immediate is read *before* `<ea>` is decoded, matching real
 // hardware's instruction layout: opcode word, then the immediate data,
@@ -1675,6 +1673,11 @@ function decodeImmediateAndEa(cpu: CPUState, memory: Memory, opcodeWord: number)
   const mode = (opcodeWord >> 3) & 0b111
   const reg = opcodeWord & 0b111
 
+  if (mode === 0b001) {
+    raiseException(cpu, memory, ILLEGAL_INSTRUCTION_VECTOR, 'Illegal Instruction')
+    return null
+  }
+
   const raw = size === 'long' ? memory.read32(cpu.pc) : memory.read16(cpu.pc)
   cpu.pc += size === 'long' ? 4 : 2
   const immediate = size === 'byte' ? raw & 0xff : raw
@@ -1689,7 +1692,9 @@ const ADDI: OpcodeDefinition = {
   encoding: '00000110ssmmmrrr',
   size: 'variable',
   handler: (cpu: CPUState, memory: Memory, args: unknown[]) => {
-    const { immediate, ea, size, isRegisterDest } = decodeImmediateAndEa(cpu, memory, opcodeWordOf(args))
+    const decoded = decodeImmediateAndEa(cpu, memory, opcodeWordOf(args))
+    if (!decoded) return 34
+    const { immediate, ea, size, isRegisterDest } = decoded
 
     const { result, flags } = addWithFlags(ea.read(), immediate, size)
     ea.write(result)
@@ -1710,7 +1715,9 @@ const SUBI: OpcodeDefinition = {
   encoding: '00000100ssmmmrrr',
   size: 'variable',
   handler: (cpu: CPUState, memory: Memory, args: unknown[]) => {
-    const { immediate, ea, size, isRegisterDest } = decodeImmediateAndEa(cpu, memory, opcodeWordOf(args))
+    const decoded = decodeImmediateAndEa(cpu, memory, opcodeWordOf(args))
+    if (!decoded) return 34
+    const { immediate, ea, size, isRegisterDest } = decoded
 
     const { result, flags } = subWithFlags(ea.read(), immediate, size)
     ea.write(result)
@@ -1728,7 +1735,9 @@ const SUBI: OpcodeDefinition = {
 
 function immediateLogicalHandler(op: (dest: number, imm: number) => number): OpcodeDefinition['handler'] {
   return (cpu: CPUState, memory: Memory, args: unknown[]) => {
-    const { immediate, ea, size, isRegisterDest } = decodeImmediateAndEa(cpu, memory, opcodeWordOf(args))
+    const decoded = decodeImmediateAndEa(cpu, memory, opcodeWordOf(args))
+    if (!decoded) return 34
+    const { immediate, ea, size, isRegisterDest } = decoded
 
     const result = op(ea.read(), immediate)
     ea.write(result)
@@ -1831,7 +1840,9 @@ const CMPI: OpcodeDefinition = {
   encoding: '00001100ssmmmrrr',
   size: 'variable',
   handler: (cpu: CPUState, memory: Memory, args: unknown[]) => {
-    const { immediate, ea, size, isRegisterDest } = decodeImmediateAndEa(cpu, memory, opcodeWordOf(args))
+    const decoded = decodeImmediateAndEa(cpu, memory, opcodeWordOf(args))
+    if (!decoded) return 34
+    const { immediate, ea, size, isRegisterDest } = decoded
 
     const { flags } = subWithFlags(ea.read(), immediate, size)
 
