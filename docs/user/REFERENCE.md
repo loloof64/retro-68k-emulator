@@ -26,6 +26,36 @@ A freshly created CPU — internally, `createCPU()`/`reset()` in the emulator's 
 
 Which flags a given instruction touches is listed per-instruction below, in the "Flags affected" column, using three notations: a flag on its own (e.g. `N, Z`) is set or cleared to reflect what the instruction actually produced; a flag followed by `(0)` (e.g. `V (0)`) is unconditionally cleared to `0`, regardless of the result — real hardware does this where the flag has no meaningful value for that instruction (multiply/divide can't overflow the way add/sub can, so `MULU`/`MULS` always clear `V`); and a flag missing from the list entirely is left untouched, keeping whatever value it had before the instruction ran.
 
+## Instruction Format
+
+Every instruction in the tables below is written using the same template:
+
+```
+MNEMONIC.SIZE src,dst
+```
+
+- **MNEMONIC** is the instruction's name — `MOVE`, `ADD`, `BRA`, and so
+  on. It's what tells the CPU *what* to do.
+- **.SIZE** is an optional suffix controlling how many bits of data the
+  instruction touches: `.B` for a byte (8 bits), `.W` for a word (16
+  bits), or `.L` for a long word (32 bits). Not every instruction
+  supports every size — the "Sizes" column in each instruction table
+  below lists which ones a given mnemonic accepts. Leaving the suffix
+  off entirely defaults to `.W` (word) for instructions that support
+  it.
+- **src** and **dst** are the operands — "source" (where a value comes
+  from) and "destination" (where it goes). Each one is written using
+  one of the addressing modes described just below, e.g. a register
+  (`D0`), a memory location (`(A0)`), or a constant (`#100`).
+
+Not every instruction takes both a source and a destination — some take
+only one operand (e.g. `NOT.L D0`, which flips every bit of `D0` in
+place), and some take none at all (e.g. `RTS`, which just returns from
+a subroutine). The exact operands each instruction accepts are spelled
+out in its own "Syntax" column further down this page, in [Instruction
+Set (Opcodes)](#instruction-set-opcodes) — the template above is just
+the general shape they all follow.
+
 ## Addressing Modes
 
 An addressing mode is how an instruction says where an operand lives — a register, a memory address, or a constant baked right into the instruction. These are the modes wired in today:
