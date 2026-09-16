@@ -141,6 +141,8 @@ A first handful of real instructions is wired in, grouped below the way Motorola
 | `EXG` | `EXG Dx,Dy` / `EXG Ax,Ay` / `EXG Dx,Ay` | long | 6 | none | Swaps two full 32-bit registers — any mix of data and address registers. |
 | `MOVEM` | `MOVEM.size list,dst` / `MOVEM.size src,list` | word, long | see below | none | Moves any subset of the 16 registers to or from memory at once, picked by a bitmask. See [below](#how-does-movems-register-list-work) for the addressing modes, the bitmask order, and the cycle formula. |
 | `MOVEP` | `MOVEP.size Dx,(d16,Ay)` / `MOVEP.size (d16,Ay),Dx` | word, long | 16 (word), 24 (long) | none | Transfers a data register to/from alternating bytes of memory, for talking to an 8-bit peripheral over the 16-bit bus. See [below](#how-does-movep-transfer-alternating-bytes) for exactly which bytes and in what order. |
+| `MOVE SR` | `MOVE SR,dst` | word | 6 (`Dn`), 8 (mem) | none | Writes the 5 flags packed as a word (`X` at bit 4 down to `C` at bit 0) into `dst`. The high byte real hardware would report (supervisor bit, interrupt mask, trace bit) is always `0` here — see [below](#why-doesnt-this-emulator-implement-rtestopresetmove-sr). Not privileged on the real MC68000 this emulator targets, unlike `MOVE to SR`. |
+| `MOVE to CCR` | `MOVE src,CCR` | word | 12 | X, N, Z, V, C | Reads a word from `src` and sets the 5 flags from its low 5 bits, ignoring the rest. Never privileged on any 68000-family part. |
 
 ### Arithmetic
 
@@ -157,6 +159,7 @@ A first handful of real instructions is wired in, grouped below the way Motorola
 | `ADDQ`/`SUBQ` | `ADDQ #data,dst` / `SUBQ #data,dst` | byte, word, long | 4 | N, Z, V, C, X (`An`: none) | Adds/subtracts a small immediate (`1`-`8`) straight into `dst`, packed into the opcode itself. `dst = An` is always a full 32-bit op with no flags touched, regardless of size — same rule `MOVEA` follows. |
 | `CMP` | `CMP.size src,Dn` | byte, word, long | 4 | N, Z, V, C | Subtracts `src` from a data register like `SUB`, but only sets flags — the register itself is unchanged. Typically followed by a `Bcc`. |
 | `CMPI` | `CMPI.size #data,dst` | byte, word, long | 8/14 byte-word/long (`Dn`), 12/20 (mem) | N, Z, V, C | `CMP`'s immediate counterpart — compares an immediate directly against `dst` (`Dn` or memory), only sets flags, same as `CMP`. `X` untouched. |
+| `CMPM` | `CMPM (Ay)+,(Ax)+` | byte, word, long | 12/20 byte-word/long | N, Z, V, C | `CMP`'s memory-to-memory form — no register involved, both addresses postincrement. Computes `(Ax) - (Ay)`, only sets flags. `X` untouched. |
 | `CMPA` | `CMPA.size src,An` | word, long | 6 | N, Z, V, C | `CMP`'s `An`-destination form: compares the full 32-bit `An` against `src` (sign-extended if word), without modifying `An`. |
 | `CLR` | `CLR.size dst` | byte, word, long | 4 | N, Z, V (0), C (0) | Sets `dst` to `0`. |
 | `NEG` | `NEG.size dst` | byte, word, long | 4 | N, Z, V, C, X | Negates `dst` in place (two's complement: `dst = 0 - dst`). |
@@ -229,6 +232,7 @@ restriction, and cycle cost.
 | `JSR` | `JSR target` | word | 16 | none | Pushes the [return address](#what-is-a-return-address) onto the stack, then jumps to `target`. See [below](#which-addressing-modes-can-jsr-target) for which addressing modes are valid. |
 | `BSR` | `BSR target` | word | 18 | none | Like `JSR`, but PC-relative — pushes the [return address](#what-is-a-return-address), then always branches to `target`. |
 | `RTS` | `RTS` | word | 16 | none | Pops a [return address](#what-is-a-return-address) pushed by `JSR`/`BSR` and jumps there. |
+| `RTR` | `RTR` | word | 20 | X, N, Z, V, C | `RTS`'s sibling: pops a 16-bit word into the flags first (only the low 5 bits are used), then pops a return address and jumps there, same as `RTS`. Not tied to exceptions or supervisor mode — see [below](#why-doesnt-this-emulator-implement-rtestopresetmove-sr). |
 | `DBcc` | `DBcc Dn,target` | word | 10 / 12 / 14 | none | Tests condition `cc` (same table as `Bcc`), then either stops or loops back to `target`. See [below](#how-does-dbcc-decide) for exactly how, and what the three cycle counts mean. |
 | `Scc` | `Scc dst` | byte | 4 / 6 / 8 | none | Tests condition `cc` (same table as `Bcc`) and sets `dst` to `$FF` or `$00` — no branch, no arithmetic. See [below](#which-destinations-can-scc-use) for valid destinations and what the three cycle counts mean. |
 | `LINK` | `LINK An,#displacement` | word | 16 | none | Stack-frame prologue: pushes `An`, points `An` at the new frame, then moves `SP` by `displacement`. See [below](#how-do-link-and-unlk-handle-a7) for the `LINK A7`/`UNLK A7` special case. |
@@ -253,7 +257,7 @@ See [TRAP System Calls](#trap-system-calls) below for `TRAP`, and
 
 **B** — [Bcc](#program-control) · [BCHG](#bit-manipulation) · [BCLR](#bit-manipulation) · [BRA](#program-control) · [BSET](#bit-manipulation) · [BSR](#program-control) · [BTST](#bit-manipulation)
 
-**C** — [CHK](#program-control) · [CLR](#arithmetic) · [CMP](#arithmetic) · [CMPA](#arithmetic) · [CMPI](#arithmetic)
+**C** — [CHK](#program-control) · [CLR](#arithmetic) · [CMP](#arithmetic) · [CMPA](#arithmetic) · [CMPI](#arithmetic) · [CMPM](#arithmetic)
 
 **D** — [DBcc](#program-control) · [DIVS](#arithmetic) · [DIVU](#arithmetic)
 
@@ -265,7 +269,7 @@ See [TRAP System Calls](#trap-system-calls) below for `TRAP`, and
 
 **L** — [LEA](#data-movement) · [LINK](#program-control) · [LSL](#shift-and-rotate) · [LSR](#shift-and-rotate)
 
-**M** — [MOVE](#data-movement) · [MOVEA](#data-movement) · [MOVEM](#data-movement) · [MOVEP](#data-movement) · [MOVEQ](#data-movement) · [MULS](#arithmetic) · [MULU](#arithmetic)
+**M** — [MOVE](#data-movement) · [MOVEA](#data-movement) · [MOVEM](#data-movement) · [MOVEP](#data-movement) · [MOVEQ](#data-movement) · [MOVE SR](#data-movement) · [MOVE to CCR](#data-movement) · [MULS](#arithmetic) · [MULU](#arithmetic)
 
 **N** — [NBCD](#binary-coded-decimal) · [NEG](#arithmetic) · [NEGX](#arithmetic) · [NOP](#system) · [NOT](#logical)
 
@@ -273,7 +277,7 @@ See [TRAP System Calls](#trap-system-calls) below for `TRAP`, and
 
 **P** — [PEA](#data-movement)
 
-**R** — [ROL](#shift-and-rotate) · [ROR](#shift-and-rotate) · [ROXL](#shift-and-rotate) · [ROXR](#shift-and-rotate) · [RTS](#program-control)
+**R** — [ROL](#shift-and-rotate) · [ROR](#shift-and-rotate) · [ROXL](#shift-and-rotate) · [ROXR](#shift-and-rotate) · [RTR](#program-control) · [RTS](#program-control)
 
 **S** — [SBCD](#binary-coded-decimal) · [Scc](#program-control) · [SUB](#arithmetic) · [SUBA](#arithmetic) · [SUBI](#arithmetic) · [SUBQ](#arithmetic) · [SUBX](#arithmetic) · [SWAP](#data-movement)
 
@@ -569,31 +573,28 @@ every other exception on this page already uses.
 **Correction worth being explicit about:** `MOVE from SR` and `MOVE to
 CCR` are *not* privileged on the real MC68000 this emulator targets —
 `MOVE from SR` only became privileged starting with the 68010, and `MOVE
-to CCR`/`RTR` were never privileged at all. None of the three are
-blocked by anything above; they're simply not implemented yet, along
-with `CMPM` (compares two memory locations directly), the only other
-ordinary instruction that was never on any implementation list.
+to CCR`/`RTR` were never privileged at all. Both are implemented now
+(as `MOVE SR` and `MOVE to CCR` in the [Data Movement](#data-movement)
+table above), along with `CMPM` (see [Arithmetic](#arithmetic)),
+`RTR` (see [Program Control](#program-control)), and
+`ADDI`/`SUBI`/`ANDI`/`ORI`/`EORI`/`CMPI`/`ADDX`/`SUBX`/`NEGX` (see the
+[Arithmetic](#arithmetic)/[Logical](#logical) tables) — every ordinary
+instruction that was ever on this page's gap list.
 
-`ADDI`/`SUBI`/`ANDI`/`ORI`/`EORI`/`CMPI` — an immediate value directly
-against `<ea>`, no register involved, a different opcode from `ADD
-#imm,Dn` and friends — and `ADDX`/`SUBX`/`NEGX` — extend-carry
-arithmetic, the binary counterpart to `ABCD`/`SBCD`'s decimal chaining
-(see [above](#how-does-packed-bcd-arithmetic-work)) — *are* implemented
-now, see the [Arithmetic](#arithmetic)/[Logical](#logical) tables above.
-`ANDI`/`ORI`/`EORI`'s own `#imm,CCR`/`#imm,SR` special-case sub-forms
-are still missing, folded into the list below since they're a narrower
-version of the same gap.
+**One more correction:** an earlier version of this section also listed
+`MOVE from CCR` as missing — that instruction doesn't exist on the real
+MC68000 at all. Motorola only added it in the 68010, to give user
+programs a way to read the flags after `MOVE from SR` became privileged
+there. Nothing to implement.
 
-**Hand-encoding any of the remaining gaps today doesn't fail cleanly** —
-most run as a *different*, unrelated instruction instead of raising a
-clean error, because they happen to share bit patterns an
-already-implemented instruction's opcode entry doesn't exclude: `MOVE`
-to/from `CCR` runs as `NEG`. `ANDI`/`ORI`/`EORI` to `CCR`/`SR` now reach
-`ANDI`/`ORI`/`EORI`'s own general form (no longer silently `MOVE`),
-which then throws a generic error rather than doing anything meaningful
-— an improvement, but still not a clean, catchable exception. `RTR`
-fails loudly too, with an "Unknown instruction" error. Best avoided
-until they land.
+**One small gap remains**: `ANDI`/`ORI`/`EORI`'s own `#imm,CCR`
+special-case sub-forms (three exact opcodes, e.g. `ORI #imm,CCR` at
+`$003C`). Hand-encoding one today doesn't do anything meaningful — it
+reaches `ANDI`/`ORI`/`EORI`'s own general form (no longer silently
+`MOVE`, that bug is fixed), which then throws a generic error instead.
+An improvement over silently running as the wrong instruction, but not
+yet a clean, catchable exception. `ANDI`/`ORI`/`EORI #imm,SR` (the
+privileged sibling) reaches the same general form for the same reason.
 
 **Example** — add two numbers and write a white pixel, using a direct absolute address:
 

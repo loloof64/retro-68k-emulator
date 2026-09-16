@@ -55,6 +55,20 @@ function negxWord(size: 0b00 | 0b01 | 0b10, mode: number, reg: number) {
   return 0x4000 | (size << 6) | (mode << 3) | reg
 }
 
+function cmpmWord(destReg: number, size: 0b00 | 0b01 | 0b10, srcReg: number) {
+  return 0xb108 | (destReg << 9) | (size << 6) | srcReg
+}
+
+function moveToCcrWord(mode: number, reg: number) {
+  return 0x44c0 | (mode << 3) | reg
+}
+
+function moveFromSrWord(mode: number, reg: number) {
+  return 0x40c0 | (mode << 3) | reg
+}
+
+const RTR_WORD = 0x4e77
+
 function nbcdWord(mode: number, reg: number) {
   return 0x4800 | (mode << 3) | reg
 }
@@ -784,6 +798,43 @@ describe('ABCD/SBCD', () => {
   })
 })
 
+describe('MOVE SR,<ea>', () => {
+  it('reads the 5 flags back packed into a word, high byte always 0', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    cpu.status.C = true
+    cpu.status.V = false
+    cpu.status.Z = true
+    cpu.status.N = false
+    cpu.status.X = true
+    memory.write16(0x2000, moveFromSrWord(0b000, 0)) // MOVE SR,D0
+
+    const cycles = step(cpu, memory, opcodeTable)
+
+    expect(cpu.registers[Register.D0] & 0xffff).toBe(0b10101) // X,_,Z,_,C
+    expect(cycles).toBe(6)
+  })
+
+  it('writes to a memory destination', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.A0, 0x3000, 'long')
+    cpu.status.C = true
+    memory.write16(0x2000, moveFromSrWord(0b010, 0)) // MOVE SR,(A0)
+
+    const cycles = step(cpu, memory, opcodeTable)
+
+    expect(memory.read16(0x3000)).toBe(0b00001)
+    expect(cycles).toBe(8)
+  })
+
+  it('wins over NEGX for the shared opcode slot', () => {
+    const word = moveFromSrWord(0b000, 0)
+    const entry = opcodeTable.find((e) => (word & e.mask) === e.pattern)
+    expect(entry?.definition.mnemonic).toBe('MOVE')
+  })
+})
+
 describe('ADDX/SUBX/NEGX', () => {
   it('ADDX adds two registers plus X', () => {
     const cpu = createCPU(0x2000)
@@ -1403,6 +1454,49 @@ describe('XOR', () => {
   })
 })
 
+describe('CMPM', () => {
+  it('compares two postincrementing memory operands as (Ax) - (Ay), touching no writes', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.A0, 0x3000, 'long') // Ax (destination)
+    writeRegister(cpu, Register.A1, 0x4000, 'long') // Ay (source)
+    memory.write8(0x3000, 10)
+    memory.write8(0x4000, 10)
+    cpu.status.X = true
+    memory.write16(0x2000, cmpmWord(0, 0b00, 1)) // CMPM.B (A1)+,(A0)+
+
+    const cycles = step(cpu, memory, opcodeTable)
+
+    expect(cpu.status.Z).toBe(true) // 10 - 10 = 0
+    expect(cpu.status.X).toBe(true) // untouched, unlike SUBX
+    expect(memory.read8(0x3000)).toBe(10) // unwritten
+    expect(cpu.registers[Register.A0]).toBe(0x3001) // postincremented
+    expect(cpu.registers[Register.A1]).toBe(0x4001)
+    expect(cycles).toBe(12)
+  })
+
+  it('sets N/C when the destination is less than the source', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.A0, 0x3000, 'long')
+    writeRegister(cpu, Register.A1, 0x4000, 'long')
+    memory.write8(0x3000, 3)
+    memory.write8(0x4000, 5)
+    memory.write16(0x2000, cmpmWord(0, 0b00, 1)) // CMPM.B (A1)+,(A0)+: 3 - 5
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.status.N).toBe(true)
+    expect(cpu.status.C).toBe(true)
+  })
+
+  it('wins over XOR for the shared opcode slot', () => {
+    const word = cmpmWord(0, 0b01, 0)
+    const entry = opcodeTable.find((e) => (word & e.mask) === e.pattern)
+    expect(entry?.definition.mnemonic).toBe('CMPM')
+  })
+})
+
 describe('EXG', () => {
   it('exchanges two data registers', () => {
     const cpu = createCPU(0x2000)
@@ -2006,6 +2100,42 @@ describe('MOVEM', () => {
 
     expect(cpu.registers[Register.D0]).toBe(0x1234ff80) // EXT's effect
     expect(cpu.pc).toBe(0x2002) // EXT reads no extension word; MOVEM would have read a mask
+  })
+})
+
+describe('MOVE <ea>,CCR', () => {
+  it('sets the 5 flags from the low bits of a word, ignoring the rest', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.D0, 0xffff0000 | 0b10101, 'long') // high bits must be ignored
+    memory.write16(0x2000, moveToCcrWord(0b000, 0)) // MOVE D0,CCR
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.status.X).toBe(true)
+    expect(cpu.status.N).toBe(false)
+    expect(cpu.status.Z).toBe(true)
+    expect(cpu.status.V).toBe(false)
+    expect(cpu.status.C).toBe(true)
+  })
+
+  it('reads from a memory source and costs a flat 12 cycles', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.A0, 0x3000, 'long')
+    memory.write16(0x3000, 0b00010)
+    memory.write16(0x2000, moveToCcrWord(0b010, 0)) // MOVE (A0),CCR
+
+    const cycles = step(cpu, memory, opcodeTable)
+
+    expect(cpu.status.V).toBe(true)
+    expect(cycles).toBe(12)
+  })
+
+  it('wins over NEG for the shared opcode slot', () => {
+    const word = moveToCcrWord(0b000, 0)
+    const entry = opcodeTable.find((e) => (word & e.mask) === e.pattern)
+    expect(entry?.definition.mnemonic).toBe('MOVE')
   })
 })
 
@@ -3096,6 +3226,30 @@ describe('TRAPV', () => {
     memory.write16(0x2000, TRAPV_WORD)
 
     expect(() => step(cpu, memory, opcodeTable)).toThrow(/no handler installed/)
+  })
+})
+
+describe('RTR', () => {
+  it('pops the flags then the return address', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    const sp = 0x5000
+    writeRegister(cpu, Register.A7, sp, 'long')
+    // CCR word: X=1,N=0,Z=1,V=0,C=1 -> 0b10101
+    memory.write16(sp, 0b10101)
+    memory.write32(sp + 2, 0x3000)
+    memory.write16(0x2000, RTR_WORD)
+
+    const cycles = step(cpu, memory, opcodeTable)
+
+    expect(cpu.status.X).toBe(true)
+    expect(cpu.status.N).toBe(false)
+    expect(cpu.status.Z).toBe(true)
+    expect(cpu.status.V).toBe(false)
+    expect(cpu.status.C).toBe(true)
+    expect(cpu.pc).toBe(0x3000)
+    expect(cpu.registers[Register.A7]).toBe(sp + 6)
+    expect(cycles).toBe(20)
   })
 })
 

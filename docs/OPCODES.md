@@ -273,6 +273,47 @@ MOVEP.W D0,$0(A0)          ; write D0's low word, byte by byte
 MOVEP.W $0(A0),D1          ; read it back the same way
 ```
 
+### MOVE SR - Read the Status Register
+```
+MOVE SR,dst
+```
+
+Writes a word to `dst`: the low byte is the 5 flags packed the way real
+hardware's CCR is (`X` at bit 4 down to `C` at bit 0); the high byte —
+the supervisor bit, interrupt mask, trace bit real hardware would report
+— is always `0` here, since this emulator doesn't model any of that (see
+["Why doesn't this emulator implement RTE/STOP/RESET/MOVE SR?"](#why-doesnt-this-emulator-implement-rtestopresetmove-sr)).
+**Not privileged** on the real MC68000 this codebase targets — that only
+started with the 68010 — so it's implemented like any other
+data-movement instruction, unlike `MOVE <ea>,SR` (not implemented).
+
+**Sizes**: W
+**Cycles**: 6 (`Dn`), 8 (memory)
+**Flags**: None
+
+**Example**:
+```asm
+MOVE    SR,D0          ; D0's low byte = the 5 flags, CCR-packed
+```
+
+### MOVE to CCR - Load the Condition Codes
+```
+MOVE src,CCR
+```
+
+Reads a word from `src` and sets the 5 flags from its low 5 bits
+(`X`/`N`/`Z`/`V`/`C` from bit 4 down to bit 0), ignoring the rest. Never
+privileged on any 68000-family part.
+
+**Sizes**: W
+**Cycles**: 12
+**Flags**: X, N, Z, V, C (loaded from `src`)
+
+**Example**:
+```asm
+MOVE    D0,CCR         ; flags <- D0's low 5 bits
+```
+
 ## Arithmetic Operations
 
 ### ADD - Add
@@ -589,6 +630,31 @@ extension word.
 CMPI.W  #100,D0        ; compare D0 with 100
 BEQ     EQUAL
 CMPI.B  #0,(A0)        ; compare Memory[A0] with 0, no register
+```
+
+### CMPM - Compare Memory
+```
+CMPM (Ay)+,(Ax)+
+```
+
+`CMP`'s dedicated memory-to-memory form: no register involved on either
+side, both addresses postincrement. Computes `(Ax) - (Ay)` — same
+`src,dst` order as everywhere else on this page — and only sets flags,
+same as `CMP`/`CMPI`.
+
+**Addressing**: always postincrement on both operands — this is the one
+addressing mode `CMPM` supports, there's no room in the opcode for
+anything else.
+**Sizes**: B, W, L
+**Cycles**: 12 (byte/word), 20 (long)
+**Flags**: N, Z, V, C (`X` untouched, same as `CMP`)
+
+**Example** — compare one byte pair from two buffers and branch on it
+(each `CMPM` overwrites the flags, so comparing a whole multi-byte
+buffer needs a branch after *every* pair, not just the last):
+```asm
+CMPM.B  (A1)+,(A0)+    ; compare a byte, advance both pointers
+BNE     DIFFERENT      ; branches if this pair didn't match
 ```
 
 ### CMPA - Compare Address
@@ -1401,6 +1467,29 @@ MY_FUNC:
   RTS                  ; Return
 ```
 
+### RTR - Return and Restore Condition Codes
+```
+RTR
+```
+
+`RTS`'s sibling: pops a 16-bit word into the flags (only the low 5
+bits are used — `X`/`N`/`Z`/`V`/`C` from bit 4 down to bit 0, the real
+68000 CCR bit layout), then pops PC exactly like `RTS`. Not tied to the
+exception mechanism or supervisor mode at all — an ordinary,
+unprivileged instruction for restoring flags a routine saved earlier
+(e.g. with `MOVE <ea>,CCR` building the word by hand, since there's no
+"push flags" instruction of its own).
+
+**Cycles**: 20
+**Flags**: X, N, Z, V, C (loaded from the popped word)
+
+**Example**:
+```asm
+MOVE.W  #0b10101,-(A7)  ; hand-build a flags word (X,Z,C set)
+MOVE.L  #MY_FUNC,-(A7)  ; hand-build a return address
+RTR                     ; pop flags, then pc = MY_FUNC
+```
+
 ### LINK - Link and Allocate
 ```
 LINK An,#<displacement>
@@ -1541,59 +1630,56 @@ yet, same as the instructions below.
 
 ### Which opcodes aren't implemented, and what happens if you use one anyway?
 
-Beyond the privileged group above, a handful of ordinary instructions
-were never on any implementation list and aren't implemented either:
-`CMPM` (compares two memory locations directly, both post-incrementing),
-`RTR` (like `RTS`, but also restores the flags), and `MOVE` to/from
-`CCR`.
+Beyond the privileged group above, only one small gap is left:
+`ANDI`/`ORI`/`EORI`'s own `#imm,CCR` special-case sub-forms (three exact
+opcodes, e.g. `ORI #imm,CCR` at `$003C`) — everything else originally
+listed here has since been implemented.
 
 `ADDI`/`SUBI`/`ANDI`/`ORI`/`EORI`/`CMPI` (immediate operand directly
-against `<ea>`, no register involved — distinct opcodes from `ADD
-#imm,Dn` and friends, which are implemented as part of `ADD`'s normal
-`<ea>,Dn` form) and `ADDX`/`SUBX`/`NEGX` (extend-carry arithmetic — the
-counterpart `ABCD`/`SBCD`'s BCD forms already use for decimal numbers)
-*are* now implemented — see `ADDI`/`SUBI`/`CMPI`/`ADDX`/`SUBX`/`NEGX`
-under [Arithmetic Operations](#arithmetic-operations) and
-`ANDI`/`ORI`/`EORI` under [Logical Operations](#logical-operations)
-above. `ANDI`/`ORI`/`EORI`'s own `#imm,CCR`/`#imm,SR` special-case
-sub-forms are a separate exception, folded into the remaining-gaps list
-below for that reason.
+against `<ea>`, no register involved), `ADDX`/`SUBX`/`NEGX`
+(extend-carry arithmetic), `CMPM` (memory-to-memory compare), `RTR`
+(like `RTS`, but also restores the flags), and `MOVE SR`/`MOVE to CCR`
+(reading/loading the flags as a word) are all implemented now — see
+[Arithmetic Operations](#arithmetic-operations),
+[Logical Operations](#logical-operations),
+[Subroutine Control](#subroutine-control), and
+[Data Movement](#data-movement) above. **Correction from an earlier
+version of this section**: `MOVE from CCR` was listed here too, but
+that instruction doesn't exist on the real MC68000 this codebase
+targets at all — Motorola only added it in the 68010, to compensate for
+`MOVE from SR` becoming privileged there. Nothing to implement.
 
-**None of the remaining gaps fail cleanly.** Unlike a genuinely
+**The remaining gap doesn't fail cleanly.** Unlike a genuinely
 reserved/invalid encoding — which raises the catchable
 [Illegal Instruction exception](./MEMORY.md#cpu-exception-vector-table)
-the same way `ILLEGAL` does on purpose — most of these opcodes overlap
-an already-implemented instruction's `opcodeTable` entry, whose mask
-doesn't exclude them. The unimplemented opcode runs as whatever that
-broader entry happens to be, rather than erroring cleanly:
-
-| Real instruction | Currently runs as |
-|---|---|
-| `ANDI`/`ORI`/`EORI` to `CCR`/`SR` | `ANDI`/`ORI`/`EORI`'s own general form, which then throws `decodeEA`'s generic immediate-write error — no longer silently `MOVE`, but not a clean exception either |
-| `MOVE` to/from `CCR` | `NEG` |
-| `RTR` | throws `Unknown instruction` (fails loudly, no silent misdecode) |
+the same way `ILLEGAL` does on purpose — `ANDI`/`ORI`/`EORI #imm,CCR`
+reaches `ANDI`/`ORI`/`EORI`'s own general form (their `<ea>` decode
+treats the special `#imm,CCR` bit pattern as an ordinary, if strange,
+addressing mode), which then throws `decodeEA`'s generic immediate-write
+error rather than doing anything meaningful.
 
 This is the same root cause `ILLEGAL`'s own opcodeTable entry fixed for
 one specific case (see [ILLEGAL](#illegal---deliberately-raise-an-illegal-instruction)
 above): a broad, pre-existing entry's mask doesn't rule out a reserved
 bit pattern that real hardware assigns to something else entirely.
-**Don't hand-encode any of the opcodes in the table above** until they
-land — `MOVE` to/from `CCR` still fails silently (running as `NEG`);
-`ANDI`/`ORI`/`EORI` to `CCR`/`SR` and `RTR` at least throw now, but
-neither is a clean, catchable CPU exception yet.
+**Don't hand-encode `ANDI`/`ORI`/`EORI #imm,CCR`** until it lands — it
+throws instead of doing anything meaningful, at least, so this is no
+longer a *silent* misdecode, just not yet a clean, catchable exception.
+`ANDI`/`ORI`/`EORI #imm,SR` (the privileged sibling) reaches the same
+general form too, for the same reason.
 
 ## Instruction Summary Table
 
 | Category | Instructions |
 |----------|--------------|
-| Data Movement | MOVE, MOVEA, MOVEQ, MOVEM, MOVEP, LEA, PEA, SWAP, EXG |
-| Arithmetic | ADD, ADDI, ADDX, ADDA, SUB, SUBI, SUBX, SUBA, ADDQ, SUBQ, MUL, DIV, CMP, CMPI, CMPA, CLR, NEG, NEGX, TST, TAS, EXT |
+| Data Movement | MOVE, MOVEA, MOVEQ, MOVEM, MOVEP, MOVE SR, MOVE to CCR, LEA, PEA, SWAP, EXG |
+| Arithmetic | ADD, ADDI, ADDX, ADDA, SUB, SUBI, SUBX, SUBA, ADDQ, SUBQ, MUL, DIV, CMP, CMPI, CMPM, CMPA, CLR, NEG, NEGX, TST, TAS, EXT |
 | BCD | ABCD, SBCD, NBCD |
 | Logical | AND, ANDI, OR, ORI, XOR, EORI, NOT |
 | Bit | BTST, BCHG, BCLR, BSET |
 | Shift/Rotate | ASL, ASR, LSL, LSR, ROL, ROR, ROXL, ROXR |
 | Branches | BRA, JMP, BEQ, BNE, BLT, BLE, BGT, BGE, BHI, BLS, BCS, BCC, BVS, BVC, BPL, BMI, DBcc (DBRA/DBF, DBT, DBEQ, DBNE, ...), Scc (SEQ, SNE, ST, SF, ...), CHK |
-| Subroutines | JSR, BSR, RTS, LINK, UNLK |
+| Subroutines | JSR, BSR, RTS, RTR, LINK, UNLK |
 | System | TRAP, NOP, ILLEGAL, TRAPV |
 
 ## Alphabetical Index
@@ -1611,7 +1697,7 @@ each.
 
 **B** — [BCC](#conditional-branches) · [BCHG](#bchgbclrbset---changeclearset-bit) · [BCLR](#bchgbclrbset---changeclearset-bit) · [BCS](#conditional-branches) · [BEQ](#conditional-branches) · [BGE](#conditional-branches) · [BGT](#conditional-branches) · [BHI](#conditional-branches) · [BLE](#conditional-branches) · [BLS](#conditional-branches) · [BLT](#conditional-branches) · [BMI](#conditional-branches) · [BNE](#conditional-branches) · [BPL](#conditional-branches) · [BRA](#bra---branch-always) · [BSET](#bchgbclrbset---changeclearset-bit) · [BSR](#bsr---branch-to-subroutine) · [BTST](#btst---test-bit) · [BVC](#conditional-branches) · [BVS](#conditional-branches)
 
-**C** — [CHK](#chk---check-register-against-bounds) · [CLR](#clr---clear) · [CMP](#cmp---compare) · [CMPA](#cmpa---compare-address) · [CMPI](#cmpi---compare-immediate)
+**C** — [CHK](#chk---check-register-against-bounds) · [CLR](#clr---clear) · [CMP](#cmp---compare) · [CMPA](#cmpa---compare-address) · [CMPI](#cmpi---compare-immediate) · [CMPM](#cmpm---compare-memory)
 
 **D** — [DBCC](#dbcc---decrement-and-branch-conditionally) · [DBCS](#dbcc---decrement-and-branch-conditionally) · [DBEQ](#dbcc---decrement-and-branch-conditionally) · [DBGE](#dbcc---decrement-and-branch-conditionally) · [DBGT](#dbcc---decrement-and-branch-conditionally) · [DBHI](#dbcc---decrement-and-branch-conditionally) · [DBLE](#dbcc---decrement-and-branch-conditionally) · [DBLS](#dbcc---decrement-and-branch-conditionally) · [DBLT](#dbcc---decrement-and-branch-conditionally) · [DBMI](#dbcc---decrement-and-branch-conditionally) · [DBNE](#dbcc---decrement-and-branch-conditionally) · [DBPL](#dbcc---decrement-and-branch-conditionally) · [DBRA](#dbcc---decrement-and-branch-conditionally) · [DBT](#dbcc---decrement-and-branch-conditionally) · [DBVC](#dbcc---decrement-and-branch-conditionally) · [DBVS](#dbcc---decrement-and-branch-conditionally) · [DIVS](#div---divide) · [DIVU](#div---divide)
 
@@ -1623,7 +1709,7 @@ each.
 
 **L** — [LEA](#lea---load-effective-address) · [LINK](#link---link-and-allocate) · [LSL](#lsllsr---logical-shift) · [LSR](#lsllsr---logical-shift)
 
-**M** — [MOVE](#move---move-data) · [MOVEA](#movea---move-address) · [MOVEM](#movem---move-multiple-registers) · [MOVEP](#movep---move-peripheral-data) · [MOVEQ](#moveq---move-quick) · [MULS](#mul---multiply) · [MULU](#mul---multiply)
+**M** — [MOVE](#move---move-data) · [MOVEA](#movea---move-address) · [MOVEM](#movem---move-multiple-registers) · [MOVEP](#movep---move-peripheral-data) · [MOVEQ](#moveq---move-quick) · [MOVE SR](#move-sr---read-the-status-register) · [MOVE to CCR](#move-to-ccr---load-the-condition-codes) · [MULS](#mul---multiply) · [MULU](#mul---multiply)
 
 **N** — [NBCD](#nbcd---negate-decimal-with-extend) · [NEG](#neg---negate) · [NEGX](#negx---negate-extended) · [NOP](#nop---no-operation) · [NOT](#not---bitwise-not)
 
@@ -1631,7 +1717,7 @@ each.
 
 **P** — [PEA](#pea---push-effective-address)
 
-**R** — [ROL](#rolror---rotate) · [ROR](#rolror---rotate) · [ROXL](#roxlroxr---rotate-through-extend) · [ROXR](#roxlroxr---rotate-through-extend) · [RTS](#rts---return-from-subroutine)
+**R** — [ROL](#rolror---rotate) · [ROR](#rolror---rotate) · [ROXL](#roxlroxr---rotate-through-extend) · [ROXR](#roxlroxr---rotate-through-extend) · [RTR](#rtr---return-and-restore-condition-codes) · [RTS](#rts---return-from-subroutine)
 
 **S** — [SBCD](#sbcd---subtract-decimal-with-extend) · [SCC](#scc---set-conditionally) · [SEQ](#scc---set-conditionally) · [SF](#scc---set-conditionally) · [SGE](#scc---set-conditionally) · [SGT](#scc---set-conditionally) · [SHI](#scc---set-conditionally) · [SLE](#scc---set-conditionally) · [SLS](#scc---set-conditionally) · [SLT](#scc---set-conditionally) · [SMI](#scc---set-conditionally) · [SNE](#scc---set-conditionally) · [SPL](#scc---set-conditionally) · [ST](#scc---set-conditionally) · [SUB](#sub---subtract) · [SUBA](#suba---subtract-address) · [SUBI](#subi---subtract-immediate) · [SUBQ](#addqsubq---addsubtract-quick) · [SUBX](#subx---subtract-extended) · [SVC](#scc---set-conditionally) · [SVS](#scc---set-conditionally) · [SWAP](#swap---swap-register-halves)
 

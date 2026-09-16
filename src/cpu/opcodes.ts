@@ -875,6 +875,37 @@ const TRAPV: OpcodeDefinition = {
   },
 }
 
+// --- RTR ($4E77) - pop the flags, then the return address ---------------
+//
+// RTS's sibling: pops a 16-bit CCR-shaped word (only the low 5 bits are
+// meaningful - X,N,Z,V,C from bit4 down to bit0, matching the real 68000
+// CCR bit layout) into the flags, then pops PC exactly like RTS. Unlike
+// RTE, this isn't tied to the exception mechanism or supervisor mode at
+// all (see docs/OPCODES.md's "Why doesn't this emulator implement RTE/
+// STOP/RESET/MOVE SR?") - it's an ordinary, unprivileged instruction any
+// program can use to restore flags it saved earlier (e.g. with MOVE
+// <ea>,CCR building the word by hand, or a manual push), the same way
+// RTS restores PC.
+
+const RTR: OpcodeDefinition = {
+  mnemonic: 'RTR',
+  encoding: '0100111001110111',
+  size: 'word',
+  handler: (cpu: CPUState, memory: Memory) => {
+    const sp = readRegister(cpu, Register.A7, 'long')
+    const ccr = memory.read16(sp)
+    cpu.status.C = (ccr & 0b00001) !== 0
+    cpu.status.V = (ccr & 0b00010) !== 0
+    cpu.status.Z = (ccr & 0b00100) !== 0
+    cpu.status.N = (ccr & 0b01000) !== 0
+    cpu.status.X = (ccr & 0b10000) !== 0
+    cpu.pc = memory.read32(sp + 2)
+    writeRegister(cpu, Register.A7, sp + 6, 'long')
+
+    return 20
+  },
+}
+
 // --- LINK An,#<displacement> ($4E50-$4E57) -------------------------------
 //
 // Classic stack-frame prologue: pushes An, points An at the new frame,
@@ -1292,6 +1323,49 @@ const XOR: OpcodeDefinition = {
   },
 }
 
+// --- CMPM (Ay)+,(Ax)+ ($B108-$B1FF) - compare two memory operands -------
+//
+// `CMP`'s dedicated memory-to-memory form: always postincrement on both
+// sides, no register operand at all - computes (Ax) - (Ay), same "src,
+// dst" order every other instruction here uses, and only sets flags like
+// CMP (X untouched). `Ay` postincrements first, then `Ax` - "source
+// before destination", the same convention ABCD/SBCD/ADDX/SUBX use for
+// their own dual-operand forms, though the two increments are only
+// actually observable in that order if Ax and Ay happen to be the same
+// register.
+//
+// Shares opcode space with XOR (`Dn,<ea>`) at the bit level, the same way
+// ADDX/SUBX share space with ADD/SUB's own memory-destination forms:
+// XOR's own `<ea>` is unrestricted in this codebase (see decodeDnAndEa
+// above - it doesn't even exclude `An`, a pre-existing gap), so its mask
+// would otherwise swallow CMPM's words too. CMPM's narrower entry has to
+// be listed first.
+
+const CMPM: OpcodeDefinition = {
+  mnemonic: 'CMPM',
+  encoding: '1011xxx1ss001yyy',
+  size: 'variable',
+  handler: (cpu: CPUState, memory: Memory, args: unknown[]) => {
+    const opcodeWord = opcodeWordOf(args)
+    const destReg = (opcodeWord >> 9) & 0b111
+    const size = decodeStandardOpSize((opcodeWord >> 6) & 0b11)
+    const srcReg = opcodeWord & 0b111
+
+    const src = decodeEA(cpu, memory, 0b011, srcReg, size)
+    const dest = decodeEA(cpu, memory, 0b011, destReg, size)
+
+    const { flags } = subWithFlags(dest.read(), src.read(), size)
+
+    cpu.status.N = flags.N
+    cpu.status.Z = flags.Z
+    cpu.status.V = flags.V
+    cpu.status.C = flags.C
+    // X untouched, same as CMP.
+
+    return size === 'long' ? 20 : 12
+  },
+}
+
 // --- EXG Rx,Ry ($C140/$C148/$C188) - exchange two registers -------------
 //
 // Swaps two full 32-bit registers in one instruction - `Dx,Dy`, `Ax,Ay`,
@@ -1631,6 +1705,43 @@ const NOT: OpcodeDefinition = {
   },
 }
 
+// --- MOVE SR,<ea> ($40C0-$40FF) - read back the flags as a word --------
+//
+// Real 68000: reads the full 16-bit SR (supervisor bit, interrupt mask,
+// trace bit, and the CCR low byte). This emulator only ever models the
+// CCR half - see docs/OPCODES.md's "Why doesn't this emulator implement
+// RTE/STOP/RESET/MOVE SR?" - so the high byte here is always 0 rather
+// than reporting fictional supervisor-mode state. Not privileged on the
+// real MC68000 this codebase targets (that only started with the 68010),
+// so it's implemented like any other data-movement instruction.
+//
+// Shares NEGX's `$4000`-`$40FF` byte at the bit level, reusing the
+// reserved size=`11` slot NEGX's own byte/word/long encoding never
+// produces - same trick EXT/MOVEM and TAS/TST use - so this narrower
+// entry has to be listed before NEGX's broader one in opcodeTable.
+
+const MOVE_FROM_SR: OpcodeDefinition = {
+  mnemonic: 'MOVE',
+  encoding: '0100000011mmmrrr',
+  size: 'word',
+  handler: (cpu: CPUState, memory: Memory, args: unknown[]) => {
+    const opcodeWord = opcodeWordOf(args)
+    const mode = (opcodeWord >> 3) & 0b111
+    const reg = opcodeWord & 0b111
+
+    const ea = decodeEA(cpu, memory, mode, reg, 'word')
+    const ccr =
+      (cpu.status.C ? 0b00001 : 0) |
+      (cpu.status.V ? 0b00010 : 0) |
+      (cpu.status.Z ? 0b00100 : 0) |
+      (cpu.status.N ? 0b01000 : 0) |
+      (cpu.status.X ? 0b10000 : 0)
+    ea.write(ccr)
+
+    return mode === 0b000 ? 6 : 8
+  },
+}
+
 // --- NEGX <ea> ($4000) - dst = 0 - dst - X, ADDX/SUBX's single-operand --
 //
 // sibling: same "extend" chaining as ADDX/SUBX (X threaded in, Z cleared
@@ -1859,6 +1970,39 @@ const MOVEM: OpcodeDefinition = {
     if (addrRegToWriteBack !== null) writeRegister(cpu, addrRegToWriteBack, address, 'long')
 
     return (loadToRegisters ? 12 : 8) + cyclesPerReg * count
+  },
+}
+
+// --- MOVE <ea>,CCR ($44C0-$44FF) - load the flags from a word ----------
+//
+// Reads a word from `<ea>` and sets the 5 flags from its low 5 bits
+// (X,N,Z,V,C from bit4 down to bit0 - the real 68000 CCR bit layout),
+// ignoring the rest. Never privileged on any 68000-family part, unlike
+// `MOVE <ea>,SR` (not implemented - see docs/OPCODES.md's "Why doesn't
+// this emulator implement RTE/STOP/RESET/MOVE SR?").
+//
+// Shares NEG's `$4400`-`$44FF` byte, reusing the reserved size=`11` slot
+// the same way `MOVE SR,<ea>` reuses NEGX's - this narrower entry has to
+// be listed before NEG's broader one in opcodeTable.
+
+const MOVE_TO_CCR: OpcodeDefinition = {
+  mnemonic: 'MOVE',
+  encoding: '0100010011mmmrrr',
+  size: 'word',
+  handler: (cpu: CPUState, memory: Memory, args: unknown[]) => {
+    const opcodeWord = opcodeWordOf(args)
+    const mode = (opcodeWord >> 3) & 0b111
+    const reg = opcodeWord & 0b111
+
+    const ea = decodeEA(cpu, memory, mode, reg, 'word')
+    const ccr = ea.read()
+    cpu.status.C = (ccr & 0b00001) !== 0
+    cpu.status.V = (ccr & 0b00010) !== 0
+    cpu.status.Z = (ccr & 0b00100) !== 0
+    cpu.status.N = (ccr & 0b01000) !== 0
+    cpu.status.X = (ccr & 0b10000) !== 0
+
+    return 12
   },
 }
 
@@ -2644,8 +2788,10 @@ export const opcodeTable: readonly OpcodeEntry[] = [
   { mask: 0xff00, pattern: 0x0a00, definition: EORI },
   { mask: 0xff00, pattern: 0x0c00, definition: CMPI },
   { mask: 0xff00, pattern: 0x4600, definition: NOT },
+  { mask: 0xffc0, pattern: 0x40c0, definition: MOVE_FROM_SR },
   { mask: 0xff00, pattern: 0x4000, definition: NEGX },
   { mask: 0xff00, pattern: 0x4200, definition: CLR },
+  { mask: 0xffc0, pattern: 0x44c0, definition: MOVE_TO_CCR },
   { mask: 0xff00, pattern: 0x4400, definition: NEG },
   { mask: 0xffc0, pattern: 0x4800, definition: NBCD },
   { mask: 0xffff, pattern: 0x4afc, definition: ILLEGAL },
@@ -2657,6 +2803,7 @@ export const opcodeTable: readonly OpcodeEntry[] = [
   { mask: 0xfb80, pattern: 0x4880, definition: MOVEM },
   { mask: 0xffff, pattern: 0x4e75, definition: RTS },
   { mask: 0xffff, pattern: 0x4e76, definition: TRAPV },
+  { mask: 0xffff, pattern: 0x4e77, definition: RTR },
   { mask: 0xfff8, pattern: 0x4e50, definition: LINK },
   { mask: 0xfff8, pattern: 0x4e58, definition: UNLK },
   { mask: 0xffc0, pattern: 0x4e80, definition: JSR },
@@ -2689,6 +2836,7 @@ export const opcodeTable: readonly OpcodeEntry[] = [
   { mask: 0xf130, pattern: 0x9100, definition: SUBX },
   { mask: 0xf100, pattern: 0x9100, definition: SUB_MEM },
   { mask: 0xf100, pattern: 0xb000, definition: CMP },
+  { mask: 0xf138, pattern: 0xb108, definition: CMPM },
   { mask: 0xf100, pattern: 0xb100, definition: XOR },
   { mask: 0xf1c0, pattern: 0xc0c0, definition: MULU },
   { mask: 0xf1c0, pattern: 0xc1c0, definition: MULS },
