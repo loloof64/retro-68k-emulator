@@ -183,8 +183,15 @@ function markdownToHtml(markdown, filenameToId = {}) {
   html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
   html = html.replace(/\*(.*?)\*/g, '<em>$1</em>')
 
-  // Convert relative .md links to internal anchors for PDF generation
-  html = html.replace(/\[(.*?)\]\((\.\/)?([A-Za-z_-]+)\.md(#[^\)]*?)?\)/g, (match, text, _slash, filename, anchor) => {
+  // Convert relative .md links to internal anchors for PDF generation.
+  // Text and path groups are restricted away from `]`/`)` (no lazy `.*?`)
+  // so a link that fails to match here (e.g. an unhandled path shape)
+  // can't make this pattern backtrack across unrelated content looking for
+  // a later `.md` link to complete itself with — that previously spliced
+  // two unrelated adjacent links into one, e.g. a `./user/PRESENTATION.md`
+  // path (subdirectory, which the old prefix group couldn't express) got
+  // absorbed into the next successfully-matching link far below it.
+  html = html.replace(/\[([^\]]*)\]\(((?:\.\/)?(?:[A-Za-z_-]+\/)*)([A-Za-z_-]+)\.md(#[^\)]*)?\)/g, (_match, text, prefix, filename, anchor) => {
     const targetId = filenameToId[`${filename}.md`]
     if (targetId) {
       // If there's an internal anchor like #section, preserve it; otherwise use the section ID
@@ -192,11 +199,11 @@ function markdownToHtml(markdown, filenameToId = {}) {
       return `<a href="${href}">${text}</a>`
     }
     // Fall back to the original href if not in our document structure
-    return `<a href="${match.slice(1, -1)}">${text}</a>`
+    return `<a href="${prefix}${filename}.md${anchor || ''}">${text}</a>`
   })
 
   // General link handler (for any other links)
-  html = html.replace(/\[(.*?)\]\(((?!\.\/)[^\)]+)\)/g, '<a href="$2">$1</a>')
+  html = html.replace(/\[([^\]]*)\]\(((?!\.\/)[^\)]+)\)/g, '<a href="$2">$1</a>')
 
   html = html.replace(/\n\n/g, '</p><p>')
   html = `<p>${html}</p>`

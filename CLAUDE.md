@@ -71,19 +71,26 @@ docs:pdf:user`.
   `.zip` (exe + DLLs) alongside the installer-based release, for both
   `.github/workflows/build.yml` and `docs/user/DOWNLOAD.md`. No release
   has shipped at all yet, so this is a planning item, not a regression.
-- **Known live bug, not yet fixed**: `scripts/lib/docs-html.js`'s
-  cross-file-link regex (~line 187) can backtrack across unrelated
-  content — a same-file `[text](#anchor)` link immediately followed
-  (anywhere later in the *whole* generated document, not just the same
-  paragraph) by a `[text](other.md#anchor)` link gets its `]( ... )`
-  swallowed into one broken anchor spanning both. Confirmed instances:
-  `docs/README.md`'s `[CONTRIBUTING.md](./CONTRIBUTING.md)` link and
-  `docs/MEMORY.md`'s `[Presentation](./user/PRESENTATION.md)` link (both
-  still broken, low-impact). Workaround used so far: avoid the collision
-  by not putting a same-file-anchor link directly before a `.md`-style
-  link in the same doc; a real fix means reordering/tightening the two
-  regexes in `scripts/lib/docs-html.js`. See "Doc workflow" below for how
-  to check for this before shipping a doc change.
+- **Fixed**: `scripts/lib/docs-html.js`'s cross-file-link regex (line
+  187) used to have two bugs. (1) Its lazy, unrestricted text-capture
+  group `(.*?)` could backtrack across unrelated content when a link's
+  path didn't match the pattern (e.g. a multi-level relative path like
+  `./user/PRESENTATION.md` — the old `(\.\/)?` prefix only allowed a
+  single `./`, not a subdirectory), swallowing everything up to the next
+  successfully-matching `.md` link into one broken anchor spanning both.
+  (2) Its fallback branch (for links to files outside the current
+  document's `filenameToId` map, e.g. `CONTRIBUTING.md`) built the href
+  via `match.slice(1, -1)`, which naively stripped only the outer `[`/`)`
+  and left the inner `](` glued into the href string. Fixed by
+  restricting the text/path capture groups to exclude `]`/`)` (no more
+  runaway backtracking) and widening the path group to accept
+  subdirectories, plus reconstructing the fallback href from the
+  captured groups instead of slicing the raw match. Verified via the
+  stray-`](` HTML scan (see "Doc workflow" below) and by visually
+  inspecting the regenerated PDF pages for both previously-confirmed
+  instances (`docs/README.md`'s `CONTRIBUTING.md` link, `docs/MEMORY.md`'s
+  `Presentation` link) — both now render as clean, correctly-bounded
+  links.
 
 ## Workflow: adding a CPU opcode, TRAP, or memory-mapped feature
 
