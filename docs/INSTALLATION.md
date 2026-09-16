@@ -87,6 +87,18 @@ npx puppeteer browsers install chrome-headless-shell
 
 Skip this and the PDFs still build fine — a missing `mmdc` or a missing browser just falls back to rendering the diagram's literal Mermaid source as a plain code block instead of failing the build (`scripts/lib/docs-html.js`'s `renderMermaidToImage`). The diagram still renders normally as an actual diagram wherever the `.md` file itself is viewed with Mermaid support (GitHub, VS Code with a Mermaid extension, etc.) regardless of whether this step has been done.
 
+### Verifying a PDF's rendering (recommended, not required)
+
+WeasyPrint doesn't wrap long lines inside a `<pre>`/code-block (`overflow-x: auto` is ignored, printing a build warning every time) and its own "No anchor" warnings are the only signal for a broken cross-reference link — actually looking at a few rendered pages after any doc change catches both. `poppler-utils` gives two small CLI tools for that:
+
+```bash
+sudo apt install poppler-utils    # Debian/Ubuntu
+# or: brew install poppler        # macOS
+```
+
+- `pdftoppm -png -r 100 -f <page> -l <page> dist-docs/Retro68K-Documentation.pdf out` renders one or more pages to PNG, viewable with any image tool (or Claude's `Read` tool).
+- `pdftotext -layout dist-docs/Retro68K-Documentation.pdf -` dumps the PDF's text with page breaks (`\f`) preserved — useful for `awk`/`grep`-ing a heading to its page number before rendering just that page.
+
 ## Development Mode
 
 Run the app as a native window with hot-reload, instead of a browser tab:
