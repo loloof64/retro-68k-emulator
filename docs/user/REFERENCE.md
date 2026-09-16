@@ -161,10 +161,10 @@ A first handful of real instructions is wired in, grouped below the way Motorola
 | `CMPI` | `CMPI.size #data,dst` | byte, word, long | 8/14 byte-word/long (`Dn`), 12/20 (mem) | N, Z, V, C | `CMP`'s immediate counterpart — compares an immediate directly against `dst` (`Dn` or memory), only sets flags, same as `CMP`. `X` untouched. |
 | `CMPM` | `CMPM (Ay)+,(Ax)+` | byte, word, long | 12/20 byte-word/long | N, Z, V, C | `CMP`'s memory-to-memory form — no register involved, both addresses postincrement. Computes `(Ax) - (Ay)`, only sets flags. `X` untouched. |
 | `CMPA` | `CMPA.size src,An` | word, long | 6 | N, Z, V, C | `CMP`'s `An`-destination form: compares the full 32-bit `An` against `src` (sign-extended if word), without modifying `An`. |
-| `CLR` | `CLR.size dst` | byte, word, long | 4 | N, Z, V (0), C (0) | Sets `dst` to `0`. |
-| `NEG` | `NEG.size dst` | byte, word, long | 4 | N, Z, V, C, X | Negates `dst` in place (two's complement: `dst = 0 - dst`). |
+| `CLR` | `CLR.size dst` | byte, word, long | 4 | N, Z, V (0), C (0) | Sets `dst` to `0`. An address register isn't a valid `dst` — that raises the [Illegal Instruction exception](#exceptions). |
+| `NEG` | `NEG.size dst` | byte, word, long | 4 | N, Z, V, C, X | Negates `dst` in place (two's complement: `dst = 0 - dst`). An address register isn't a valid `dst` — that raises the [Illegal Instruction exception](#exceptions). |
 | `NEGX` | `NEGX.size dst` | byte, word, long | 4 | N, Z (see below), V, C, X | `NEG`'s extend-carry sibling, `ADDX`/`SUBX`'s single-operand relative: `dst = 0 - dst - X`. |
-| `TST` | `TST.size dst` | byte, word, long | 4 | N, Z, V (0), C (0) | Sets flags from `dst`, like `CMP.size #0,dst` — doesn't modify it. |
+| `TST` | `TST.size dst` | byte, word, long | 4 | N, Z, V (0), C (0) | Sets flags from `dst`, like `CMP.size #0,dst` — doesn't modify it. An address register isn't a valid `dst` — that raises the [Illegal Instruction exception](#exceptions). |
 | `TAS` | `TAS dst` | byte | 4 (`Dn`), 14 (memory) | N, Z (from the value read), V (0), C (0) | Like `TST.B`, but also sets `dst`'s bit 7 to `1` afterward — a "busy" flag for a spinlock. See [below](#how-does-tas-work-as-a-lock) for the idiom. |
 | `EXT` | `EXT.size Dn` | word, long | 4 | N, Z, V (0), C (0) | Sign-extends `Dn`: `.W` extends the low byte into the low word (high word untouched); `.L` extends the low word into the full long. |
 | `MULU` | `MULU.W src,Dn` | word (source) | 70 | N, Z, V (0), C (0) | Unsigned multiply: `Dn = src × Dn.W`, full 32-bit result in `Dn`. |
@@ -193,7 +193,7 @@ A first handful of real instructions is wired in, grouped below the way Motorola
 | `XOR` | `XOR.size Dn,dst` | byte, word, long | 4 | N, Z, V (0), C (0) | Bitwise XORs a data register into `dst` — the one bitwise op where the *source* is always `Dn` and `dst` can be memory. |
 | `EORI` | `EORI.size #data,dst` | byte, word, long | 8/16 byte-word/long (`Dn`), 16/28 (mem) | N, Z, V (0), C (0) | `XOR`'s immediate counterpart (real mnemonic `EOR`) — XORs an immediate directly into `dst`, no register on the source side. |
 | `EORI to CCR` | `EORI #data,CCR` | byte | 20 | X, N, Z, V, C | `ANDI to CCR`'s XOR counterpart — XORs an immediate directly into the flags. |
-| `NOT` | `NOT.size dst` | byte, word, long | 4 | N, Z, V (0), C (0) | Bitwise inverts `dst` in place (one's complement: `dst = ~dst`). |
+| `NOT` | `NOT.size dst` | byte, word, long | 4 | N, Z, V (0), C (0) | Bitwise inverts `dst` in place (one's complement: `dst = ~dst`). An address register isn't a valid `dst` — that raises the [Illegal Instruction exception](#exceptions). |
 
 ### Bit Manipulation
 
@@ -362,8 +362,6 @@ Same as `BTST` — the bit is located and its old value drives `Z` — but inste
 | `BSET` | 12 | 8 | 12 |
 
 `BCLR`'s register-form cycle count is genuinely higher than `BCHG`/`BSET`'s on real 68000 hardware in both forms — not a typo.
-
-**A pre-existing quirk, unrelated to this table**: this emulator's static `BTST`'s own register-form cycle count is actually `4`, not the `10` real hardware uses (a known inaccuracy, kept as-is rather than changed as a drive-by fix — see the source comment on `BTST`'s handler in `src/cpu/opcodes.ts` if this ever gets revisited). The dynamic form's `6` and every other value in this table are accurate.
 
 ### Which Bcc do I want?
 
@@ -702,7 +700,7 @@ hasn't implemented yet, which would run fine on real hardware.
 | Vector | Address | Raised by | Description |
 |---|---|---|---|
 | Zero Divide | `$40` | `DIVU`/`DIVS` with a zero divisor | Jumps to the handler address stored at `$40`. |
-| Illegal Instruction | `$44` | `MOVE.B` to an address register; `BTST`/`CHK` targeting one; `ILLEGAL` | Jumps to the handler address stored at `$44`. The first three are reserved/undefined encodings on real 68000 hardware, not missing features; `ILLEGAL` raises this same one deliberately — see [System](#system) above. |
+| Illegal Instruction | `$44` | `MOVE.B` to an address register; `BTST`/`CHK`/`CLR`/`NEG`/`NOT`/`TST` targeting one; `ILLEGAL` | Jumps to the handler address stored at `$44`. Every cause but the last is a reserved/undefined encoding on real 68000 hardware, not a missing feature; `ILLEGAL` raises this same one deliberately — see [System](#system) above. |
 | CHK | `$48` | `CHK`'s bounds check failing (`Dn < 0` or `Dn >` the upper bound) | Jumps to the handler address stored at `$48`. See [CHK](#program-control) above. |
 | TRAPV | `$4C` | `TRAPV` executed with `V` set | Jumps to the handler address stored at `$4C`. See [System](#system) above. |
 

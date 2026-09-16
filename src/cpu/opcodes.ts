@@ -1001,13 +1001,7 @@ const BTST: OpcodeDefinition = {
 
     cpu.status.Z = ((value >>> bitNumber) & 1) === 0
 
-    // Known inaccuracy, not fixed here: real hardware's register-operand
-    // cost is 10, not 4 (the memory-operand cost of 8 is correct). Left
-    // as-is rather than drive-by-fixed - see BTST_DYNAMIC below, whose
-    // own register-operand cost (6, genuinely cheaper since it skips this
-    // form's extension-word fetch) is correct and shouldn't be confused
-    // with this one.
-    return isRegisterOperand ? 4 : 8
+    return isRegisterOperand ? 10 : 8
   },
 }
 
@@ -1654,10 +1648,12 @@ function decodeByteWordLongSize(bits: number): Size {
 // SUB_MEM/etc. above, `Dn` *is* valid here (there's no separate register
 // form to collide with the way there is for ADD/SUB/AND/OR), so this
 // reuses plain `decodeEA` rather than `decodeMemAlterableEA`. `An` direct
-// isn't a valid destination on real hardware, but - like CLR/NEG/NOT/TST
-// above - that isn't explicitly guarded here either; decodeEA treats it
-// as an ordinary writable register regardless of which instruction called
-// it, the same pre-existing gap those four share.
+// isn't a valid destination on real hardware either, but - unlike CLR/
+// NEG/NOT/TST above, which now explicitly reject it - that isn't guarded
+// here yet; decodeEA still treats it as an ordinary writable register.
+// Not fixed as part of any single feature so far, so still a real,
+// if minor, gap - worth revisiting together with the other five of this
+// family (see decodeImmediateAndEa below) if this ever comes up again.
 //
 // The immediate is read *before* `<ea>` is decoded, matching real
 // hardware's instruction layout: opcode word, then the immediate data,
@@ -1671,10 +1667,8 @@ function decodeByteWordLongSize(bits: number): Size {
 // emulator implement RTE/STOP/RESET/MOVE SR?"). The `,SR` encodings are
 // still left unhandled rather than silently misdecoded: decodeEA's own
 // #imm case still consumes an extension word and then throws on
-// `ea.write()`, the same "genuinely invalid destination raises a plain
-// error, not a clean CPU exception" gap CLR/NEG/NOT/TST already have for
-// their own `An` case above - not silently wrong, just not yet a
-// catchable Illegal Instruction either.
+// `ea.write()` - not silently wrong, just not yet a catchable Illegal
+// Instruction either.
 
 function decodeImmediateAndEa(cpu: CPUState, memory: Memory, opcodeWord: number) {
   const size = decodeByteWordLongSize((opcodeWord >> 6) & 0b11)
@@ -1862,6 +1856,12 @@ const NOT: OpcodeDefinition = {
     const mode = (opcodeWord >> 3) & 0b111
     const reg = opcodeWord & 0b111
 
+    if (mode === 0b001) {
+      // Reserved encoding, same as CLR/NEG/TST below - see CLR's comment.
+      raiseException(cpu, memory, ILLEGAL_INSTRUCTION_VECTOR, 'Illegal Instruction')
+      return 34
+    }
+
     const ea = decodeEA(cpu, memory, mode, reg, size)
     const result = ~ea.read()
     ea.write(result)
@@ -1951,6 +1951,11 @@ const NEGX: OpcodeDefinition = {
 }
 
 // --- CLR <ea> ($4200) -----------------------------------------------------
+//
+// `An` direct is a reserved encoding here on real hardware, same as
+// `BTST`/`CHK`/`TAS`/`NBCD` - explicitly rejected below rather than
+// silently treating `An` as an ordinary writable register the way this
+// handler used to.
 
 const CLR: OpcodeDefinition = {
   mnemonic: 'CLR',
@@ -1961,6 +1966,11 @@ const CLR: OpcodeDefinition = {
     const size = decodeByteWordLongSize((opcodeWord >> 6) & 0b11)
     const mode = (opcodeWord >> 3) & 0b111
     const reg = opcodeWord & 0b111
+
+    if (mode === 0b001) {
+      raiseException(cpu, memory, ILLEGAL_INSTRUCTION_VECTOR, 'Illegal Instruction')
+      return 34
+    }
 
     const ea = decodeEA(cpu, memory, mode, reg, size)
     ea.write(0)
@@ -2187,6 +2197,12 @@ const NEG: OpcodeDefinition = {
     const mode = (opcodeWord >> 3) & 0b111
     const reg = opcodeWord & 0b111
 
+    if (mode === 0b001) {
+      // Reserved encoding, same as CLR above/TST below - see CLR's comment.
+      raiseException(cpu, memory, ILLEGAL_INSTRUCTION_VECTOR, 'Illegal Instruction')
+      return 34
+    }
+
     const ea = decodeEA(cpu, memory, mode, reg, size)
     const { result, flags } = subWithFlags(0, ea.read(), size)
     ea.write(result)
@@ -2256,6 +2272,12 @@ const TST: OpcodeDefinition = {
     const size = decodeByteWordLongSize((opcodeWord >> 6) & 0b11)
     const mode = (opcodeWord >> 3) & 0b111
     const reg = opcodeWord & 0b111
+
+    if (mode === 0b001) {
+      // Reserved encoding, same as CLR/NEG above - see CLR's comment.
+      raiseException(cpu, memory, ILLEGAL_INSTRUCTION_VECTOR, 'Illegal Instruction')
+      return 34
+    }
 
     const ea = decodeEA(cpu, memory, mode, reg, size)
 

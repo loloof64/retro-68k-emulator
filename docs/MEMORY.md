@@ -69,8 +69,11 @@ nothing to do with its actual exception model.
 Offset   Exception            Raised by
 ────────────────────────────────────────────────────────
 $40      Zero Divide          DIVU / DIVS with a zero divisor
-$44      Illegal Instruction  MOVE.B to An; BTST targeting An; CHK targeting An; ILLEGAL
-$48      CHK                  CHK's bounds check failed (Dn < 0 or Dn > <ea>)
+$44      Illegal Instruction  MOVE.B to An;
+                              BTST/CHK/CLR/NEG/NOT/TST
+                              targeting An; ILLEGAL
+$48      CHK                  CHK's bounds check failed
+                              (Dn < 0 or Dn > <ea>)
 $4C      TRAPV                TRAPV executed with V set
 ```
 

@@ -1949,6 +1949,19 @@ describe('NOT', () => {
 
     expect(memory.read8(0x2000 + 4)).toBe(0xf0)
   })
+
+  it('an address register target raises Illegal Instruction', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    memory.write32(ILLEGAL_INSTRUCTION_VECTOR, 0x3000)
+    memory.write16(0x2000, notWord(0b10, 0b001, 0)) // NOT.L A0
+    memory.write16(0x3000, RTS_WORD)
+
+    step(cpu, memory, opcodeTable) // raises -> pc = 0x3000
+    step(cpu, memory, opcodeTable) // RTS -> back to right after NOT
+
+    expect(cpu.pc).toBe(0x2002)
+  })
 })
 
 describe('CLR', () => {
@@ -1979,6 +1992,19 @@ describe('CLR', () => {
     step(cpu, memory, opcodeTable)
 
     expect(memory.read8(0x2000 + 4)).toBe(0)
+  })
+
+  it('an address register target raises Illegal Instruction', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    memory.write32(ILLEGAL_INSTRUCTION_VECTOR, 0x3000)
+    memory.write16(0x2000, clrWord(0b10, 0b001, 0)) // CLR.L A0
+    memory.write16(0x3000, RTS_WORD)
+
+    step(cpu, memory, opcodeTable) // raises -> pc = 0x3000
+    step(cpu, memory, opcodeTable) // RTS -> back to right after CLR
+
+    expect(cpu.pc).toBe(0x2002)
   })
 })
 
@@ -2263,6 +2289,19 @@ describe('NEG', () => {
 
     expect(memory.read8(0x2000 + 4)).toBe(0xff) // -1
   })
+
+  it('an address register target raises Illegal Instruction', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    memory.write32(ILLEGAL_INSTRUCTION_VECTOR, 0x3000)
+    memory.write16(0x2000, negWord(0b10, 0b001, 0)) // NEG.L A0
+    memory.write16(0x3000, RTS_WORD)
+
+    step(cpu, memory, opcodeTable) // raises -> pc = 0x3000
+    step(cpu, memory, opcodeTable) // RTS -> back to right after NEG
+
+    expect(cpu.pc).toBe(0x2002)
+  })
 })
 
 describe('TST', () => {
@@ -2292,6 +2331,19 @@ describe('TST', () => {
     expect(cpu.status.Z).toBe(true)
     expect(cpu.status.V).toBe(false)
     expect(cpu.status.C).toBe(false)
+  })
+
+  it('an address register target raises Illegal Instruction', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    memory.write32(ILLEGAL_INSTRUCTION_VECTOR, 0x3000)
+    memory.write16(0x2000, tstWord(0b10, 0b001, 0)) // TST.L A0
+    memory.write16(0x3000, RTS_WORD)
+
+    step(cpu, memory, opcodeTable) // raises -> pc = 0x3000
+    step(cpu, memory, opcodeTable) // RTS -> back to right after TST
+
+    expect(cpu.pc).toBe(0x2002)
   })
 })
 
@@ -3568,6 +3620,18 @@ describe('BTST', () => {
     step(cpu, memory, opcodeTable)
 
     expect(cpu.status.Z).toBe(true)
+  })
+
+  it('costs 10 cycles on a register destination, matching real 68000 hardware', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.D0, 0, 'long')
+    memory.write16(0x2000, btstWord(0b000, 0)) // BTST #n,D0
+    memory.write16(0x2002, 0)
+
+    const cycles = step(cpu, memory, opcodeTable)
+
+    expect(cycles).toBe(10)
   })
 
   it('tests a bit of a memory operand as a byte', () => {

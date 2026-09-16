@@ -685,7 +685,8 @@ CLR dst
 
 Sets `dst` to zero.
 
-**Sizes**: B, W, L
+**Sizes**: B, W, L. An address register isn't a valid `dst` — that
+raises the [Illegal Instruction exception](#cpu-exception-vector-table).
 **Cycles**: 4
 **Flags**: N, Z, V (0), C (0)
 
@@ -725,7 +726,8 @@ NEG dst
 
 Two's-complement negation: `dst = 0 - dst`.
 
-**Sizes**: B, W, L
+**Sizes**: B, W, L. An address register isn't a valid `dst` — that
+raises the [Illegal Instruction exception](#cpu-exception-vector-table).
 **Cycles**: 4
 **Flags**: N, Z, V, C, X
 
@@ -741,7 +743,8 @@ TST dst
 
 Sets flags from `dst`, like `CMP #0,dst`, without storing anything.
 
-**Sizes**: B, W, L
+**Sizes**: B, W, L. An address register isn't a valid `dst` — that
+raises the [Illegal Instruction exception](#cpu-exception-vector-table).
 **Cycles**: 4
 **Flags**: N, Z, V (0), C (0)
 
@@ -1066,7 +1069,8 @@ NOT dst
 
 Performs bitwise NOT (one's complement): `dst = ~dst`
 
-**Sizes**: B, W, L
+**Sizes**: B, W, L. An address register isn't a valid `dst` — that
+raises the [Illegal Instruction exception](#cpu-exception-vector-table).
 **Cycles**: 4
 **Flags**: N, Z, C (0), V (0)
 
@@ -1102,11 +1106,8 @@ static form; the dynamic form's own `mode=001` opcode slot is real
 hardware's `MOVEP` instead (see
 [MOVEP](#movep---move-peripheral-data)), so hand-encoding `BTST An,dst`
 lands on `MOVEP`, not `BTST`.
-**Cycles**: Static: 4 (register), 8 (memory). Dynamic: 6 (register), 8
-(memory). The static form's register-operand cost is a known inaccuracy
-(real hardware: 10, not 4 — see the source comment on `BTST`'s handler
-in `src/cpu/opcodes.ts`); every other value here, including the dynamic
-form's, is correct.
+**Cycles**: Static: 10 (register), 8 (memory). Dynamic: 6 (register), 8
+(memory).
 **Flags**: Z only
 
 **Examples**:
