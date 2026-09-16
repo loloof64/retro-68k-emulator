@@ -16,6 +16,10 @@ import {
   ILLEGAL_INSTRUCTION_VECTOR,
   CHK_VECTOR,
   TRAPV_VECTOR,
+  FRAMEBUFFER_START,
+  FRAMEBUFFER_END,
+  FRAMEBUFFER_WIDTH,
+  FRAMEBUFFER_BYTES_PER_PIXEL,
 } from '../memory'
 import { createCPU, step, writeRegister } from './index'
 import { opcodeTable } from './opcodes'
@@ -3588,6 +3592,44 @@ describe('TRAP', () => {
     memory.write16(0x2000, 0x4e41) // TRAP #1
 
     expect(() => step(cpu, memory, opcodeTable)).toThrow(/Unimplemented TRAP vector: 1/)
+  })
+
+  it('TRAP #2 reads the pixel at the address in A0 into D0', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    const address = FRAMEBUFFER_START + (10 * FRAMEBUFFER_WIDTH + 50) * FRAMEBUFFER_BYTES_PER_PIXEL
+    memory.write32(address, 0xff00ffff) // magenta
+    writeRegister(cpu, Register.A0, address, 'long')
+    memory.write16(0x2000, 0x4e42) // TRAP #2
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.registers[Register.D0]).toBe(0xff00ffff)
+  })
+
+  it('TRAP #3 writes D0 as the pixel at the address in A0', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    const address = FRAMEBUFFER_START + (10 * FRAMEBUFFER_WIDTH + 50) * FRAMEBUFFER_BYTES_PER_PIXEL
+    writeRegister(cpu, Register.A0, address, 'long')
+    writeRegister(cpu, Register.D0, 0x00ff00ff, 'long') // green
+    memory.write16(0x2000, 0x4e43) // TRAP #3
+
+    step(cpu, memory, opcodeTable)
+
+    expect(memory.read32(address)).toBe(0x00ff00ff)
+  })
+
+  it('TRAP #4 fills every framebuffer pixel with D0', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.D0, 0x0000ffff, 'long') // blue
+    memory.write16(0x2000, 0x4e44) // TRAP #4
+
+    step(cpu, memory, opcodeTable)
+
+    expect(memory.read32(FRAMEBUFFER_START)).toBe(0x0000ffff) // first pixel
+    expect(memory.read32(FRAMEBUFFER_END - FRAMEBUFFER_BYTES_PER_PIXEL + 1)).toBe(0x0000ffff) // last pixel
   })
 
   it('TRAP #5 loads the controller state into D0', () => {

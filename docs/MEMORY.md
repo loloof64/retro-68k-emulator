@@ -227,6 +227,15 @@ LOOP_X:
   DBRA    D0,LOOP_X
 ```
 
+**Shortcuts**: `TRAP #2`/`#3`/`#4` wrap the read-pixel/write-pixel/
+fill-screen patterns above into one instruction each (`A0`/`D0` register
+convention, no manual offset math needed for a full-screen fill) - see
+`docs/OPCODES.md`'s TRAP Handlers table for the exact calling
+convention. They're a convenience on top of this direct memory-mapped
+access, not a separate mechanism - `TRAP #3` is exactly the "Write
+pixel" snippet above, just with the offset already computed by the
+caller into `A0` instead of `D3`.
+
 ## Controller Input ($7E800-$7E803)
 
 A single 32-bit, read-oriented register holding the current gamepad button

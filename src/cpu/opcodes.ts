@@ -5,6 +5,9 @@ import { decodeEA, decodeControlAddress, type Size } from './addressing'
 import { addWithFlags, subWithFlags, type ArithmeticFlags } from './arithmetic'
 import {
   CHK_VECTOR,
+  FRAMEBUFFER_BYTES_PER_PIXEL,
+  FRAMEBUFFER_END,
+  FRAMEBUFFER_START,
   ILLEGAL_INSTRUCTION_VECTOR,
   INPUT_START,
   SOUND_DURATION,
@@ -2940,6 +2943,30 @@ export type TrapHandler = (cpu: CPUState, memory: Memory, vector: number) => voi
 export const trapHandlers: Record<number, TrapHandler> = {
   0: (cpu) => {
     cpu.halted = true
+  },
+  // TRAP #2: read pixel. A0 = the pixel's framebuffer address (the caller
+  // computes it - see docs/MEMORY.md's "Calculating Pixel Address" - the
+  // same $40000+(y*320+x)*4 formula MOVE.L (A0,Dn) already uses directly).
+  // D0 <- the 32-bit RGBA color there. A convenience wrapper around a
+  // plain MOVE.L, exactly like TRAP #5 below, not a new access path.
+  2: (cpu, memory) => {
+    const address = readRegister(cpu, Register.A0, 'long')
+    writeRegister(cpu, Register.D0, memory.read32(address), 'long')
+  },
+  // TRAP #3: write pixel. A0 = framebuffer address (same convention as
+  // TRAP #2), D0 = 32-bit RGBA color to write there.
+  3: (cpu, memory) => {
+    const address = readRegister(cpu, Register.A0, 'long')
+    memory.write32(address, readRegister(cpu, Register.D0, 'long'))
+  },
+  // TRAP #4: clear screen. D0 = 32-bit RGBA color to fill every pixel
+  // with (not just always black - lets a program clear to any solid
+  // color in one call instead of writing all 64,000 pixels by hand).
+  4: (cpu, memory) => {
+    const color = readRegister(cpu, Register.D0, 'long')
+    for (let address = FRAMEBUFFER_START; address <= FRAMEBUFFER_END; address += FRAMEBUFFER_BYTES_PER_PIXEL) {
+      memory.write32(address, color)
+    }
   },
   // TRAP #5: read controller state -> D0 (convenience wrapper around a
   // plain MOVE.L from INPUT_START; see docs/MEMORY.md).

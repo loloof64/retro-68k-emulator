@@ -1786,12 +1786,25 @@ each.
 | TRAP # | Function | Description |
 |--------|----------|-------------|
 | 0 | Exit | Terminate program |
-| 1 | Print String | Print null-terminated string to console |
-| 2 | Read Pixel | Read pixel from framebuffer at (A0) |
-| 3 | Write Pixel | Write pixel to framebuffer at (A0) |
-| 4 | Clear Screen | Clear entire LCD screen |
+| 1 | Print String | **Not implemented** - raises a plain JS error (`Unimplemented TRAP vector: 1`), not a catchable CPU exception. Needs a text-rendering subsystem (font/glyph data) this emulator doesn't have yet - see the "Why doesn't TRAP #1 (Print String) work yet?" section right below this table. |
+| 2 | Read Pixel | `A0` = the pixel's framebuffer byte address (the caller computes it - see docs/MEMORY.md's "Calculating Pixel Address"). `D0` <- the 32-bit RGBA color read from there. |
+| 3 | Write Pixel | `A0` = framebuffer byte address (same convention as `TRAP #2`), `D0` = 32-bit RGBA color to write there. |
+| 4 | Clear Screen | `D0` = 32-bit RGBA color to fill every one of the 64,000 pixels with. |
 | 5 | Read Controller State | Load the controller button bitmask into D0 |
 | 6 | Play Tone | Write D0-D3 (frequency, duration, volume, waveform) into the sound registers and trigger playback |
+
+### Why doesn't TRAP #1 (Print String) work yet?
+
+`TRAP #2`/`#3`/`#4` (reading, writing, and clearing pixels) are thin
+wrappers around memory this emulator already has and already lets a
+program touch directly - the same 32-bit-RGBA framebuffer `MOVE.L`
+already reads and writes today. `TRAP #1` is different in kind, not just
+missing glue code: printing text means rasterizing characters onto the
+framebuffer, which needs font/glyph data (a bitmap or vector shape per
+character) that doesn't exist anywhere in this codebase yet. Implementing
+it means designing that subsystem first - what "the console" even means
+on a graphical-only 320x200 framebuffer with no separate text layer -
+not just wiring up a fourth `trapHandlers` entry the way `#2`-`#4` were.
 
 ---
 

@@ -65,6 +65,24 @@ To find the address of pixel `(x, y)`:
 address = $40000 + (y * 320 + x) * 4
 ```
 
+### Addressing a Pixel for TRAP #2/#3
+
+`TRAP #2` (read pixel) and `TRAP #3` (write pixel) take that address
+directly in `A0`, not `x`/`y` coordinates — compute it yourself first,
+same formula as above:
+
+```asm
+; address = $40000 + (y * 320 + x) * 4
+MOVE.L  #10,D0          ; y
+MULU.W  #320,D0
+ADD.L   #50,D0          ; + x
+ASL.L   #2,D0           ; * 4 bytes/pixel
+ADD.L   #$40000,D0
+MOVE.L  D0,A0
+MOVE.L  #$FFFFFFFF,D0   ; white
+TRAP    #3              ; write it
+```
+
 ### Reading the Gamepad
 
 `$7E800` is a live 32-bit bitmask of the current button state — bit `1`
@@ -679,15 +697,28 @@ The rest of the ~80-instruction set lands in upcoming sessions — each one gets
 
 ## TRAP System Calls
 
-Three TRAP vectors are wired in:
+Six TRAP vectors are wired in:
 
 | Vector | Syntax | Cycles | Description |
 |---|---|---|---|
 | `#0` | `TRAP #0` | 4 | Halts the CPU (ends the program). |
+| `#2` | `TRAP #2` | 4 | Reads the pixel at the framebuffer address in `A0` into `D0` (32-bit RGBA). See [Addressing a Pixel for TRAP #2/#3](#addressing-a-pixel-for-trap-23) above. |
+| `#3` | `TRAP #3` | 4 | Writes `D0` (32-bit RGBA) as the pixel at the framebuffer address in `A0`. |
+| `#4` | `TRAP #4` | 4 | Fills every one of the 64,000 framebuffer pixels with `D0` (32-bit RGBA) — clears the screen to any solid color, not just black. |
 | `#5` | `TRAP #5` | 4 | Loads the controller button bitmask into D0 — a shortcut for reading `$7E800` directly. |
 | `#6` | `TRAP #6` | 4 | Writes D0 (frequency), D1 (duration), D2 (volume), D3 (waveform) into the [sound registers](#sound-wired-up-silent-for-now) and sets the trigger byte. |
 
-The rest — printing text, reading/writing pixels, clearing the screen — is documented here as each one is implemented.
+`#1` (print string) isn't implemented yet — it needs a font/glyph
+rendering subsystem this emulator doesn't have, unlike `#2`-`#4` which
+are thin wrappers around framebuffer memory already readable/writable
+directly. Calling it throws a plain error rather than raising a
+catchable exception, same as any other genuinely-unimplemented opcode.
+
+`TRAP #2`/`#3` take a *framebuffer byte address* in `A0`, not `x`/`y`
+coordinates directly — see [Memory Map](#memory-map) above for the
+addressing formula, and
+[Addressing a Pixel for TRAP #2/#3](#addressing-a-pixel-for-trap-23)
+for a worked example.
 
 ## Exceptions
 
