@@ -70,6 +70,11 @@ const ACTION_BUTTONS = [
 
 export default function Controller({ onButtonStateChange }: ControllerProps) {
   const [gamepadConnected, setGamepadConnected] = useState(false)
+  // Mirrors the effective mask into render state so a physical gamepad's
+  // presses light up the on-screen buttons too — CSS `:active` alone only
+  // fires for real pointer events on these DOM elements, which a physical
+  // controller never generates.
+  const [buttonMask, setButtonMask] = useState(0)
   const virtualMaskRef = useRef(0)
   const lastMaskRef = useRef(-1)
   const lastConnectedRef = useRef(false)
@@ -95,6 +100,7 @@ export default function Controller({ onButtonStateChange }: ControllerProps) {
       if (mask !== lastMaskRef.current) {
         lastMaskRef.current = mask
         onButtonStateChange(mask)
+        setButtonMask(mask)
       }
 
       rafId = requestAnimationFrame(tick)
@@ -103,6 +109,8 @@ export default function Controller({ onButtonStateChange }: ControllerProps) {
 
     return () => cancelAnimationFrame(rafId)
   }, [onButtonStateChange])
+
+  const pressedClass = (bit: number) => ((buttonMask & bit) !== 0 ? 'pressed' : '')
 
   const bindPress = (bit: number) => ({
     onPointerDown: (e: React.PointerEvent) => {
@@ -125,23 +133,44 @@ export default function Controller({ onButtonStateChange }: ControllerProps) {
 
       <div className={`controller-layout ${gamepadConnected ? 'is-disabled' : ''}`}>
         <div className="dpad" aria-hidden={gamepadConnected}>
-          <button type="button" className="dpad-btn dpad-up" {...bindPress(INPUT_BUTTON_UP)}>
+          <button
+            type="button"
+            className={`dpad-btn dpad-up ${pressedClass(INPUT_BUTTON_UP)}`}
+            {...bindPress(INPUT_BUTTON_UP)}
+          >
             ▲
           </button>
-          <button type="button" className="dpad-btn dpad-left" {...bindPress(INPUT_BUTTON_LEFT)}>
+          <button
+            type="button"
+            className={`dpad-btn dpad-left ${pressedClass(INPUT_BUTTON_LEFT)}`}
+            {...bindPress(INPUT_BUTTON_LEFT)}
+          >
             ◀
           </button>
-          <button type="button" className="dpad-btn dpad-right" {...bindPress(INPUT_BUTTON_RIGHT)}>
+          <button
+            type="button"
+            className={`dpad-btn dpad-right ${pressedClass(INPUT_BUTTON_RIGHT)}`}
+            {...bindPress(INPUT_BUTTON_RIGHT)}
+          >
             ▶
           </button>
-          <button type="button" className="dpad-btn dpad-down" {...bindPress(INPUT_BUTTON_DOWN)}>
+          <button
+            type="button"
+            className={`dpad-btn dpad-down ${pressedClass(INPUT_BUTTON_DOWN)}`}
+            {...bindPress(INPUT_BUTTON_DOWN)}
+          >
             ▼
           </button>
         </div>
 
         <div className="action-buttons" aria-hidden={gamepadConnected}>
           {ACTION_BUTTONS.map(({ label, bit, className }) => (
-            <button key={label} type="button" className={`action-btn ${className}`} {...bindPress(bit)}>
+            <button
+              key={label}
+              type="button"
+              className={`action-btn ${className} ${pressedClass(bit)}`}
+              {...bindPress(bit)}
+            >
               {label}
             </button>
           ))}
@@ -149,10 +178,18 @@ export default function Controller({ onButtonStateChange }: ControllerProps) {
       </div>
 
       <div className="start-select" aria-hidden={gamepadConnected}>
-        <button type="button" className="pill-btn" {...bindPress(INPUT_BUTTON_SELECT)}>
+        <button
+          type="button"
+          className={`pill-btn ${pressedClass(INPUT_BUTTON_SELECT)}`}
+          {...bindPress(INPUT_BUTTON_SELECT)}
+        >
           Select
         </button>
-        <button type="button" className="pill-btn" {...bindPress(INPUT_BUTTON_START)}>
+        <button
+          type="button"
+          className={`pill-btn ${pressedClass(INPUT_BUTTON_START)}`}
+          {...bindPress(INPUT_BUTTON_START)}
+        >
           Start
         </button>
       </div>

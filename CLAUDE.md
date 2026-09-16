@@ -62,11 +62,22 @@ docs:pdf:user`.
 - **Debugger/Editor UI: shell only**, not wired to a real CPU execution
   loop (`src/components/Debugger.tsx`'s Step handler is a literal TODO;
   `Editor.tsx` is a bare `<textarea>`, no syntax highlighting).
-- **Gamepad UI: implemented** (on-screen + real Gamepad API, auto-switches).
-  One known gap: a physical controller's button presses produce **no
-  visual feedback** on screen (only on-screen touches do, via CSS
-  `:active`) — driving each button's lit state from the polled bitmask
-  (not just DOM `:active`) is the fix, not yet done.
+- **Gamepad UI: implemented** (on-screen + real Gamepad API, auto-switches),
+  **including physical-controller visual feedback** (`src/components/
+  Controller.tsx`): the polled bitmask is mirrored into a `buttonMask`
+  render state, and each on-screen button gets a `.pressed` class
+  whenever its bit is set — not just on-screen touches via CSS `:active`
+  (kept alongside `.pressed` for zero-latency touch feedback). D-pad/
+  Start/Select light up via `background-color: var(--accent)`; A/B/X/Y
+  (already colored circles, so a background swap wouldn't show) get a
+  glow ring + scale-up + stronger brightness instead
+  (`src/components/Controller.css`) — a plain `filter: brightness(1.2)`
+  was tried first but was barely perceptible against their already-vivid
+  fill colors. Dimming for the disabled on-screen panel (physical
+  gamepad connected) moved from the `.controller-layout` container to
+  individual buttons, so a currently-pressed button can pop back to full
+  opacity instead of being capped at the panel's 0.35 dim like its
+  inactive siblings.
 - **Windows portable build: not started.** Laurent wants a no-install
   `.zip` (exe + DLLs) alongside the installer-based release, for both
   `.github/workflows/build.yml` and `docs/user/DOWNLOAD.md`. No release

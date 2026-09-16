@@ -20,8 +20,21 @@
 }
 
 .controller-layout.is-disabled {
-  opacity: 0.35;
   pointer-events: none;
+}
+
+/* Dimmed per-button (not on the whole container) so a button currently
+   lit up by a physical gamepad's `.pressed` class can pop back to full
+   opacity instead of being capped at the dimmed level along with every
+   other inactive button. */
+.controller-layout.is-disabled .dpad-btn,
+.controller-layout.is-disabled .action-btn {
+  opacity: 0.35;
+}
+
+.controller-layout.is-disabled .dpad-btn.pressed,
+.controller-layout.is-disabled .action-btn.pressed {
+  opacity: 1;
 }
 
 /* D-pad: 3x3 grid, only the cross cells populated */
@@ -42,7 +55,8 @@
   user-select: none;
 }
 
-.dpad-btn:active {
+.dpad-btn:active,
+.dpad-btn.pressed {
   background-color: var(--accent);
 }
 
@@ -85,8 +99,11 @@
   user-select: none;
 }
 
-.action-btn:active {
-  filter: brightness(1.2);
+.action-btn:active,
+.action-btn.pressed {
+  filter: brightness(1.5);
+  box-shadow: 0 0 0 3px var(--accent);
+  transform: scale(1.08);
 }
 
 .action-y {
@@ -130,6 +147,7 @@
   user-select: none;
 }
 
-.pill-btn:active {
+.pill-btn:active,
+.pill-btn.pressed {
   background-color: var(--accent);
 }
