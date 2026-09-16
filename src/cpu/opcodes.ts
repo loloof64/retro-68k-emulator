@@ -1001,6 +1001,12 @@ const BTST: OpcodeDefinition = {
 
     cpu.status.Z = ((value >>> bitNumber) & 1) === 0
 
+    // Known inaccuracy, not fixed here: real hardware's register-operand
+    // cost is 10, not 4 (the memory-operand cost of 8 is correct). Left
+    // as-is rather than drive-by-fixed - see BTST_DYNAMIC below, whose
+    // own register-operand cost (6, genuinely cheaper since it skips this
+    // form's extension-word fetch) is correct and shouldn't be confused
+    // with this one.
     return isRegisterOperand ? 4 : 8
   },
 }
@@ -1066,6 +1072,99 @@ const BSET: OpcodeDefinition = {
   handler: bitOpHandler((value, mask) => value | mask, 12),
 }
 
+// --- BTST/BCHG/BCLR/BSET Dn,<ea> ($0100-$01FF) - dynamic bit number -----
+//
+// The dynamic sibling of the four static `#<data>,<ea>` forms above: the
+// bit number comes from a data register (bits 11-9 of the opcode word)
+// instead of an extension word, so no extra word is fetched. Shares the
+// static forms' `oo` field (bits 7-6: 00=BTST/01=BCHG/10=BCLR/11=BSET)
+// and the same register-tests-as-long(mod 32)/memory-tests-as-byte(mod 8)
+// split.
+//
+// Costs less than the static form on a register destination (no
+// extension-word fetch), but exactly the same on a memory destination -
+// see the two `registerCycles` values below versus `bitOpHandler`'s.
+//
+// `mode=001` (`An` direct, invalid as a bit destination here too) is real
+// hardware's `MOVEP` slot, not a genuinely reachable case for these four
+// - see `MOVEP`'s own comment below, whose narrower opcodeTable entry
+// always wins first-match for that specific mode. No explicit `An` guard
+// is added here for that reason, the same precedent `Scc`'s own
+// `DBcc`-shadowed `mode=001` slot already established.
+
+function dynamicBitNumber(cpu: CPUState, opcodeWord: number, isRegisterOperand: boolean) {
+  const bitReg = (Register.D0 + ((opcodeWord >> 9) & 0b111)) as Register
+  const bitNumberValue = readRegister(cpu, bitReg, 'long')
+  return bitNumberValue & (isRegisterOperand ? 0x1f : 0x07)
+}
+
+const BTST_DYNAMIC: OpcodeDefinition = {
+  mnemonic: 'BTST',
+  encoding: '0000ddd100mmmrrr',
+  size: 'variable',
+  handler: (cpu: CPUState, memory: Memory, args: unknown[]) => {
+    const opcodeWord = opcodeWordOf(args)
+    const mode = (opcodeWord >> 3) & 0b111
+    const reg = opcodeWord & 0b111
+
+    const isRegisterOperand = mode === 0b000
+    const size: Size = isRegisterOperand ? 'long' : 'byte'
+    const bitNumber = dynamicBitNumber(cpu, opcodeWord, isRegisterOperand)
+
+    const ea = decodeEA(cpu, memory, mode, reg, size)
+    const value = ea.read()
+
+    cpu.status.Z = ((value >>> bitNumber) & 1) === 0
+
+    return isRegisterOperand ? 6 : 8
+  },
+}
+
+function dynamicBitOpHandler(
+  apply: (value: number, mask: number) => number,
+  registerCycles: number
+): OpcodeDefinition['handler'] {
+  return (cpu: CPUState, memory: Memory, args: unknown[]) => {
+    const opcodeWord = opcodeWordOf(args)
+    const mode = (opcodeWord >> 3) & 0b111
+    const reg = opcodeWord & 0b111
+
+    const isRegisterOperand = mode === 0b000
+    const size: Size = isRegisterOperand ? 'long' : 'byte'
+    const bitNumber = dynamicBitNumber(cpu, opcodeWord, isRegisterOperand)
+    const mask = 1 << bitNumber
+
+    const ea = decodeEA(cpu, memory, mode, reg, size)
+    const value = ea.read()
+
+    cpu.status.Z = ((value >>> bitNumber) & 1) === 0
+    ea.write(apply(value, mask))
+
+    return isRegisterOperand ? registerCycles : 12
+  }
+}
+
+const BCHG_DYNAMIC: OpcodeDefinition = {
+  mnemonic: 'BCHG',
+  encoding: '0000ddd101mmmrrr',
+  size: 'variable',
+  handler: dynamicBitOpHandler((value, mask) => value ^ mask, 8),
+}
+
+const BCLR_DYNAMIC: OpcodeDefinition = {
+  mnemonic: 'BCLR',
+  encoding: '0000ddd110mmmrrr',
+  size: 'variable',
+  handler: dynamicBitOpHandler((value, mask) => value & ~mask, 10),
+}
+
+const BSET_DYNAMIC: OpcodeDefinition = {
+  mnemonic: 'BSET',
+  encoding: '0000ddd111mmmrrr',
+  size: 'variable',
+  handler: dynamicBitOpHandler((value, mask) => value | mask, 8),
+}
+
 // --- MOVEP Dx,(d16,Ay) / (d16,Ay),Dx ($0108) ------------------------------
 //
 // Transfers 2 (.W) or 4 (.L) bytes between a data register and alternating
@@ -1077,10 +1176,14 @@ const BSET: OpcodeDefinition = {
 // than hand-rolling the displacement extension word again.
 //
 // Shares its top-nibble/bit-8 opcode space with BTST/BCHG/BCLR/BSET's
-// (never-implemented) dynamic Dn,<ea> form: mode field bits 5-3 fixed to
-// `001` is the one combination that form can never produce for a valid
-// destination (`001` is An direct, invalid for a bit destination), which is
-// exactly the slot real 68000 hardware repurposes for MOVEP.
+// dynamic Dn,<ea> form above: mode field bits 5-3 fixed to `001` is the
+// one combination that form can never produce for a valid destination
+// (`001` is An direct, invalid for a bit destination), which is exactly
+// the slot real 68000 hardware repurposes for MOVEP - so MOVEP's own
+// narrower opcodeTable entry (mask 0xf138, wildcarding only Dx/opmode/Ay)
+// has to be listed before the dynamic bit-op entries' broader ones (mask
+// 0xf1c0, wildcarding the full mode+reg field) for first-match-wins to
+// resolve mode=001 correctly.
 
 const MOVEP: OpcodeDefinition = {
   mnemonic: 'MOVEP',
@@ -2847,6 +2950,10 @@ export const opcodeTable: readonly OpcodeEntry[] = [
   { mask: 0xffc0, pattern: 0x0880, definition: BCLR },
   { mask: 0xffc0, pattern: 0x08c0, definition: BSET },
   { mask: 0xf138, pattern: 0x0108, definition: MOVEP },
+  { mask: 0xf1c0, pattern: 0x0100, definition: BTST_DYNAMIC },
+  { mask: 0xf1c0, pattern: 0x0140, definition: BCHG_DYNAMIC },
+  { mask: 0xf1c0, pattern: 0x0180, definition: BCLR_DYNAMIC },
+  { mask: 0xf1c0, pattern: 0x01c0, definition: BSET_DYNAMIC },
   { mask: 0xffff, pattern: 0x003c, definition: ORI_TO_CCR },
   { mask: 0xffff, pattern: 0x023c, definition: ANDI_TO_CCR },
   { mask: 0xffff, pattern: 0x0a3c, definition: EORI_TO_CCR },

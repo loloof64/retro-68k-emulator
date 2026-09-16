@@ -255,12 +255,13 @@ merge rule a plain word `MOVE` into `Dn` follows); `.L` overwrites the
 full register.
 
 **Opcode space**: shares its top-nibble/bit-8 space with `BTST`/`BCHG`/
-`BCLR`/`BSET`'s dynamic `Dn,<ea>` form (never implemented in this
-codebase — see the [Bit Instructions](#bit-instructions) section). Mode
-field bits 5-3 fixed to `001` is the one combination that form can never
-produce for a valid destination (`001` is `An` direct, invalid for a bit
-destination), which is exactly the slot real 68000 hardware repurposes
-for `MOVEP`.
+`BCLR`/`BSET`'s dynamic `Dn,<ea>` form (see the
+[Bit Instructions](#bit-instructions) section). Mode field bits 5-3
+fixed to `001` is the one combination that form can never produce for a
+valid destination (`001` is `An` direct, invalid for a bit destination),
+which is exactly the slot real 68000 hardware repurposes for `MOVEP` —
+so `MOVEP`'s own opcodeTable entry has to be listed before the dynamic
+bit-op forms' broader ones for that mode to resolve correctly.
 
 **Sizes**: W, L
 **Cycles**: 16 (W), 24 (L) — same either direction
@@ -1079,20 +1080,33 @@ NOT.W   D1             ; D1 = ~D1 (16-bit flip)
 
 ### BTST - Test Bit
 ```
-BTST #n,dst
+BTST #n,dst     ; Bit number is an immediate
+BTST Dn,dst     ; Bit number comes from a data register instead
 ```
 
 Tests bit `n` of `dst` and sets the Z flag (Z=1 when the bit is clear,
 Z=0 when it's set). Unlike `AND`, the operand itself is never modified —
 it's the standard way to check one flag/button out of a packed bitmask,
 such as the [Controller Input](./MEMORY.md#controller-input-7e800-7e803)
-register.
+register. The `Dn,dst` (dynamic) form behaves identically to `#n,dst`
+(static) — it just reads the bit number from a register instead of an
+immediate extension word, which is cheaper when `dst` is itself a
+register (no extension word to fetch) and costs the same when `dst` is
+memory.
 
 **Sizes**: A data register destination is tested as a full long (bit
 number 0-31); a memory destination is tested as a byte (bit number 0-7).
 An address register isn't a valid destination either way — that raises
-the [Illegal Instruction exception](#cpu-exception-vector-table).
-**Cycles**: 4 (register), 8 (memory)
+the [Illegal Instruction exception](#cpu-exception-vector-table) for the
+static form; the dynamic form's own `mode=001` opcode slot is real
+hardware's `MOVEP` instead (see
+[MOVEP](#movep---move-peripheral-data)), so hand-encoding `BTST An,dst`
+lands on `MOVEP`, not `BTST`.
+**Cycles**: Static: 4 (register), 8 (memory). Dynamic: 6 (register), 8
+(memory). The static form's register-operand cost is a known inaccuracy
+(real hardware: 10, not 4 — see the source comment on `BTST`'s handler
+in `src/cpu/opcodes.ts`); every other value here, including the dynamic
+form's, is correct.
 **Flags**: Z only
 
 **Examples**:
@@ -1100,26 +1114,31 @@ the [Illegal Instruction exception](#cpu-exception-vector-table).
 TRAP    #5                 ; D0 = controller button state
 BTST    #0,D0              ; test bit 0 (button A)
 BEQ     A_NOT_PRESSED      ; Z=1 -> bit was clear
+MOVEQ   #3,D2
+BTST    D2,D0          ; test the bit D2 names, not a fixed one
 ```
 
 ### BCHG/BCLR/BSET - Change/Clear/Set Bit
 ```
-BCHG #n,dst
-BCLR #n,dst
+BCHG #n,dst     ; and Dn,dst for the dynamic bit-number form
+BCLR #n,dst     ; (same relationship #n,dst/Dn,dst has for BTST above)
 BSET #n,dst
 ```
 
 `BTST`'s write-back siblings: each tests bit `n` of `dst` exactly like
 `BTST` (same Z-flag rule, from the bit's state *before* the write), then
 writes the modified value back to `dst`. `BCHG` toggles the bit, `BCLR`
-clears it, `BSET` sets it.
+clears it, `BSET` sets it. Each also has the same dynamic `Dn,dst` bit-
+number form `BTST` does, with the same cost/restriction relationship to
+its own `#n,dst` static form.
 
 **Sizes**: Same rule as `BTST` — a data register destination is a full
 long (bit number 0-31), a memory destination is a byte (bit number 0-7).
-An address register isn't a valid destination either way — that raises
-the [Illegal Instruction exception](#cpu-exception-vector-table).
-**Cycles**: `BCHG`: 12 (register), 12 (memory). `BCLR`: 14 (register), 12
-(memory). `BSET`: 12 (register), 12 (memory).
+An address register isn't a valid destination either way (static form:
+raises the [Illegal Instruction exception](#cpu-exception-vector-table);
+dynamic form: reaches `MOVEP` instead, same as `BTST` above).
+**Cycles**: `BCHG`: static 12 (register)/12 (memory), dynamic 8/12.
+`BCLR`: static 14/12, dynamic 10/12. `BSET`: static 12/12, dynamic 8/12.
 **Flags**: Z only
 
 **Examples**:
@@ -1127,6 +1146,7 @@ the [Illegal Instruction exception](#cpu-exception-vector-table).
 BSET    #0,D0          ; set bit 0, Z <- old state of that bit
 BCLR    #7,(A0)        ; clear bit 7 of a byte in memory
 BCHG    #3,D1          ; flip bit 3
+BSET    D2,D0          ; set the bit D2 names, not a fixed one
 ```
 
 ## Shift and Rotate Operations

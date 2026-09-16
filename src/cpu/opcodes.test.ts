@@ -159,6 +159,11 @@ function bsetWord(mode: number, reg: number) {
   return (0b0000100011 << 6) | (mode << 3) | reg
 }
 
+// oo: 0b00=BTST 0b01=BCHG 0b10=BCLR 0b11=BSET. bitReg holds the bit number.
+function dynamicBitWord(bitReg: number, oo: 0b00 | 0b01 | 0b10 | 0b11, mode: number, reg: number) {
+  return (bitReg << 9) | (1 << 8) | (oo << 6) | (mode << 3) | reg
+}
+
 const MOVEP_W_LOAD = 0b00
 const MOVEP_L_LOAD = 0b01
 const MOVEP_W_STORE = 0b10
@@ -3733,6 +3738,95 @@ describe('BCHG/BCLR/BSET', () => {
 
       expect(cpu.pc).toBe(0x2002)
     }
+  })
+})
+
+describe('BTST/BCHG/BCLR/BSET Dn,<ea> (dynamic bit number)', () => {
+  it('BTST reads the bit number from a register instead of an extension word, and costs 6 on Dn', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.D0, 0b0100, 'long')
+    writeRegister(cpu, Register.D1, 2, 'long') // bit number 2
+    memory.write16(0x2000, dynamicBitWord(1, 0b00, 0b000, 0)) // BTST D1,D0
+
+    const cycles = step(cpu, memory, opcodeTable)
+
+    expect(cpu.status.Z).toBe(false)
+    expect(cpu.pc).toBe(0x2002) // no extension word consumed
+    expect(cycles).toBe(6)
+  })
+
+  it('BCHG toggles a register bit chosen dynamically and costs 8 on Dn', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.D0, 0b0000, 'long')
+    writeRegister(cpu, Register.D1, 2, 'long')
+    memory.write16(0x2000, dynamicBitWord(1, 0b01, 0b000, 0)) // BCHG D1,D0
+
+    const cycles = step(cpu, memory, opcodeTable)
+
+    expect(cpu.status.Z).toBe(true) // bit was clear before the toggle
+    expect(cpu.registers[Register.D0]).toBe(0b0100)
+    expect(cycles).toBe(8)
+  })
+
+  it('BCLR clears a register bit chosen dynamically and costs 10 on Dn', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.D0, 0b1111, 'long')
+    writeRegister(cpu, Register.D1, 1, 'long')
+    memory.write16(0x2000, dynamicBitWord(1, 0b10, 0b000, 0)) // BCLR D1,D0
+
+    const cycles = step(cpu, memory, opcodeTable)
+
+    expect(cpu.status.Z).toBe(false) // bit was set before clearing
+    expect(cpu.registers[Register.D0]).toBe(0b1101)
+    expect(cycles).toBe(10)
+  })
+
+  it('BSET sets a register bit chosen dynamically, on a memory operand tested as a byte', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.A0, 0x2000 + 4, 'long')
+    writeRegister(cpu, Register.D1, 0, 'long')
+    memory.write8(0x2000 + 4, 0b00000000)
+    memory.write16(0x2000, dynamicBitWord(1, 0b11, 0b010, 0)) // BSET D1,(A0)
+
+    const cycles = step(cpu, memory, opcodeTable)
+
+    expect(memory.read8(0x2000 + 4)).toBe(0b00000001)
+    expect(cycles).toBe(12)
+  })
+
+  it('a register bit number wraps modulo 32 on a register destination', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.D0, 0, 'long')
+    writeRegister(cpu, Register.D1, 32, 'long') // wraps to bit 0
+    memory.write16(0x2000, dynamicBitWord(1, 0b11, 0b000, 0)) // BSET D1,D0
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.registers[Register.D0]).toBe(1)
+  })
+
+  it('a memory bit number wraps modulo 8', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    writeRegister(cpu, Register.A0, 0x2000 + 4, 'long')
+    writeRegister(cpu, Register.D1, 8, 'long') // wraps to bit 0
+    memory.write8(0x2000 + 4, 0)
+    memory.write16(0x2000, dynamicBitWord(1, 0b11, 0b010, 0)) // BSET D1,(A0)
+
+    step(cpu, memory, opcodeTable)
+
+    expect(memory.read8(0x2000 + 4)).toBe(1)
+  })
+
+  it("MOVEP wins over the dynamic bit-op form for the shared mode=001 opcode slot", () => {
+    const word = dynamicBitWord(0, 0b00, 0b001, 0) // looks like BTST D0,A0, but An isn't valid
+    const entry = opcodeTable.find((e) => (word & e.mask) === e.pattern)
+    expect(entry?.definition.mnemonic).toBe('MOVEP')
   })
 })
 

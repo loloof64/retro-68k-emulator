@@ -199,10 +199,10 @@ A first handful of real instructions is wired in, grouped below the way Motorola
 
 | Mnemonic | Syntax | Sizes | Cycles | Flags affected | Description |
 |---|---|---|---|---|---|
-| `BTST` | `BTST #n,dst` | long (register), byte (memory) | 4 (register), 8 (memory) | Z only | Tests bit `n` of `dst` (Z=1 when clear). Doesn't modify `dst` — the standard way to poll one button out of the [gamepad bitmask](#reading-the-gamepad). An address register isn't a valid `dst` — that raises the [Illegal Instruction exception](#exceptions). |
-| `BCHG` | `BCHG #n,dst` | long (register), byte (memory) | 12 | Z only | Like `BTST`, but also toggles bit `n` of `dst` after testing it. See [below](#what-do-bchgbclrbset-write-back) for what "write back" means here. |
-| `BCLR` | `BCLR #n,dst` | long (register), byte (memory) | 14 (register), 12 (memory) | Z only | Like `BTST`, but also clears bit `n` of `dst` after testing it. See [below](#what-do-bchgbclrbset-write-back). |
-| `BSET` | `BSET #n,dst` | long (register), byte (memory) | 12 | Z only | Like `BTST`, but also sets bit `n` of `dst` after testing it. See [below](#what-do-bchgbclrbset-write-back). |
+| `BTST` | `BTST #n,dst` / `BTST Dn,dst` | long (register), byte (memory) | see below | Z only | Tests bit `n` of `dst` (Z=1 when clear). Doesn't modify `dst` — the standard way to poll one button out of the [gamepad bitmask](#reading-the-gamepad). `Dn,dst` reads the bit number from a register instead of an immediate. See [below](#what-do-bchgbclrbset-write-back) for the address-register restriction and the static/dynamic cycle difference. |
+| `BCHG` | `BCHG #n,dst` / `BCHG Dn,dst` | long (register), byte (memory) | see below | Z only | Like `BTST`, but also toggles bit `n` of `dst` after testing it. See [below](#what-do-bchgbclrbset-write-back) for what "write back" means here. |
+| `BCLR` | `BCLR #n,dst` / `BCLR Dn,dst` | long (register), byte (memory) | see below | Z only | Like `BTST`, but also clears bit `n` of `dst` after testing it. See [below](#what-do-bchgbclrbset-write-back). |
+| `BSET` | `BSET #n,dst` / `BSET Dn,dst` | long (register), byte (memory) | see below | Z only | Like `BTST`, but also sets bit `n` of `dst` after testing it. See [below](#what-do-bchgbclrbset-write-back). |
 
 ### Shift and Rotate
 
@@ -350,9 +350,20 @@ Two flag quirks worth knowing before relying on them:
 
 Same as `BTST` — the bit is located and its old value drives `Z` — but instead of stopping there, the (possibly changed) value gets written back to `dst`: `BCHG` flips the bit, `BCLR` forces it to `0`, `BSET` forces it to `1`. `Z` still reflects the bit's state *before* the write, exactly like `BTST`, so `BSET #0,D0 / BEQ WAS_CLEAR` reads naturally: branch if the bit *used to be* clear, even though it's `1` now.
 
-`An` direct isn't a valid `dst` for any of the three — same restriction `BTST`/`CHK`/`TAS`/`NBCD` share — so it raises the [Illegal Instruction exception](#exceptions) instead.
+`An` direct isn't a valid `dst` for any of the four (`BTST` included) — same restriction `CHK`/`TAS`/`NBCD` share — so the static (`#n,dst`) form raises the [Illegal Instruction exception](#exceptions) instead. The dynamic (`Dn,dst`) form's own `An`-direct opcode slot belongs to `MOVEP` on real hardware instead (see [Data Movement](#data-movement)), so hand-encoding e.g. `BSET D0,A0` runs as `MOVEP`, not as a failed `BSET`.
 
-`BCLR`'s register-form cycle count (14) is genuinely higher than `BCHG`/`BSET`'s (12) on real 68000 hardware — not a typo. All three cost the same 12 cycles for a memory `dst`.
+**Static vs dynamic bit number**: `#n,dst` reads the bit number from an immediate extension word; `Dn,dst` reads it from a data register instead. Behavior is otherwise identical (same `Z` rule, same write-back, same long-register/byte-memory split) — the only difference is cost, and only when `dst` is itself a register (no extension word to fetch):
+
+| Instruction | Static, register `dst` | Dynamic, register `dst` | Either form, memory `dst` |
+|---|---|---|---|
+| `BTST` | 10 | 6 | 8 |
+| `BCHG` | 12 | 8 | 12 |
+| `BCLR` | 14 | 10 | 12 |
+| `BSET` | 12 | 8 | 12 |
+
+`BCLR`'s register-form cycle count is genuinely higher than `BCHG`/`BSET`'s on real 68000 hardware in both forms — not a typo.
+
+**A pre-existing quirk, unrelated to this table**: this emulator's static `BTST`'s own register-form cycle count is actually `4`, not the `10` real hardware uses (a known inaccuracy, kept as-is rather than changed as a drive-by fix — see the source comment on `BTST`'s handler in `src/cpu/opcodes.ts` if this ever gets revisited). The dynamic form's `6` and every other value in this table are accurate.
 
 ### Which Bcc do I want?
 
