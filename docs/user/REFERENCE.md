@@ -89,29 +89,7 @@ The emulator's memory system is implemented and working. Every address below is 
 | Controller Input | `$7E800`–`$7E803` | 4 B | Gamepad button state, as a bitmask (see below) |
 | Sound | `$7E804`–`$7E80B` | 8 B | Tone generator registers, written by `TRAP #6` — no audio backend consumes them yet (see below) |
 
-To find the address of pixel `(x, y)`:
-
-```
-address = $40000 + (y * 320 + x) * 4
-```
-
-### Addressing a Pixel for TRAP #2/#3
-
-`TRAP #2` (read pixel) and `TRAP #3` (write pixel) take that address
-directly in `A0`, not `x`/`y` coordinates — compute it yourself first,
-same formula as above:
-
-```asm
-; address = $40000 + (y * 320 + x) * 4
-        MOVE.L  #10,D0          ; y
-        MULU.W  #320,D0
-        ADD.L   #50,D0          ; + x
-        ASL.L   #2,D0           ; * 4 bytes/pixel
-        ADD.L   #$40000,D0
-        MOVE.L  D0,A0
-        MOVE.L  #$FFFFFFFF,D0   ; white
-        TRAP    #3              ; write it
-```
+To find the address of a given pixel, see [Addressing a Pixel for TRAP #2/#3](#addressing-a-pixel-for-trap-23).
 
 ### Reading the Gamepad
 
@@ -743,11 +721,32 @@ All seven TRAP vectors are wired in:
 |---|---|---|---|
 | `#0` | `TRAP #0` | 4 | Halts the CPU (ends the program). |
 | `#1` | `TRAP #1` | 4 | Draws the null-terminated ASCII string at `A0` at pixel (`D0`, `D1`) in the `D2` color. See [Printing Text with TRAP #1](#printing-text-with-trap-1) below. |
-| `#2` | `TRAP #2` | 4 | Reads the pixel at the framebuffer address in `A0` into `D0` (32-bit RGBA). See [Addressing a Pixel for TRAP #2/#3](#addressing-a-pixel-for-trap-23) above. |
+| `#2` | `TRAP #2` | 4 | Reads the pixel at the framebuffer address in `A0` into `D0` (32-bit RGBA). See [Addressing a Pixel for TRAP #2/#3](#addressing-a-pixel-for-trap-23) below. |
 | `#3` | `TRAP #3` | 4 | Writes `D0` (32-bit RGBA) as the pixel at the framebuffer address in `A0`. |
 | `#4` | `TRAP #4` | 4 | Fills every one of the 64,000 framebuffer pixels with `D0` (32-bit RGBA) — clears the screen to any solid color, not just black. |
 | `#5` | `TRAP #5` | 4 | Loads the controller button bitmask into D0 — a shortcut for reading `$7E800` directly. |
 | `#6` | `TRAP #6` | 4 | Writes D0 (frequency), D1 (duration), D2 (volume), D3 (waveform) into the [sound registers](#sound-wired-up-silent-for-now) and sets the trigger byte. |
+
+### Addressing a Pixel for TRAP #2/#3
+
+`TRAP #2` (read pixel) and `TRAP #3` (write pixel) take a framebuffer *byte address* in `A0`, not `x`/`y` coordinates, so compute it yourself first. The framebuffer starts at `$40000` (see the [Memory Map](#memory-map)), each row is 320 pixels, and each pixel takes 4 bytes, so the address of pixel `(x, y)` is:
+
+```
+address = $40000 + (y * 320 + x) * 4
+```
+
+For example, to write a white pixel at `(50, 10)`:
+
+```asm
+        MOVE.L  #10,D0          ; y
+        MULU.W  #320,D0
+        ADD.L   #50,D0          ; + x
+        ASL.L   #2,D0           ; * 4 bytes/pixel
+        ADD.L   #$40000,D0
+        MOVE.L  D0,A0
+        MOVE.L  #$FFFFFFFF,D0   ; white
+        TRAP    #3              ; write it
+```
 
 ### Printing Text with TRAP #1
 
@@ -765,11 +764,9 @@ left as they were. Bytes outside `$20`-`$7E` draw nothing.
 There is no scrolling: drawing past the bottom of the screen (or at a
 negative position) stops the program with an error.
 
-`TRAP #2`/`#3` take a *framebuffer byte address* in `A0`, not `x`/`y`
-coordinates directly — see [Memory Map](#memory-map) above for the
-addressing formula, and
+`TRAP #2`/`#3` take a framebuffer address, not `x`/`y`: see
 [Addressing a Pixel for TRAP #2/#3](#addressing-a-pixel-for-trap-23)
-for a worked example.
+above.
 
 ## Exceptions
 
