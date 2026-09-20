@@ -1,5 +1,9 @@
 # Examples
 
+> **Outdated.** The verified, runnable examples are the files in
+> `examples/` (also presented in the user guide, `docs/user/EXAMPLES.md`).
+> The programs below predate the real CPU and contain known bugs.
+
 Practical examples for learning 68000 assembly with the Retro 68K Emulator.
 
 ## Example 1: Simple Addition

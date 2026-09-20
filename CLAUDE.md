@@ -137,6 +137,12 @@ docs:pdf:user`.
   stick read in `gamepadToMask`; under Tauri on Linux WebKitGTK has no
   `navigator.getGamepads`, so `src-tauri/src/lib.rs` polls `gilrs` and emits
   `gamepad-state` events that `Controller.tsx` consumes. Dev port moved to 1420.
+- **Examples**: `examples/NN-*.asm` (12 programs, English, no sound) are
+  assembled + run + asserted by `src/assembler/examples.test.ts` (add a
+  test + bump its count when adding one). `docs/user/EXAMPLES.md` embeds
+  the same code (copied, comments kept <= 66 cols, long comments go on
+  their own line above the instruction). `docs/EXAMPLES.md` is flagged
+  outdated.
 - **Fixed**: `scripts/lib/docs-html.js`'s cross-file-link regex (line
   187) used to have two bugs. (1) Its lazy, unrestricted text-capture
   group `(.*?)` could backtrack across unrelated content when a link's

@@ -23,7 +23,8 @@ PIXEL:
         NOT.L   D1              ; next pixel: the other color
         DBRA    D3,PIXEL
 
-        NOT.L   D1              ; shift the pattern for the next row
+        ; shift the pattern for the next row
+        NOT.L   D1
         DBRA    D2,ROW
 
         TRAP    #0              ; exit

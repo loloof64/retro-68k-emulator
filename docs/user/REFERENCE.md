@@ -646,7 +646,7 @@ throws a generic error instead of raising a catchable exception.
 
 ### Worked Examples
 
-Small programs to read alongside the instruction tables. All of them assemble.
+Small programs to read alongside the instruction tables. All of them assemble. For complete, runnable programs, see the [Example Programs](./EXAMPLES.md).
 
 **Example** — add two numbers and write a white pixel, using a direct absolute address:
 

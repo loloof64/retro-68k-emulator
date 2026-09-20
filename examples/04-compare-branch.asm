@@ -11,7 +11,8 @@ START:
         MOVE.L  #100,D0         ; D0 = 100
         MOVE.L  #50,D1          ; D1 = 50
 
-        CMP.L   D1,D0           ; computes D0 - D1, sets the flags only
+        ; computes D0 - D1 and sets the flags, nothing else
+        CMP.L   D1,D0
         BEQ     EQUAL           ; Z set: D0 = D1
         BGT     GREATER         ; signed D0 > D1
 

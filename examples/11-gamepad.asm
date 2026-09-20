@@ -8,14 +8,16 @@
         ORG     $2000
 
 START:
-        MOVEQ   #0,D2           ; color currently on screen (none yet)
+        ; color currently on screen (none yet)
+        MOVEQ   #0,D2
 
 LOOP:
         TRAP    #5              ; D0 = buttons
         MOVE.L  D0,D1           ; keep them: TRAP #4 will need D0
         MOVE.L  #$000000FF,D0   ; default color: black
 
-        BTST    #0,D1           ; button A held? (Z = 1 when the bit is 0)
+        ; button A held? (Z = 1 when the bit is 0)
+        BTST    #0,D1
         BEQ     NOT_A
         MOVE.L  #$FF0000FF,D0   ; red
 NOT_A:
@@ -26,7 +28,8 @@ NOT_B:
         CMP.L   D2,D0           ; already showing this color?
         BEQ     SAME
         MOVE.L  D0,D2
-        TRAP    #4              ; clear the screen to D0 (only on change)
+        ; clear the screen to D0 (only when the color changed)
+        TRAP    #4
 SAME:
         BTST    #8,D1           ; Start pressed?
         BEQ     LOOP

@@ -7,7 +7,8 @@
         ORG     $2000
 
 START:
-        LEA     ARRAY,A0        ; A0 = address of the first element
+        ; A0 = address of the first element
+        LEA     ARRAY,A0
         MOVEQ   #0,D0           ; sum = 0
         MOVEQ   #4,D1           ; DBRA runs D1+1 = 5 times
 

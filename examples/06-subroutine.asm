@@ -14,6 +14,7 @@ START:
 
 SQUARE:
         MULU.W  D0,D0           ; D0 = D0 * D0
-        RTS                     ; back to the instruction after JSR
+        ; back to the instruction after the JSR
+        RTS
 
         END     START

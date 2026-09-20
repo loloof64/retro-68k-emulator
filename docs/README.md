@@ -9,7 +9,7 @@ Complete reference documentation for the Retro 68K Emulator project.
 3. **[Opcode Reference](./OPCODES.md)** - Complete 68000 instruction set
 4. **[API Documentation](./API.md)** - Developer API reference
 5. **[Memory Layout](./MEMORY.md)** - Memory map and framebuffer
-6. **[Examples](./EXAMPLES.md)** - Code examples and tutorials
+6. **[Examples](./EXAMPLES.md)** - Code examples and tutorials (outdated; verified programs are in `examples/`)
 7. **[Installation & Distribution](./INSTALLATION.md)** - Building and installing the desktop app (Tauri)
 8. **[Troubleshooting](./TROUBLESHOOTING.md)** - Common issues and solutions
 

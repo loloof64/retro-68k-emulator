@@ -12,8 +12,10 @@ START:
         MOVEQ   #1,D1           ; result = 1
 
 LOOP:
-        MULU.W  D0,D1           ; result = result * N (16 x 16 -> 32 bits)
-        SUBQ.L  #1,D0           ; N = N - 1 (sets Z when N reaches 0)
+        ; result = result * N (16 x 16 -> 32 bits)
+        MULU.W  D0,D1
+        ; N = N - 1 (sets the Z flag when N reaches 0)
+        SUBQ.L  #1,D0
         BNE     LOOP            ; not zero yet: go round again
 
         TRAP    #0              ; exit (D1 = 120)

@@ -14,7 +14,8 @@ START:
 
 LOOP:
         MOVE.L  D7,(A0)+        ; write a pixel, then A0 += 4
-        DBRA    D0,LOOP         ; D0 -= 1, loop until D0 = -1 (100 passes)
+        ; D0 -= 1, then loop until D0 = -1 (100 passes)
+        DBRA    D0,LOOP
 
         TRAP    #0              ; exit
 

@@ -20,7 +20,7 @@ This project is under active development. The table below reflects what's genuin
 | Editor / Debugger / Screen interface | ✅ Connected: Run / Step / Pause / Reset, registers and flags, current-line highlight, breakpoints, screen output. Still a plain text editor (no syntax highlighting) |
 | Desktop installers (Windows / macOS / Linux) | ✅ Available — see [Downloads](./DOWNLOAD.md) |
 
-If you just want to try the app, grab the latest version from the [Downloads](./DOWNLOAD.md) page.
+If you just want to try the app, grab the latest version from the [Downloads](./DOWNLOAD.md) page, then head to the [Example Programs](./EXAMPLES.md) for twelve ready-to-run programs.
 
 ## Planned Features
 
