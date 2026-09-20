@@ -65,7 +65,7 @@ export default function Screen({ memory, frame }: ScreenProps) {
       />
       <div className="screen-info">
         <p>Résolution: 320×200</p>
-        <p>Mode: Monocolor</p>
+        <p>Couleurs: RGBA 32 bits</p>
       </div>
     </div>
   )
