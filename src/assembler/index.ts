@@ -132,11 +132,15 @@ export function assemble(source: string): AssembledProgram | AssemblerError[] {
   for (const p of parsed) {
     try {
       const isEqu = p.mnemonic === 'EQU'
-      if (p.label && !isEqu) {
-        if (symbols.has(p.label)) throw new Error(`Duplicate label '${p.label}'`)
-        symbols.set(p.label, pc)
-        labels.set(p.label, pc)
+      const bind = () => {
+        if (p.label && !isEqu) {
+          if (symbols.has(p.label)) throw new Error(`Duplicate label '${p.label}'`)
+          symbols.set(p.label, pc)
+          labels.set(p.label, pc)
+        }
       }
+      // ORG/EVEN move pc first, so their own label binds to the moved pc.
+      if (p.mnemonic !== 'ORG' && p.mnemonic !== 'EVEN') bind()
       if (!p.mnemonic) continue
       if (isEqu) {
         if (!p.label) throw new Error('EQU needs a label')
@@ -153,6 +157,7 @@ export function assemble(source: string): AssembledProgram | AssemblerError[] {
         if (!emitted) origin = addr
         else if (addr < pc) throw new Error('ORG cannot move backwards')
         pc = addr
+        bind()
         continue
       }
       if (p.mnemonic === 'EVEN') {
@@ -161,6 +166,7 @@ export function assemble(source: string): AssembledProgram | AssemblerError[] {
           pc += 1
           emitted = true
         }
+        bind()
         continue
       }
       const bytes =

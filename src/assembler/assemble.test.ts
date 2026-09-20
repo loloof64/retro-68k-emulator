@@ -55,4 +55,15 @@ describe('assemble: basics', () => {
     expect(errs('  DC.L NOPE')[0].message).toMatch(/Undefined symbol/)
     expect(errs('  DC.B 1\n  NOP')[0].message).toMatch(/odd address/)
   })
+  it('binds a label on an ORG line to the new address', () => {
+    const p = ok('START ORG $3000\n NOP\n END START')
+    expect(p.origin).toBe(0x3000)
+    expect(p.entry).toBe(0x3000)
+    expect(p.labels.get('START')).toBe(0x3000)
+  })
+  it('binds a label on an EVEN line after the padding', () => {
+    const p = ok('  DC.B 1\nL EVEN\n NOP')
+    expect(p.labels.get('L')).toBe(p.origin + 2)
+    expect(p.bytecode.length).toBe(4)
+  })
 })
