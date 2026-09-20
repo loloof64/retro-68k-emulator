@@ -517,7 +517,7 @@ export function generateHtmlDocument({
   html += `
   <footer>
     <p>${footerLine}</p>
-    <p>© 2026 - All Rights Reserved</p>
+    <p>Copyleft 2026 — free software</p>
   </footer>
 
 </body>
