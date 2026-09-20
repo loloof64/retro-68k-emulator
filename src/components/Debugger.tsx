@@ -20,6 +20,9 @@ interface DebuggerProps {
   onFrame: () => void // framebuffer may have changed: repaint the screen
 }
 
+// Tooltip: unsigned and signed (two's complement) decimal of a 32-bit value.
+const decimalTitle = (v: number) => `${v >>> 0} (signé : ${v | 0})`
+
 export default function Debugger({
   code,
   memory,
@@ -171,7 +174,7 @@ export default function Debugger({
       <div className="state-info">
         <div className="info-row">
           <span>PC:</span>
-          <code>${pc.toString(16).toUpperCase().padStart(8, '0')}</code>
+          <code title={decimalTitle(pc)}>${pc.toString(16).toUpperCase().padStart(8, '0')}</code>
         </div>
         <div className="info-row">
           <span>Cycles:</span>
@@ -190,7 +193,7 @@ export default function Debugger({
         <h3>Registres de données</h3>
         <div className="registers-grid">
           {['D0', 'D1', 'D2', 'D3', 'D4', 'D5', 'D6', 'D7'].map((reg) => (
-            <div key={reg} className="register">
+            <div key={reg} className="register" title={decimalTitle(registers[reg])}>
               <span className="reg-name">{reg}:</span>
               <code>
                 ${(registers[reg] >>> 0)
@@ -207,7 +210,7 @@ export default function Debugger({
         <h3>Registres adresse</h3>
         <div className="registers-grid">
           {['A0', 'A1', 'A2', 'A3', 'A4', 'A5', 'A6', 'A7'].map((reg) => (
-            <div key={reg} className="register">
+            <div key={reg} className="register" title={decimalTitle(registers[reg])}>
               <span className="reg-name">{reg}:</span>
               <code>
                 ${(registers[reg] >>> 0)
