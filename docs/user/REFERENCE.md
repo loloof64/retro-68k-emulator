@@ -797,6 +797,67 @@ aren't implemented here. If no handler was installed when the fault
 happens, the emulator throws a clear error instead of jumping to address
 `$0` the way real (misconfigured) hardware would.
 
+## Writing Assembly Source
+
+The assembler turns a text file of instructions into the machine code the CPU runs. It is a library for now: it is not yet connected to the Editor, so the Editor's Run button does not use it.
+
+A tiny program:
+
+```asm
+        ORG     $2000          ; where the program is placed
+START:                         ; a label: a name for this address
+        MOVE.L  #100,D0        ; D0 = 100
+        ADD.L   #5,D0          ; D0 = 105
+        TRAP    #0             ; exit
+        END     START          ; run from START
+```
+
+### Source Layout
+
+- A **label** names an address, so that a branch can say "go to LOOP" instead of counting bytes. It is a word starting in column 0, or any word ending in `:`.
+- A **directive** is a command to the assembler itself (such as `ORG`), not a CPU instruction.
+- Comments start with `;` (or `*` in column 0).
+- Mnemonics, registers and directives are case-insensitive; labels are case-sensitive.
+- Numbers: `123`, `$FF` (hex), `%1010` (binary), `'A'` (character code).
+- Expressions combine numbers and labels with `+` and `-` only.
+- Operands: `D0`-`D7`, `A0`-`A7` (`SP` means `A7`), `(A0)`, `(A0)+`, `-(A0)`, `4(A0)`, `#5`, and a bare address or label.
+- A bare address or label is always stored as a 4-byte address.
+- An instruction must sit at an even address; put `EVEN` before it after odd-sized data.
+
+### Directives
+
+| Directive | Effect |
+|---|---|
+| `ORG addr` | Places the following bytes at `addr` (default `$2000`). |
+| `END [label]` | Ends the source; the label is where execution starts. |
+| `DC.B/W/L a, b` | Stores constants; `DC.B` also accepts `"text"`. |
+| `DS.B/W/L n` | Reserves `n` zeroed bytes, words or long words. |
+| `EQU expr` | Makes the line's label a constant, not an address. |
+| `EVEN` | Adds one zero byte if the address is odd. |
+
+### Branch Sizes
+
+Branches take a size suffix: `.S` is a short 8-bit distance (nonzero), `.W` (the default) a 16-bit one. A target too far away is an error; the assembler does not switch sizes for you.
+
+### Assemblable Instructions
+
+Every instruction the CPU runs is in the tables above, but the assembler currently accepts only the ones below. Any other real mnemonic reports "'X' is not assemblable yet".
+
+| Category | Mnemonics |
+|---|---|
+| Data Movement | `MOVE`, `MOVEA`, `MOVEQ`, `LEA` |
+| Arithmetic | `ADD`, `SUB`, `CMP`, `ADDA`, `SUBA`, `CMPA`, `ADDI`, `SUBI`, `CMPI`, `ADDQ`, `SUBQ`, `CLR`, `TST` |
+| Branches | `BRA`, `BSR`, `Bcc` (all conditions), `DBcc`, `DBRA` |
+| Subroutine Control | `JMP`, `JSR`, `RTS` |
+| System | `NOP`, `TRAP` |
+
+### Assembler Limits
+
+- A label defined by `EQU` must appear before it is used, and `ORG` and `DS` counts cannot use labels defined later.
+- `DC` values are not range-checked; oversized values are truncated.
+- PC-relative and indexed `(An,Xn)` operands are not assemblable yet.
+- Errors are reported all at once as a list of line, column and message.
+
 ## Assembly Programming Tips
 
 ### Declaring data: DC.B, DC.W, DC.L
@@ -810,7 +871,7 @@ MESSAGE:
 DC.B    'HI', 0                ; three bytes: 'H', 'I', 0
 ```
 
-There's no assembler in this project yet — no `.asm` file at all, only hand-encoded machine words — so `DC.x` isn't something that can actually be written today. The closest equivalent right now is building the data at *runtime* instead of baking it in ahead of time: pick an address, then write each value into it with its own `MOVE`, stepping the address with [`(An)+`](#addressing-modes) the same way a program would read the data back out later. Less convenient than a static table, but the memory ends up holding exactly the same bytes.
+The assembler accepts `DC.x` (see [Writing Assembly Source](#writing-assembly-source)). Until the Editor is connected to it, the alternative is building the data at *runtime*: pick an address, then write each value into it with its own `MOVE`, stepping the address with [`(An)+`](#addressing-modes) the same way a program would read the data back out later. The memory ends up holding exactly the same bytes.
 
 ### Tips
 

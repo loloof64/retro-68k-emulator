@@ -89,14 +89,16 @@ instructions it rules out.
 ```
 Source Code (.asm)
       ↓
-   Tokenizer      (Split into tokens: mnemonics, registers, numbers)
+   parser.ts      (Split line: label, mnemonic, size, operands)
       ↓
-   Parser         (Validate syntax, resolve labels)
+   Pass 1         (Measure instructions, record label addresses)
       ↓
-   Code Generator (Convert to bytecode)
+   Pass 2         (Encode with real labels via opcode encode fields)
       ↓
-   Bytecode       (Ready for execution)
+   AssembledProgram (bytecode, origin, entry, labels, lineMap)
 ```
+
+Details, syntax and limits: see [Assembler](./ASSEMBLER.md).
 
 ### Label Resolution
 - First pass: Collect all labels and their addresses
@@ -151,8 +153,8 @@ Maps to a handler table:
 ### `src/types/cpu.ts`
 Type definitions for CPU state, instructions, and memory.
 
-### `src/assembler/index.ts` *(To implement)*
-Tokenizer, parser, and code generation.
+### `src/assembler/` *(Implemented as a library; UI wiring pending)*
+Line parser, operand parser, effective-address encoder and the two-pass `assemble` driver. Instruction encoders live next to the CPU handlers, in the `encode` field of `src/cpu/opcodes.ts`.
 
 ### `src/cpu/index.ts` *(To implement)*
 CPU state management and instruction execution.

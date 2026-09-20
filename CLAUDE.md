@@ -61,11 +61,16 @@ docs:pdf:user`.
   directly followed by the input registers and wouldn't fault by itself).
   - Color format settled as `0xRRGGBBAA` (matches `docs/API.md`; red =
     `0xFF0000FF`) — `docs/MEMORY.md`'s diagram/examples fixed to match.
-- **Assembler: designed, not implemented** — spec in
-  `docs/superpowers/specs/2026-09-20-assembler-design.md` (start from it,
-  no re-derivation; next step is a `writing-plans` implementation plan).
-  Originally "not started" (planned — turns `.asm` source into runnable
-  bytecode; right now opcodes are hand-assembled as raw words in tests).
+- **Assembler: v1 library implemented** (`src/assembler/`, two-pass,
+  `assemble(source)` -> `AssembledProgram | AssemblerError[]`); UI wiring
+  pending. Assemblable subset: MOVE/MOVEA/MOVEQ, ADD/SUB/CMP (+A/I),
+  ADDQ/SUBQ, LEA, CLR, TST, BRA/BSR/Bcc, DBcc, JMP/JSR/RTS, NOP, TRAP;
+  others report "not assemblable yet". Known limits: no forward refs to
+  EQU/DS counts, absolute always long, no branch relaxation, no PC-relative
+  or indexed operands. Each mnemonic is encoded by an `encode` field in
+  `src/cpu/opcodes.ts`; docs in `docs/ASSEMBLER.md`. Spec:
+  `docs/superpowers/specs/2026-09-20-assembler-design.md`, plan:
+  `docs/superpowers/plans/2026-09-20-assembler.md`.
 - **Debugger/Editor UI: shell only**, not wired to a real CPU execution
   loop (`src/components/Debugger.tsx`'s Step handler is a literal TODO;
   `Editor.tsx` is a bare `<textarea>`, no syntax highlighting).

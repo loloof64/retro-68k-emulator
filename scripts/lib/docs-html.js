@@ -71,6 +71,7 @@ export const developerDocumentStructure = [
   { title: 'Getting Started', file: 'GETTING_STARTED.md', id: 'getting-started' },
   { title: 'Architecture', file: 'ARCHITECTURE.md', id: 'architecture' },
   { title: 'Opcode Reference', file: 'OPCODES.md', id: 'opcodes' },
+  { title: 'Assembler', file: 'ASSEMBLER.md', id: 'assembler' },
   { title: 'API Documentation', file: 'API.md', id: 'api' },
   { title: 'Memory Layout', file: 'MEMORY.md', id: 'memory' },
   { title: 'Examples', file: 'EXAMPLES.md', id: 'examples' },
