@@ -8,6 +8,30 @@ import type { AssemblerError, EncodeContext, Size } from './types'
 
 export type { AssemblerError } from './types'
 
+// An Error that knows which column it points at (default: the mnemonic's).
+class AsmError extends Error {
+  constructor(message: string, readonly column?: number) {
+    super(message)
+  }
+}
+
+// Runs `fn`, pointing any error it throws at `column` unless it already points somewhere.
+function at<T>(column: number, fn: () => T): T {
+  try {
+    return fn()
+  } catch (e) {
+    if (e instanceof AsmError || !(e instanceof Error)) throw e
+    throw new AsmError(e.message, column)
+  }
+}
+
+// Evaluates `expr`, blaming the operand of `p` that contains it.
+function evalAt(p: ParsedLine, expr: string, lookup: (n: string) => number | undefined): number {
+  const i = Math.max(0, p.operands.findIndex((o) => o.includes(expr)))
+  const col = (p.operandColumns[i] ?? p.column) + Math.max(0, (p.operands[i] ?? '').indexOf(expr))
+  return at(col, () => evalExpr(expr, lookup))
+}
+
 // --- mnemonic resolution -------------------------------------------------
 
 const encodable = new Map<string, OpcodeDefinition[]>()
@@ -45,6 +69,23 @@ function resolveMnemonic(name: string): { defs: OpcodeDefinition[]; cc?: number 
   throw new Error(`Unknown mnemonic '${name}'`)
 }
 
+// Suffixes that make no sense at all, so they are errors instead of being ignored.
+const NO_SUFFIX = new Set(['NOP', 'RTS', 'RTR', 'TRAPV', 'ILLEGAL', 'TRAP', 'UNLK', 'JMP', 'JSR'])
+
+function checkSuffix(p: ParsedLine, defs: OpcodeDefinition[]): void {
+  if (p.size === undefined) return
+  const name = defs[0].mnemonic.toUpperCase()
+  const bad = () => new Error(`'.${p.size}' is not a valid size for ${p.mnemonic}`)
+  if (p.size === 'S') {
+    if (name !== 'BCC' && name !== 'BSR') throw bad()
+    return
+  }
+  if (NO_SUFFIX.has(name) || (name === 'DBCC' && p.size !== 'W')) throw bad()
+  const size = SIZE_LETTERS[p.size]
+  // SWAP is declared 'long' in the table but is .W on real hardware.
+  if (size && !defs.some((d) => d.size === 'variable' || d.size === size || (name === 'SWAP' && size === 'word'))) throw bad()
+}
+
 const SIZE_LETTERS: Record<string, Size> = { B: 'byte', S: 'byte', W: 'word', L: 'long' }
 
 function parseSize(letter: string | undefined): Size {
@@ -66,15 +107,19 @@ function toBytes(value: number, width: number): number[] {
   return out
 }
 
-function emitData(p: ParsedLine, lookup: Lookup): number[] {
+const DC_RANGE = { byte: [-128, 255], word: [-32768, 65535], long: [-(2 ** 31), 2 ** 32 - 1] } as const
+
+function emitData(p: ParsedLine, pc: number, lookup: Lookup): number[] {
   const size = parseSize(p.size ?? 'W')
+  if (size === 'byte' && p.size === 'S') throw new Error(`'.S' is not a valid size for ${p.mnemonic}`)
+  if (size !== 'byte' && pc % 2 !== 0) throw new Error(`${p.mnemonic}.${p.size ?? 'W'} at an odd address (add EVEN before it)`)
   if (p.mnemonic === 'DS') {
-    const count = evalExpr(p.operands[0] ?? '', lookup)
+    const count = evalAt(p, p.operands[0] ?? '', lookup)
     if (count < 0) throw new Error('DS count must be >= 0')
     return new Array(count * widthOf(size)).fill(0)
   }
   const out: number[] = []
-  for (const op of p.operands) {
+  for (const [i, op] of p.operands.entries()) {
     if (op.startsWith('"')) {
       if (size !== 'byte' || !op.endsWith('"') || op.length < 2) throw new Error('Strings are only allowed in DC.B')
       for (const ch of op.slice(1, -1)) {
@@ -82,7 +127,10 @@ function emitData(p: ParsedLine, lookup: Lookup): number[] {
         out.push(ch.charCodeAt(0))
       }
     } else {
-      out.push(...toBytes(evalExpr(op, lookup) >>> 0, widthOf(size)))
+      const value = evalAt(p, op, lookup)
+      const [min, max] = DC_RANGE[size]
+      if (value < min || value > max) throw new AsmError(`DC value ${value} does not fit in ${widthOf(size)} byte(s) (${min}..${max})`, p.operandColumns[i])
+      out.push(...toBytes(value >>> 0, widthOf(size)))
     }
   }
   return out
@@ -91,9 +139,10 @@ function emitData(p: ParsedLine, lookup: Lookup): number[] {
 function emitInstruction(p: ParsedLine, pc: number, lookup: Lookup, final: boolean): number[] {
   if (pc % 2 !== 0) throw new Error('Instruction at an odd address (add EVEN before it)')
   const { defs, cc } = resolveMnemonic(p.mnemonic ?? '')
+  checkSuffix(p, defs)
   const size = parseSize(p.size)
-  const ops = p.operands.map(parseOperand)
-  const ctx: EncodeContext = { pc, cc, final, eval: (e) => evalExpr(e, lookup) }
+  const ops = p.operands.map((o, i) => at(p.operandColumns[i], () => parseOperand(o)))
+  const ctx: EncodeContext = { pc, cc, final, eval: (e) => evalAt(p, e, lookup) }
   for (const def of defs) {
     const words = def.encode!(ops, size, ctx)
     if (words) return words.flatMap((w) => [w >> 8, w & 0xff])
@@ -112,7 +161,11 @@ interface MeasuredLine {
 export function assemble(source: string): AssembledProgram | AssemblerError[] {
   const errors: AssemblerError[] = []
   const fail = (p: ParsedLine, e: unknown) =>
-    errors.push({ line: p.line, column: p.column, message: e instanceof Error ? e.message : String(e) })
+    errors.push({
+      line: p.line,
+      column: (e instanceof AsmError && e.column) || p.column,
+      message: e instanceof Error ? e.message : String(e),
+    })
 
   const parsed = source
     .split(/\r?\n/)
@@ -137,7 +190,7 @@ export function assemble(source: string): AssembledProgram | AssemblerError[] {
       const isEqu = p.mnemonic === 'EQU'
       const bind = () => {
         if (p.label && !isEqu) {
-          if (symbols.has(p.label)) throw new Error(`Duplicate label '${p.label}'`)
+          if (symbols.has(p.label)) throw new AsmError(`Duplicate label '${p.label}'`, p.labelColumn)
           symbols.set(p.label, pc)
           labels.set(p.label, pc)
         }
@@ -147,8 +200,8 @@ export function assemble(source: string): AssembledProgram | AssemblerError[] {
       if (!p.mnemonic) continue
       if (isEqu) {
         if (!p.label) throw new Error('EQU needs a label')
-        if (symbols.has(p.label)) throw new Error(`Duplicate label '${p.label}'`)
-        symbols.set(p.label, evalExpr(p.operands[0] ?? '', strict))
+        if (symbols.has(p.label)) throw new AsmError(`Duplicate label '${p.label}'`, p.labelColumn)
+        symbols.set(p.label, evalAt(p, p.operands[0] ?? '', strict))
         continue
       }
       if (p.mnemonic === 'END') {
@@ -156,7 +209,7 @@ export function assemble(source: string): AssembledProgram | AssemblerError[] {
         break
       }
       if (p.mnemonic === 'ORG') {
-        const addr = evalExpr(p.operands[0] ?? '', strict)
+        const addr = evalAt(p, p.operands[0] ?? '', strict)
         if (!emitted) origin = addr
         else if (addr < pc) throw new Error('ORG cannot move backwards')
         pc = addr
@@ -174,7 +227,7 @@ export function assemble(source: string): AssembledProgram | AssemblerError[] {
       }
       const bytes =
         p.mnemonic === 'DC' || p.mnemonic === 'DS'
-          ? emitData(p, lenient)
+          ? emitData(p, pc, lenient)
           : emitInstruction(p, pc, lenient, false)
       records.push({ p, pc, len: bytes.length })
       pc += bytes.length
@@ -192,7 +245,7 @@ export function assemble(source: string): AssembledProgram | AssemblerError[] {
         p.mnemonic === 'EVEN'
           ? [0]
           : p.mnemonic === 'DC' || p.mnemonic === 'DS'
-            ? emitData(p, strict)
+            ? emitData(p, at, strict)
             : emitInstruction(p, at, strict, true)
       if (bytes.length !== len) throw new Error('Size changed between passes (forward reference in a DS count?)')
       chunks.push({ pc: at, bytes, line: p.line })

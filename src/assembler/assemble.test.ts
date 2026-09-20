@@ -67,3 +67,41 @@ describe('assemble: basics', () => {
     expect(p.bytecode.length).toBe(4)
   })
 })
+
+describe('deferred follow-ups', () => {
+  it('range-checks DC values', () => {
+    expect(errs('  DC.B 256')[0].message).toMatch(/does not fit/)
+    expect(errs('  DC.B -129')[0].message).toMatch(/does not fit/)
+    expect(errs('  DC.W 65536')[0].message).toMatch(/does not fit/)
+    expect(errs('  DC.L 4294967296')[0].message).toMatch(/does not fit/)
+    expect(ok('  DC.B -128,255\n  DC.W -1,65535').bytecode.length).toBe(6)
+  })
+  it('flags DC.W/DC.L/DS.W at an odd address', () => {
+    expect(errs('  DC.B 1\n  DC.W 2')[0].message).toMatch(/odd address/)
+    expect(errs('  DC.B 1\n  DC.L 2')[0].message).toMatch(/odd address/)
+    expect(errs('  DC.B 1\n  DS.W 2')[0].message).toMatch(/odd address/)
+    expect(ok('  DC.B 1,2\n  DC.W 2').bytecode.length).toBe(4)
+  })
+  it('rejects meaningless size suffixes', () => {
+    for (const src of ['NOP.L', 'RTS.W', 'MULU.L D0,D1', 'ABCD.W D0,D1', 'MOVE.S D0,D1', 'DBRA.L D0,L', 'SEQ.W D0', 'LEA.W (A0),A1'])
+      expect(errs(`L: ${src}`)[0].message).toMatch(/not a valid size/)
+    for (const src of ['NOP', 'MULU.W D0,D1', 'ABCD D0,D1', 'SWAP.W D0', 'SEQ.B D0', 'LEA.L (A0),A1', 'BSR.S L', 'DBRA.W D0,L'])
+      expect(Array.isArray(assemble(`L: ${src}`))).toBe(false)
+  })
+  it('points errors at the offending column', () => {
+    expect(errs('  MOVE.L #1,FOO')[0].column).toBe(13)
+    expect(errs('  DC.B 1,300')[0].column).toBe(10)
+    expect(errs('  DC.B 1,2\nA: NOP\n  ADD.L D0,D1,D2')[0].column).toBe(3)
+    expect(errs('A: NOP\nA: NOP')[0].column).toBe(1)
+  })
+  it('covers the assembler test gaps', () => {
+    expect(ok('  ADDQ.L #8,D0').bytecode).toEqual(new Uint8Array([0x50, 0x80]))
+    expect(ok('L: NOP\n  BSR.S L').bytecode[2]).toBe(0x61)
+    expect(errs('L: BRA.L L')[0].message).toMatch(/\.S or \.W only/)
+    expect(errs('  DBRA D0,FAR\n  DS.B 40000\nFAR: NOP')[0].message).toMatch(/out of range/)
+    expect(errs('  MOVE D0')[0].message).toMatch(/does not accept/)
+    expect(errs('  ADD.L #1,#2')[0].message).toMatch(/does not accept/)
+    expect(errs('  LEA D0,A1')[0].message).toMatch(/does not accept/)
+    expect(errs('  MOVE.L (A0,A1')[0]).toBeDefined()
+  })
+})

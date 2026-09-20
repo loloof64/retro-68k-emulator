@@ -895,7 +895,7 @@ Every real mnemonic is assemblable. `CCR` and `SR` are accepted as operands only
 ### Assembler Limits
 
 - A label defined by `EQU` must appear before it is used, and `ORG` and `DS` counts cannot use labels defined later.
-- `DC` values are not range-checked; oversized values are truncated.
+- `DC` values must fit their width (`DC.B` accepts -128..255) and `DC.W`/`DC.L`/`DS.W`/`DS.L` must sit at an even address (put `EVEN` before them); a size suffix the mnemonic cannot take (`NOP.L`, `MULU.L`) is an error.
 - `d(PC)` and `d(PC,Xn)` take the target label as `d` (e.g. `LEA table(PC),A0`); the assembler works out the distance. They are source-only, and `BTST #n,d(PC)` is not assemblable.
 - Errors are reported all at once as a list of line, column and message.
 

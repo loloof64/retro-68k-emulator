@@ -75,13 +75,11 @@ docs:pdf:user`.
   `src/cpu/opcodes.ts`; docs in `docs/ASSEMBLER.md`. Spec:
   `docs/superpowers/specs/2026-09-20-assembler-design.md`, plan:
   `docs/superpowers/plans/2026-09-20-assembler.md`.
-  Deferred assembler follow-ups (none produce wrong code for valid
-  source): DC values not range-checked (truncated); DC.W/L at an odd
-  address not flagged; `.S` suffix accepted on non-branches and size
-  suffixes ignored on size-less mnemonics (NOP.L); AssemblerError.column is
-  always the mnemonic's column; test gaps (negative operand shapes, ADDQ #8,
-  BSR.S, DBcc range, BRA.L); size suffix is ignored on ABCD/SBCD/MULU-style
-  mnemonics that only exist at one size.
+  Former deferred follow-ups are done (DC range + odd-address checks, invalid size suffixes rejected via
+  `checkSuffix` in `src/assembler/index.ts`, AssemblerError.column points at the operand/label via
+  `AsmError`/`evalAt`, test gaps filled). Remaining nits: errors thrown inside an encoder that don't
+  come from `ctx.eval` (e.g. range checks) still point at the mnemonic; `END`'s entry expression
+  errors point at the mnemonic.
   **UI wiring done**: Debugger assembles (only when the source changed),
   loads `bytecode` at `origin`, runs `step()` (Run = 2000 steps per
   animation frame, Step, Reset), shows registers/flags/PC/cycles, the

@@ -96,7 +96,7 @@ Assemblable: every real mnemonic. That covers `MOVE` (including `MOVE <ea>,CCR` 
 Known limits:
 
 - Forward references to `EQU` symbols, and in `ORG` or `DS` counts, are not supported (a `DS` count that changes size between passes reports an error).
-- `DC` values are not range-checked; they are truncated to the width.
+- A size suffix a mnemonic cannot take (`NOP.L`, `MULU.L`, `MOVE.S`) is an error, and so are `DC.W`/`DC.L`/`DS.W`/`DS.L` at an odd address; `DC` values must fit their width (`DC.B` accepts -128..255).
+- Errors point at the offending operand's column when it can be told (an undefined symbol, a bad `DC` value, a duplicate label); other errors point at the mnemonic.
 - Labels defined before the first `ORG` bind to the default origin.
 - Absolute operands are always long (4 bytes); branches are never relaxed.
-- Nothing calls the assembler from the UI yet.

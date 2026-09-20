@@ -4,6 +4,8 @@ export interface ParsedLine {
   line: number
   column: number
   label?: string
+  labelColumn: number
+  operandColumns: number[] // 1-based column of each operand, parallel to `operands`
   mnemonic?: string
   size?: string
   operands: string[]
@@ -37,16 +39,26 @@ export function parseLine(raw: string, lineNo: number): ParsedLine | null {
     rest = text.slice(offset)
   }
 
+  const labelColumn = text.length - text.trimStart().length + 1
   const m = rest.match(/^(\s*)(\S+)\s*(.*)$/)
-  if (!m) return { line: lineNo, column: 1, label, operands: [] }
+  if (!m) return { line: lineNo, column: 1, label, labelColumn, operandColumns: [], operands: [] }
 
   const [name, ...sizePart] = m[2].split('.')
+  const operands = splitOperands(m[3])
+  let cursor = offset + rest.length - m[3].length
+  const operandColumns = operands.map((op) => {
+    const start = text.indexOf(op, cursor)
+    cursor = start + op.length
+    return start + 1
+  })
   return {
     line: lineNo,
     column: offset + m[1].length + 1,
     label,
+    labelColumn,
+    operandColumns,
     mnemonic: name.toUpperCase(),
     size: sizePart.length ? sizePart.join('.').toUpperCase() : undefined,
-    operands: splitOperands(m[3]),
+    operands,
   }
 }
