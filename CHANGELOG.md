@@ -6,6 +6,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-09-21
+
+The assembler is complete.
+
+### Added
+- Assembler now covers every real (non-privileged) 68000 mnemonic: logic, NOT/NEG, MUL/DIV, EXT/SWAP/EXG/PEA, Scc, LINK/UNLK, X/BCD forms, shifts/rotates, bit operations, MOVEM (register lists), MOVEP, `CCR`/`SR` operands, PC-relative `d(PC)`/`d(PC,Xn)` and indexed `d(An,Xn)` addressing
+- Assembler diagnostics: invalid size suffixes rejected, `DC` range and odd-address checks, error columns point at the offending operand/label
+- UI in English (default), French and Spanish, auto-detected, with a language selector; the starter program follows the language
+- Debugger: labelled Speed selector, decimal tooltip (unsigned + signed) on registers and PC
+
+### Fixed
+- Screen info no longer claims a monochrome mode
+- Speed selector wraps instead of overflowing the debugger column
+
 ## [0.1.4] - 2026-09-20
 
 Functional assembler with subsets of op-codes.

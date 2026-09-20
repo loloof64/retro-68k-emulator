@@ -128,6 +128,11 @@ docs:pdf:user`.
   blocks. A tag build uses the workflow as of the tagged commit, so fix
   the workflow *then* move the tag (force-push). The release body text is
   hardcoded in `build.yml` (`releaseBody`) — update it per release.
+- **Release 0.2.0 (2026-09-21)**: "The assembler is complete" (full
+  mnemonic coverage, i18n en/fr/es, debugger speed selector). Same tag-driven
+  pipeline as 0.1.4; `releaseBody` in `build.yml` updated. Bump = `package.json`,
+  `package-lock.json` (2 spots), `src-tauri/Cargo.toml`, `src-tauri/tauri.conf.json`
+  + `CHANGELOG.md`.
 - **Fixed**: `scripts/lib/docs-html.js`'s cross-file-link regex (line
   187) used to have two bugs. (1) Its lazy, unrestricted text-capture
   group `(.*?)` could backtrack across unrelated content when a link's
