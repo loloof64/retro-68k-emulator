@@ -149,8 +149,18 @@ jobs:
       - name: Install frontend dependencies
         run: npm ci
 
+      # Chrome for mermaid-cli (diagram -> PNG); without it the diagram falls
+      # back to a plain code block. --no-sandbox: Ubuntu 24.04 runners restrict
+      # unprivileged user namespaces, which Chrome's sandbox needs.
+      - name: Install Chrome for Mermaid diagrams
+        run: |
+          npx puppeteer browsers install chrome-headless-shell
+          echo '{"args":["--no-sandbox"]}' > "$RUNNER_TEMP/puppeteer.json"
+
       - name: Generate user guide PDF
         run: npm run docs:pdf:user
+        env:
+          MERMAID_PUPPETEER_CONFIG: ${{ runner.temp }}/puppeteer.json
 
       - name: Attach user guide PDF to the draft release (on tag)
         if: startsWith(github.ref, 'refs/tags/')

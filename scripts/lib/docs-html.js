@@ -54,7 +54,12 @@ function renderMermaidToImage(mermaidSource) {
     fs.writeFileSync(inputPath, mermaidSource)
     // -s 3: render at 3x so it stays crisp when scaled down to fit the
     // page width (mermaid's default canvas is a modest 800x600).
-    execFileSync(mmdcBin, ['-i', inputPath, '-o', outputPath, '-b', 'white', '-s', '3'], { stdio: 'pipe' })
+    const puppeteerConfig = process.env.MERMAID_PUPPETEER_CONFIG // CI: --no-sandbox
+    execFileSync(
+      mmdcBin,
+      ['-i', inputPath, '-o', outputPath, '-b', 'white', '-s', '3', ...(puppeteerConfig ? ['-p', puppeteerConfig] : [])],
+      { stdio: 'pipe' }
+    )
     const png = fs.readFileSync(outputPath)
     return `data:image/png;base64,${png.toString('base64')}`
   } catch (error) {
