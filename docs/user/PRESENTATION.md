@@ -18,9 +18,9 @@ This project is under active development. The table below reflects what's genuin
 | TRAP system calls (print text, draw pixels, clear screen, read gamepad, play tone) | ✅ Done — all 7 (`TRAP #0` halt, `TRAP #1` print text, `TRAP #2` read pixel, `TRAP #3` write pixel, `TRAP #4` clear screen, `TRAP #5` read controller, `TRAP #6` set sound registers) — see [Reference](./REFERENCE.md) |
 | Gamepad UI (A/B/X/Y, D-pad, Start/Select) | ✅ On-screen buttons + real Gamepad API (takes over automatically when a controller is connected) |
 | Editor / Debugger / Screen interface | ✅ Connected: Run / Step / Pause / Reset, registers and flags, current-line highlight, breakpoints, screen output. Still a plain text editor (no syntax highlighting) |
-| Desktop installers (Windows / macOS / Linux) | 🚧 Packaging configured, first release not shipped yet |
+| Desktop installers (Windows / macOS / Linux) | ✅ Available — see [Downloads](./DOWNLOAD.md) |
 
-If you just want to try the app today, it's not ready for that yet — check the [Downloads](./DOWNLOAD.md) page, which will be updated the moment a first usable version is published.
+If you just want to try the app, grab the latest version from the [Downloads](./DOWNLOAD.md) page.
 
 ## Planned Features
 

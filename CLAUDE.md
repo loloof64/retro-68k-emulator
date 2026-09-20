@@ -116,7 +116,7 @@ docs:pdf:user`.
   documents it. **First real check = a `workflow_dispatch` run** (download
   the `portable-windows` artifact, unzip on a clean Windows, run it); the
   `softprops/action-gh-release` draft-attach on tag is the least certain
-  part. No release has shipped yet.
+  part. Releases now exist (0.1.4, 0.2.0); user docs say "at least one version is available".
 - **Release 0.1.4 (2026-09-20)**: "Functional assembler with subsets of
   op-codes". Tag `v0.1.4` triggers `.github/workflows/build.yml`: tauri
   installers + Windows portable zip + a `user-guide-pdf` job (runs after
