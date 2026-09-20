@@ -9,6 +9,7 @@ import {
   INPUT_BUTTON_B,
   INPUT_BUTTON_START,
   INPUT_BUTTON_UP,
+  INPUT_BUTTON_RIGHT,
 } from '../memory'
 
 // Minimal fakes shaped like the bits of the Gamepad API this module reads.
@@ -71,5 +72,13 @@ describe('findStandardGamepad', () => {
 describe('GAMEPAD_BUTTON_MAP', () => {
   it('maps the D-pad up index (12) to INPUT_BUTTON_UP', () => {
     expect(GAMEPAD_BUTTON_MAP[12]).toBe(INPUT_BUTTON_UP)
+  })
+})
+
+describe('gamepadToMask axes fallback', () => {
+  it('reads a D-pad reported as axes 6/7 and the left stick', () => {
+    const pad = { ...fakeGamepad([]), axes: [0, 0, 0, 0, 0, 0, 0, -1] }
+    expect(gamepadToMask(pad)).toBe(INPUT_BUTTON_UP)
+    expect(gamepadToMask({ ...pad, axes: [1, 0] })).toBe(INPUT_BUTTON_RIGHT)
   })
 })

@@ -41,23 +41,34 @@ export const GAMEPAD_BUTTON_MAP: Readonly<Record<number, number>> = {
 // browser Gamepad API.
 export function findStandardGamepad(
   gamepads: readonly (Pick<Gamepad, 'connected' | 'mapping'> | null)[]
-): Pick<Gamepad, 'connected' | 'mapping' | 'buttons'> | null {
+): Pick<Gamepad, 'connected' | 'mapping' | 'buttons' | 'axes'> | null {
   for (const pad of gamepads) {
     if (pad && pad.connected && pad.mapping === 'standard') {
-      return pad as Pick<Gamepad, 'connected' | 'mapping' | 'buttons'>
+      return pad as Pick<Gamepad, 'connected' | 'mapping' | 'buttons' | 'axes'>
     }
   }
   return null
 }
 
+const AXIS_THRESHOLD = 0.5
+
 // Reduces one gamepad's button states to our bitmask. Pure/testable: only
 // needs `.buttons[i].pressed`, not a real Gamepad object.
-export function gamepadToMask(gamepad: Pick<Gamepad, 'buttons'>): number {
+export function gamepadToMask(gamepad: Pick<Gamepad, 'buttons'> & { axes?: readonly number[] }): number {
   let mask = 0
   for (const [index, bit] of Object.entries(GAMEPAD_BUTTON_MAP)) {
     if (gamepad.buttons[Number(index)]?.pressed) {
       mask |= bit
     }
+  }
+  // Many generic pads report the D-pad as axes (6/7) instead of buttons
+  // 12-15; the left stick (0/1) doubles as a D-pad too.
+  const ax = gamepad.axes ?? []
+  for (const [xi, yi] of [[0, 1], [6, 7]]) {
+    if ((ax[xi] ?? 0) < -AXIS_THRESHOLD) mask |= INPUT_BUTTON_LEFT
+    if ((ax[xi] ?? 0) > AXIS_THRESHOLD) mask |= INPUT_BUTTON_RIGHT
+    if ((ax[yi] ?? 0) < -AXIS_THRESHOLD) mask |= INPUT_BUTTON_UP
+    if ((ax[yi] ?? 0) > AXIS_THRESHOLD) mask |= INPUT_BUTTON_DOWN
   }
   return mask
 }
