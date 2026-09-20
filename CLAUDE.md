@@ -84,7 +84,7 @@ docs:pdf:user`.
   source line of PC (`lineMap`), assembler errors and runtime errors;
   Screen paints the framebuffer (alpha forced opaque) on each `frame`
   bump. Editor: line-number gutter (click = breakpoint), yellow bar on
-  the line about to execute (fixed 18px line height, no wrapping, so
+  the line about to execute (breakpoints follow edits via `src/breakpoints.ts`; fixed 18px line height, no wrapping, so
   the overlay math holds); Run stops on a breakpoint line; a select
   sets instructions per frame. Still a plain `<textarea>`, no syntax
   highlighting.

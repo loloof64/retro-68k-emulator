@@ -12,7 +12,7 @@ A breakpoint is a red line number in the editor's left margin (click a number to
 - **The instruction is never reached.** It sits after a `TRAP #0`, in a branch that is never taken, or in a subroutine that is never called.
 - **It's on the very first instruction.** The check happens *after* each instruction runs, so pressing Run from the start executes the first instruction before looking at breakpoints. Use **Step** for that one. The same applies when you resume from a breakpoint: the instruction you're stopped on runs first (a loop that comes back to it will stop there again).
 - **You're using Step.** Step always executes exactly one instruction and ignores breakpoints.
-- **You inserted or deleted lines.** Breakpoints are tied to line *numbers*, not to the text: they don't move with your code, so a breakpoint may now sit on a different line (or on a comment) after an edit. Re-check the margin. The edited source is re-assembled the next time you press Run or Step.
+- **You deleted its line.** A breakpoint follows its instruction when you insert or delete lines around it, but deleting the instruction's own line removes the breakpoint with it.
 
 ### "My program never finishes / seems to hang"
 

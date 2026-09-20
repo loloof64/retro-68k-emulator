@@ -5,6 +5,7 @@ import Debugger from './components/Debugger'
 import Screen from './components/Screen'
 import Controller from './components/Controller'
 import { SystemMemory } from './memory'
+import { remapBreakpoints } from './breakpoints'
 
 export default function App() {
   const [asmCode, setAsmCode] = useState<string>(`; Retro 68K Assembly Example
@@ -53,7 +54,10 @@ START:
           <h2>Assembleur</h2>
           <Editor
             code={asmCode}
-            onChange={setAsmCode}
+            onChange={(code) => {
+              setBreakpoints((prev) => remapBreakpoints(prev, asmCode, code))
+              setAsmCode(code)
+            }}
             currentLine={currentLine}
             breakpoints={breakpoints}
             onToggleBreakpoint={toggleBreakpoint}
