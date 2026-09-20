@@ -66,6 +66,11 @@ docs:pdf:user`.
   pending. Assemblable: every real mnemonic except MOVEP, MOVE to CCR/from
   SR and ANDI/ORI/EORI to CCR (those report "not assemblable yet"). MOVEM
   takes register-list operands (`D0-D2/A0`, an Operand `list` kind).
+  **Two chantiers left** (in this order): (1) `CCR`/`SR` operands so
+  MOVE to CCR/from SR and ANDI/ORI/EORI to CCR assemble, plus MOVEP
+  (`d(An)`<->Dn); (2) PC-relative `d(PC)` and indexed `d(An,Xn)`/
+  `d(PC,Xn)` operands (Operand kind + encodeEA brief-extension word;
+  check `decodeEA` in `src/cpu/addressing.ts` supports them first).
   Known limits: no forward refs to
   EQU/DS counts, absolute always long, no branch relaxation, no PC-relative
   or indexed operands. Each mnemonic is encoded by an `encode` field in
