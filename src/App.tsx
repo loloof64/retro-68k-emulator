@@ -18,10 +18,13 @@ START:
         MOVE.L  #200,D1         ; Load 200 into D1
         ADD.L   D1,D0           ; D0 += D1
         
-        ; Draw a pixel
+        ; Draw a white line (320 pixels, colors are $RRGGBBAA)
         MOVE.L  #$40000,A0      ; Framebuffer base
-        MOVE.L  #$FFFFFF,(A0)   ; White pixel
-        
+        MOVE.W  #319,D2         ; Loop counter: 320 iterations
+LINE:
+        MOVE.L  #$FFFFFFFF,(A0)+ ; White pixel, then A0 += 4
+        DBRA    D2,LINE         ; Repeat until D2 wraps to -1
+
         ; Halt
         TRAP    #0              ; Exit
         
