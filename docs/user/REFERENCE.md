@@ -43,6 +43,9 @@ MNEMONIC.SIZE src,dst
   below lists which ones a given mnemonic accepts. Leaving the suffix
   off entirely defaults to `.W` (word) for instructions that support
   it.
+  The assembler rejects a suffix the instruction cannot take
+  (`NOP.L`, `MULU.L`) rather than ignoring it, and `.S` (a short
+  branch) exists only on `BRA`, `BSR` and `Bcc`.
 - **src** and **dst** are the operands — "source" (where a value comes
   from) and "destination" (where it goes). Each one is written using
   one of the addressing modes described just below, e.g. a register
