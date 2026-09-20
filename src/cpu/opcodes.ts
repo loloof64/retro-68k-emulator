@@ -516,6 +516,45 @@ function pair(base: number, sized: boolean, forms: string[]): NonNullable<Opcode
   }
 }
 
+// ASL/ASR/LSL/LSR/ROL/ROR/ROXL/ROXR #1..8,Dy or Dx,Dy (register forms).
+function shiftReg(base: number): NonNullable<OpcodeDefinition['encode']> {
+  return (ops, size, ctx) => {
+    if (ops.length !== 2 || ops[1].kind !== 'dn') return null
+    const sizeField = sizeBits(size) << 6
+    if (ops[0].kind === 'dn') return [base | (ops[0].n << 9) | sizeField | 0x20 | ops[1].n]
+    if (ops[0].kind !== 'imm') return null
+    const count = ctx.eval(ops[0].expr)
+    if (ctx.final && (count < 1 || count > 8)) throw new Error(`Shift count ${count} out of range (1..8)`)
+    return [base | ((count & 7) << 9) | sizeField | ops[1].n]
+  }
+}
+
+// Same mnemonics, one memory operand: shifts a word by exactly 1.
+function shiftMem(base: number): NonNullable<OpcodeDefinition['encode']> {
+  return (ops, size, ctx) => {
+    if (ops.length !== 1 || !isMemory(ops[0])) return null
+    const dst = encodeEA(ops[0], size, ctx)
+    return [base | dst.field, ...dst.ext]
+  }
+}
+
+// BTST/BCHG/BCLR/BSET #n,<ea> (bit number in an extension word) and Dn,<ea>.
+function bitImm(base: number): NonNullable<OpcodeDefinition['encode']> {
+  return (ops, _size, ctx) => {
+    if (ops.length !== 2 || ops[0].kind !== 'imm' || !isDataAlterable(ops[1])) return null
+    const dst = encodeEA(ops[1], 'byte', ctx)
+    return [base | dst.field, ...immWords(ctx.eval(ops[0].expr), 'byte', ctx.final), ...dst.ext]
+  }
+}
+
+function bitDyn(base: number): NonNullable<OpcodeDefinition['encode']> {
+  return (ops, _size, ctx) => {
+    if (ops.length !== 2 || ops[0].kind !== 'dn' || !isDataAlterable(ops[1])) return null
+    const dst = encodeEA(ops[1], 'byte', ctx)
+    return [base | (ops[0].n << 9) | dst.field, ...dst.ext]
+  }
+}
+
 // Single fixed word, no operands: TRAPV/RTR/ILLEGAL.
 const fixed = (word: number): NonNullable<OpcodeDefinition['encode']> => (ops) => (ops.length === 0 ? [word] : null)
 
@@ -1153,6 +1192,7 @@ const UNLK: OpcodeDefinition = {
 
 const BTST: OpcodeDefinition = {
   mnemonic: 'BTST',
+  encode: bitImm(0x0800),
   encoding: '0000100000mmmrrr',
   size: 'variable',
   handler: (cpu: CPUState, memory: Memory, args: unknown[]) => {
@@ -1228,6 +1268,7 @@ function bitOpHandler(
 
 const BCHG: OpcodeDefinition = {
   mnemonic: 'BCHG',
+  encode: bitImm(0x0840),
   encoding: '0000100001mmmrrr',
   size: 'variable',
   handler: bitOpHandler((value, mask) => value ^ mask, 12),
@@ -1235,6 +1276,7 @@ const BCHG: OpcodeDefinition = {
 
 const BCLR: OpcodeDefinition = {
   mnemonic: 'BCLR',
+  encode: bitImm(0x0880),
   encoding: '0000100010mmmrrr',
   size: 'variable',
   handler: bitOpHandler((value, mask) => value & ~mask, 14),
@@ -1242,6 +1284,7 @@ const BCLR: OpcodeDefinition = {
 
 const BSET: OpcodeDefinition = {
   mnemonic: 'BSET',
+  encode: bitImm(0x08c0),
   encoding: '0000100011mmmrrr',
   size: 'variable',
   handler: bitOpHandler((value, mask) => value | mask, 12),
@@ -1275,6 +1318,7 @@ function dynamicBitNumber(cpu: CPUState, opcodeWord: number, isRegisterOperand: 
 
 const BTST_DYNAMIC: OpcodeDefinition = {
   mnemonic: 'BTST',
+  encode: bitDyn(0x0100),
   encoding: '0000ddd100mmmrrr',
   size: 'variable',
   handler: (cpu: CPUState, memory: Memory, args: unknown[]) => {
@@ -1321,6 +1365,7 @@ function dynamicBitOpHandler(
 
 const BCHG_DYNAMIC: OpcodeDefinition = {
   mnemonic: 'BCHG',
+  encode: bitDyn(0x0140),
   encoding: '0000ddd101mmmrrr',
   size: 'variable',
   handler: dynamicBitOpHandler((value, mask) => value ^ mask, 8),
@@ -1328,6 +1373,7 @@ const BCHG_DYNAMIC: OpcodeDefinition = {
 
 const BCLR_DYNAMIC: OpcodeDefinition = {
   mnemonic: 'BCLR',
+  encode: bitDyn(0x0180),
   encoding: '0000ddd110mmmrrr',
   size: 'variable',
   handler: dynamicBitOpHandler((value, mask) => value & ~mask, 10),
@@ -1335,6 +1381,7 @@ const BCLR_DYNAMIC: OpcodeDefinition = {
 
 const BSET_DYNAMIC: OpcodeDefinition = {
   mnemonic: 'BSET',
+  encode: bitDyn(0x01c0),
   encoding: '0000ddd111mmmrrr',
   size: 'variable',
   handler: dynamicBitOpHandler((value, mask) => value | mask, 8),
@@ -2742,6 +2789,7 @@ function rotateRightExtend(value: number, count: number, size: Size, xIn: boolea
 
 const ASL: OpcodeDefinition = {
   mnemonic: 'ASL',
+  encode: shiftReg(0xe100),
   encoding: '1110ccc1ssi00rrr',
   size: 'variable',
   handler: (cpu: CPUState, _memory: Memory, args: unknown[]) => {
@@ -2760,6 +2808,7 @@ const ASL: OpcodeDefinition = {
 
 const ASR: OpcodeDefinition = {
   mnemonic: 'ASR',
+  encode: shiftReg(0xe000),
   encoding: '1110ccc0ssi00rrr',
   size: 'variable',
   handler: (cpu: CPUState, _memory: Memory, args: unknown[]) => {
@@ -2778,6 +2827,7 @@ const ASR: OpcodeDefinition = {
 
 const LSL: OpcodeDefinition = {
   mnemonic: 'LSL',
+  encode: shiftReg(0xe108),
   encoding: '1110ccc1ssi01rrr',
   size: 'variable',
   handler: (cpu: CPUState, _memory: Memory, args: unknown[]) => {
@@ -2796,6 +2846,7 @@ const LSL: OpcodeDefinition = {
 
 const LSR: OpcodeDefinition = {
   mnemonic: 'LSR',
+  encode: shiftReg(0xe008),
   encoding: '1110ccc0ssi01rrr',
   size: 'variable',
   handler: (cpu: CPUState, _memory: Memory, args: unknown[]) => {
@@ -2814,6 +2865,7 @@ const LSR: OpcodeDefinition = {
 
 const ROL: OpcodeDefinition = {
   mnemonic: 'ROL',
+  encode: shiftReg(0xe118),
   encoding: '1110ccc1ssi11rrr',
   size: 'variable',
   handler: (cpu: CPUState, _memory: Memory, args: unknown[]) => {
@@ -2832,6 +2884,7 @@ const ROL: OpcodeDefinition = {
 
 const ROR: OpcodeDefinition = {
   mnemonic: 'ROR',
+  encode: shiftReg(0xe018),
   encoding: '1110ccc0ssi11rrr',
   size: 'variable',
   handler: (cpu: CPUState, _memory: Memory, args: unknown[]) => {
@@ -2858,6 +2911,7 @@ const ROR: OpcodeDefinition = {
 
 const ROXL: OpcodeDefinition = {
   mnemonic: 'ROXL',
+  encode: shiftReg(0xe110),
   encoding: '1110ccc1ssi10rrr',
   size: 'variable',
   handler: (cpu: CPUState, _memory: Memory, args: unknown[]) => {
@@ -2876,6 +2930,7 @@ const ROXL: OpcodeDefinition = {
 
 const ROXR: OpcodeDefinition = {
   mnemonic: 'ROXR',
+  encode: shiftReg(0xe010),
   encoding: '1110ccc0ssi10rrr',
   size: 'variable',
   handler: (cpu: CPUState, _memory: Memory, args: unknown[]) => {
@@ -2931,6 +2986,7 @@ function decodeMemAlterableEA(cpu: CPUState, memory: Memory, mode: number, reg: 
 
 const ASL_MEM: OpcodeDefinition = {
   mnemonic: 'ASL',
+  encode: shiftMem(0xe1c0),
   encoding: '1110000111mmmrrr',
   size: 'word',
   handler: (cpu: CPUState, memory: Memory, args: unknown[]) => {
@@ -2952,6 +3008,7 @@ const ASL_MEM: OpcodeDefinition = {
 
 const ASR_MEM: OpcodeDefinition = {
   mnemonic: 'ASR',
+  encode: shiftMem(0xe0c0),
   encoding: '1110000011mmmrrr',
   size: 'word',
   handler: (cpu: CPUState, memory: Memory, args: unknown[]) => {
@@ -2973,6 +3030,7 @@ const ASR_MEM: OpcodeDefinition = {
 
 const LSL_MEM: OpcodeDefinition = {
   mnemonic: 'LSL',
+  encode: shiftMem(0xe3c0),
   encoding: '1110001111mmmrrr',
   size: 'word',
   handler: (cpu: CPUState, memory: Memory, args: unknown[]) => {
@@ -2994,6 +3052,7 @@ const LSL_MEM: OpcodeDefinition = {
 
 const LSR_MEM: OpcodeDefinition = {
   mnemonic: 'LSR',
+  encode: shiftMem(0xe2c0),
   encoding: '1110001011mmmrrr',
   size: 'word',
   handler: (cpu: CPUState, memory: Memory, args: unknown[]) => {
@@ -3015,6 +3074,7 @@ const LSR_MEM: OpcodeDefinition = {
 
 const ROL_MEM: OpcodeDefinition = {
   mnemonic: 'ROL',
+  encode: shiftMem(0xe7c0),
   encoding: '1110011111mmmrrr',
   size: 'word',
   handler: (cpu: CPUState, memory: Memory, args: unknown[]) => {
@@ -3036,6 +3096,7 @@ const ROL_MEM: OpcodeDefinition = {
 
 const ROR_MEM: OpcodeDefinition = {
   mnemonic: 'ROR',
+  encode: shiftMem(0xe6c0),
   encoding: '1110011011mmmrrr',
   size: 'word',
   handler: (cpu: CPUState, memory: Memory, args: unknown[]) => {
@@ -3058,6 +3119,7 @@ const ROR_MEM: OpcodeDefinition = {
 
 const ROXL_MEM: OpcodeDefinition = {
   mnemonic: 'ROXL',
+  encode: shiftMem(0xe5c0),
   encoding: '1110010111mmmrrr',
   size: 'word',
   handler: (cpu: CPUState, memory: Memory, args: unknown[]) => {
@@ -3079,6 +3141,7 @@ const ROXL_MEM: OpcodeDefinition = {
 
 const ROXR_MEM: OpcodeDefinition = {
   mnemonic: 'ROXR',
+  encode: shiftMem(0xe4c0),
   encoding: '1110010011mmmrrr',
   size: 'word',
   handler: (cpu: CPUState, memory: Memory, args: unknown[]) => {

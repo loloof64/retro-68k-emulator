@@ -45,10 +45,10 @@ describe('assemble: basics', () => {
     expect(words(p)).toEqual([0x4e71, 0, 0, 0x4e71])
   })
   it('reports every error with line numbers, not just the first', () => {
-    const e = errs('  FOO\n  NOP\n  TRAP #99\n  BTST D0,D1')
+    const e = errs('  FOO\n  NOP\n  TRAP #99\n  MOVEP D0,D1')
     expect(e.map((x) => x.line)).toEqual([1, 3, 4])
     expect(e[0].message).toMatch(/Unknown mnemonic 'FOO'/)
-    expect(e[2].message).toMatch(/BTST.*not assemblable yet/)
+    expect(e[2].message).toMatch(/MOVEP.*not assemblable yet/)
   })
   it('rejects duplicate labels, undefined symbols and odd-address instructions', () => {
     expect(errs('A: NOP\nA: NOP')[0].message).toMatch(/Duplicate label/)
