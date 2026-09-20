@@ -832,7 +832,17 @@ START:                         ; a label: a name for this address
 - Expressions combine numbers and labels with `+` and `-` only.
 - Operands: `D0`-`D7`, `A0`-`A7` (`SP` means `A7`), `(A0)`, `(A0)+`, `-(A0)`, `4(A0)`, `#5`, and a bare address or label.
 - A bare address or label is always stored as a 4-byte address.
-- An instruction must sit at an even address; put `EVEN` before it after odd-sized data.
+- An instruction must sit at an even address (the 68000 reads instructions two bytes at a time); put `EVEN` before it after odd-sized data.
+
+For example, the text `"Hi",0` is 3 bytes, so whatever follows lands on an odd address. `EVEN` adds one zero byte of padding to fix that:
+
+```
+MSG:    DC.B    "Hi",0      ; 3 bytes: next address is odd
+        EVEN                ; adds 1 padding byte: now even
+START:  MOVE.L  #1,D0       ; OK: even address
+```
+
+Without the `EVEN` line, the assembler stops with "Instruction at an odd address".
 
 ### Directives
 
