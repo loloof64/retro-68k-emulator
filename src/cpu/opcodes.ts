@@ -460,8 +460,39 @@ function addqSubqHandler(sign: 1 | -1): OpcodeDefinition['handler'] {
   }
 }
 
+// ADDQ/SUBQ #1..8,<ea> (8 is stored as 0).
+function quick(base: number): NonNullable<OpcodeDefinition['encode']> {
+  return (ops, size, ctx) => {
+    if (ops.length !== 2 || ops[0].kind !== 'imm' || ops[1].kind === 'imm') return null
+    if (size === 'byte' && ops[1].kind === 'an') return null
+    const d = ctx.eval(ops[0].expr)
+    if (ctx.final && (d < 1 || d > 8)) throw new Error(`Quick value ${d} out of range (1..8)`)
+    const dst = encodeEA(ops[1], size, ctx)
+    return [base | ((d & 7) << 9) | (sizeBits(size) << 6) | dst.field, ...dst.ext]
+  }
+}
+
+// CLR/TST <ea> (data-alterable).
+function unary(base: number): NonNullable<OpcodeDefinition['encode']> {
+  return (ops, size, ctx) => {
+    if (ops.length !== 1 || !isDataAlterable(ops[0])) return null
+    const dst = encodeEA(ops[0], size, ctx)
+    return [base | (sizeBits(size) << 6) | dst.field, ...dst.ext]
+  }
+}
+
+// JMP/JSR <ea> (control modes only).
+function jump(base: number): NonNullable<OpcodeDefinition['encode']> {
+  return (ops, size, ctx) => {
+    if (ops.length !== 1 || !isControl(ops[0])) return null
+    const ea = encodeEA(ops[0], size, ctx)
+    return [base | ea.field, ...ea.ext]
+  }
+}
+
 const ADDQ: OpcodeDefinition = {
   mnemonic: 'ADDQ',
+  encode: quick(0x5000),
   encoding: '0101ddd0ssmmmrrr',
   size: 'variable',
   handler: addqSubqHandler(1),
@@ -469,6 +500,7 @@ const ADDQ: OpcodeDefinition = {
 
 const SUBQ: OpcodeDefinition = {
   mnemonic: 'SUBQ',
+  encode: quick(0x5100),
   encoding: '0101ddd1ssmmmrrr',
   size: 'variable',
   handler: addqSubqHandler(-1),
@@ -845,6 +877,7 @@ const PEA: OpcodeDefinition = {
 
 const JSR: OpcodeDefinition = {
   mnemonic: 'JSR',
+  encode: jump(0x4e80),
   encoding: '0100111010mmmrrr',
   size: 'long',
   handler: (cpu: CPUState, memory: Memory, args: unknown[]) => {
@@ -869,6 +902,7 @@ const JSR: OpcodeDefinition = {
 
 const JMP: OpcodeDefinition = {
   mnemonic: 'JMP',
+  encode: jump(0x4ec0),
   encoding: '0100111011mmmrrr',
   size: 'long',
   handler: (cpu: CPUState, memory: Memory, args: unknown[]) => {
@@ -2047,6 +2081,7 @@ const NEGX: OpcodeDefinition = {
 
 const CLR: OpcodeDefinition = {
   mnemonic: 'CLR',
+  encode: unary(0x4200),
   encoding: '01000010ssmmmrrr',
   size: 'variable',
   handler: (cpu: CPUState, memory: Memory, args: unknown[]) => {
@@ -2353,6 +2388,7 @@ const NBCD: OpcodeDefinition = {
 
 const TST: OpcodeDefinition = {
   mnemonic: 'TST',
+  encode: unary(0x4a00),
   encoding: '01001010ssmmmrrr',
   size: 'variable',
   handler: (cpu: CPUState, memory: Memory, args: unknown[]) => {
