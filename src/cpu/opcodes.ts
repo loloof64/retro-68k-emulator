@@ -3,6 +3,7 @@ import { Register, type CPUState, type Memory, type OpcodeDefinition, type Statu
 import type { OpcodeEntry } from './index'
 import { readRegister, updateFlags, writeRegister } from './index'
 import { encodeEA, immWords, isControl, isDataAlterable, isMemory, sizeBits } from '../assembler/encodeEA'
+import type { Operand } from '../assembler/types'
 import { decodeEA, decodeControlAddress, type Size } from './addressing'
 import { addWithFlags, subWithFlags, type ArithmeticFlags } from './arithmetic'
 import {
@@ -553,6 +554,28 @@ function bitDyn(base: number): NonNullable<OpcodeDefinition['encode']> {
     const dst = encodeEA(ops[1], 'byte', ctx)
     return [base | (ops[0].n << 9) | dst.field, ...dst.ext]
   }
+}
+
+// MOVEM: the register list is its own extension word, before the <ea>'s. Only
+// -(An) stores use the reversed bit order (bit0 = A7 .. bit15 = D0).
+const regMask = (o: Operand): number | null =>
+  o.kind === 'list' ? o.mask : o.kind === 'dn' ? 1 << o.n : o.kind === 'an' ? 1 << (8 + o.n) : null
+const reverse16 = (m: number) => [...Array(16).keys()].reduce((r, i) => r | (((m >> i) & 1) << (15 - i)), 0)
+
+const movem: NonNullable<OpcodeDefinition['encode']> = (ops, size, ctx) => {
+  if (ops.length !== 2 || size === 'byte') return null
+  const sizeField = size === 'long' ? 0x40 : 0
+  const toMem = regMask(ops[0])
+  if (toMem !== null && (isControl(ops[1]) || ops[1].kind === 'pre')) {
+    const dst = encodeEA(ops[1], size, ctx)
+    return [0x4880 | sizeField | dst.field, ops[1].kind === 'pre' ? reverse16(toMem) : toMem, ...dst.ext]
+  }
+  const fromMem = regMask(ops[1])
+  if (fromMem !== null && (isControl(ops[0]) || ops[0].kind === 'post')) {
+    const src = encodeEA(ops[0], size, ctx)
+    return [0x4c80 | sizeField | src.field, fromMem, ...src.ext]
+  }
+  return null
 }
 
 // Single fixed word, no operands: TRAPV/RTR/ILLEGAL.
@@ -2355,6 +2378,7 @@ const MOVEM_ORDER: readonly Register[] = [
 
 const MOVEM: OpcodeDefinition = {
   mnemonic: 'MOVEM',
+  encode: movem,
   encoding: '01001d001smmmrrr',
   size: 'variable',
   handler: (cpu: CPUState, memory: Memory, args: unknown[]) => {

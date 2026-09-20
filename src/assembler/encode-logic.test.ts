@@ -126,4 +126,21 @@ describe('logic, unary, mul/div', () => {
     expect(cpu.registers[Register.D0]).toBe(0x44)
     expect(cpu.status.Z).toBe(false)
   })
+  it('parses register lists and encodes MOVEM', () => {
+    expect(asm('MOVEM.L D0-D2/A0,-(A7)')).toEqual([0x48e7, 0xe080])
+    expect(asm('MOVEM.L (A7)+,D0-D2/A0')).toEqual([0x4cdf, 0x0107])
+    expect(asm('MOVEM.W D0/D1,(A0)')).toEqual([0x4890, 0x0003])
+    expect(asm('MOVEM.L D3,-(SP)')).toEqual([0x48e7, 0x1000])
+    expect(asm('MOVEM.L 4(A0),A1-A2')).toEqual([0x4ce8, 0x0600, 0x0004])
+    expect(bad('MOVEM.L D0-D1,(A0)+')).toBe(true)
+    expect(bad('MOVEM.L D2-D0,(A0)')).toBe(true)
+    expect(bad('MOVE.L D0-D1,D2')).toBe(true)
+  })
+  it('round trip: MOVEM saves and restores registers around a clobber', () => {
+    const cpu = run(
+      '  MOVEQ #1,D0\n  MOVEQ #2,D1\n  MOVEM.L D0-D1,-(A7)\n  MOVEQ #0,D0\n  MOVEQ #0,D1\n  MOVEM.L (A7)+,D0-D1',
+      6
+    )
+    expect([cpu.registers[Register.D0], cpu.registers[Register.D1]]).toEqual([1, 2])
+  })
 })

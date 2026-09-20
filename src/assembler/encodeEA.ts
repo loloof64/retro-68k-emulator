@@ -43,6 +43,8 @@ export function encodeEA(op: Operand, size: Size, ctx: EncodeContext): EncodedEA
     }
     case 'imm':
       return { field: 0b111100, ext: immWords(ctx.eval(op.expr), size, ctx.final) }
+    case 'list':
+      throw new Error('A register list is only valid for MOVEM')
   }
 }
 

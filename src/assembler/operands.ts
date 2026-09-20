@@ -29,6 +29,24 @@ export function evalExpr(text: string, lookup: (name: string) => number | undefi
 }
 
 const AN = '(A[0-7]|SP)'
+const REG = '(?:[DA][0-7]|SP)'
+const LIST = new RegExp(`^${REG}(?:-${REG})?(?:/${REG}(?:-${REG})?)+$|^${REG}-${REG}$`, 'i')
+
+// 'D0-D3/A0' -> mask with bit0 = D0 .. bit15 = A7.
+function listMask(text: string): number {
+  const index = (r: string) => {
+    const u = r.toUpperCase()
+    return u === 'SP' ? 15 : (u[0] === 'A' ? 8 : 0) + Number(u[1])
+  }
+  let mask = 0
+  for (const part of text.split('/')) {
+    const [a, b = a] = part.split('-').map(index)
+    if (a > b) throw new Error(`Bad register range '${part}'`)
+    for (let i = a; i <= b; i++) mask |= 1 << i
+  }
+  return mask
+}
+
 const regNum = (r: string): number => {
   const u = r.toUpperCase()
   if (u === 'SP') return 7
@@ -40,6 +58,7 @@ export function parseOperand(raw: string): Operand {
   let m: RegExpMatchArray | null
   if ((m = text.match(/^D([0-7])$/i))) return { kind: 'dn', n: Number(m[1]) }
   if ((m = text.match(new RegExp(`^${AN}$`, 'i')))) return { kind: 'an', n: regNum(m[1]) }
+  if (LIST.test(text)) return { kind: 'list', mask: listMask(text) }
   if ((m = text.match(new RegExp(`^\\(${AN}\\)$`, 'i')))) return { kind: 'ind', n: regNum(m[1]) }
   if ((m = text.match(new RegExp(`^\\(${AN}\\)\\+$`, 'i')))) return { kind: 'post', n: regNum(m[1]) }
   if ((m = text.match(new RegExp(`^-\\(${AN}\\)$`, 'i')))) return { kind: 'pre', n: regNum(m[1]) }
