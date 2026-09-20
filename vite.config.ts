@@ -12,7 +12,7 @@ export default defineConfig({
   clearScreen: false,
 
   server: {
-    port: 3000,
+    port: 1420,
     // Tauri expects a fixed port, fails if not available
     strictPort: true,
     open: !process.env.TAURI_PLATFORM, // don't auto-open a browser tab when launched by Tauri

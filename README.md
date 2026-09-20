@@ -4,7 +4,7 @@
 
 ```bash
 # Development
-npm run dev          # Start Vite dev server (port 3000)
+npm run dev          # Start Vite dev server (port 1420)
 npm run build         # Build for production
 npm run preview       # Preview the build
 
