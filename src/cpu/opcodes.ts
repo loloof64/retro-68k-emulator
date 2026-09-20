@@ -2,6 +2,7 @@ import { drawString } from '../graphics/font'
 import { Register, type CPUState, type Memory, type OpcodeDefinition, type StatusFlags } from '../types/cpu'
 import type { OpcodeEntry } from './index'
 import { readRegister, updateFlags, writeRegister } from './index'
+import { encodeEA, isControl } from '../assembler/encodeEA'
 import { decodeEA, decodeControlAddress, type Size } from './addressing'
 import { addWithFlags, subWithFlags, type ArithmeticFlags } from './arithmetic'
 import {
@@ -102,6 +103,16 @@ const MOVE: OpcodeDefinition = {
   mnemonic: 'MOVE',
   encoding: '00SSdddDDDsssRRR',
   size: 'variable',
+  encode: (ops, size, ctx) => {
+    if (ops.length !== 2 || ops[1].kind === 'imm') return null
+    if (size === 'byte' && (ops[0].kind === 'an' || ops[1].kind === 'an')) return null
+    const src = encodeEA(ops[0], size, ctx)
+    const dst = encodeEA(ops[1], size, ctx)
+    const sizeField = size === 'byte' ? 0b01 : size === 'word' ? 0b11 : 0b10
+    const word =
+      (sizeField << 12) | ((dst.field & 7) << 9) | ((dst.field >> 3) << 6) | src.field
+    return [word, ...src.ext, ...dst.ext]
+  },
   handler: (cpu: CPUState, memory: Memory, args: unknown[]) => {
     const opcodeWord = opcodeWordOf(args)
     const size = decodeMoveSize((opcodeWord >> 12) & 0b11)
@@ -549,6 +560,12 @@ const MOVEQ: OpcodeDefinition = {
   mnemonic: 'MOVEQ',
   encoding: '0111rrr0dddddddd',
   size: 'long',
+  encode: (ops, _size, ctx) => {
+    if (ops.length !== 2 || ops[0].kind !== 'imm' || ops[1].kind !== 'dn') return null
+    const v = ctx.eval(ops[0].expr)
+    if (ctx.final && (v < -128 || v > 127)) throw new Error(`MOVEQ value ${v} out of range (-128..127)`)
+    return [0x7000 | (ops[1].n << 9) | (v & 0xff)]
+  },
   handler: (cpu: CPUState, _memory: Memory, args: unknown[]) => {
     const opcodeWord = opcodeWordOf(args)
     const destReg = (Register.D0 + ((opcodeWord >> 9) & 0b111)) as Register
@@ -725,6 +742,11 @@ const LEA: OpcodeDefinition = {
   mnemonic: 'LEA',
   encoding: '0100aaa111mmmrrr',
   size: 'long',
+  encode: (ops, size, ctx) => {
+    if (ops.length !== 2 || !isControl(ops[0]) || ops[1].kind !== 'an') return null
+    const src = encodeEA(ops[0], size, ctx)
+    return [0x41c0 | (ops[1].n << 9) | src.field, ...src.ext]
+  },
   handler: (cpu: CPUState, memory: Memory, args: unknown[]) => {
     const opcodeWord = opcodeWordOf(args)
     const destReg = (Register.A0 + ((opcodeWord >> 9) & 0b111)) as Register
