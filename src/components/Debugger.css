@@ -9,6 +9,8 @@
 
 .controls {
   display: flex;
+  flex-wrap: wrap; /* the speed selector drops to its own line when the column is narrow */
+  align-items: center;
   gap: 6px;
 }
 
@@ -155,4 +157,9 @@ p.errors {
   align-items: center;
   gap: 6px;
   font-size: 12px;
+}
+
+.speed-label select {
+  min-width: 0;
+  max-width: 100%;
 }

@@ -12,6 +12,7 @@ import {
   INPUT_BUTTON_SELECT,
 } from '../memory'
 import './Controller.css'
+import { useI18n } from '../i18n'
 
 interface ControllerProps {
   // Called whenever the effective button state changes — a real gamepad's
@@ -69,6 +70,7 @@ const ACTION_BUTTONS = [
 ] as const
 
 export default function Controller({ onButtonStateChange }: ControllerProps) {
+  const { t } = useI18n()
   const [gamepadConnected, setGamepadConnected] = useState(false)
   // Mirrors the effective mask into render state so a physical gamepad's
   // presses light up the on-screen buttons too — CSS `:active` alone only
@@ -128,7 +130,7 @@ export default function Controller({ onButtonStateChange }: ControllerProps) {
   return (
     <div className="controller">
       <div className="controller-status">
-        {gamepadConnected ? '🎮 Manette détectée' : 'Boutons virtuels'}
+        {gamepadConnected ? t('gamepad.detected') : t('gamepad.virtual')}
       </div>
 
       <div className={`controller-layout ${gamepadConnected ? 'is-disabled' : ''}`}>

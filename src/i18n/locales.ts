@@ -22,6 +22,8 @@ export const en = {
   'decimal.title': '{unsigned} (signed: {signed})',
   'screen.resolution': 'Resolution: 320×200',
   'screen.colors': 'Colors: 32-bit RGBA',
+  'gamepad.detected': '🎮 Gamepad detected',
+  'gamepad.virtual': 'Virtual buttons',
 }
 
 export type MessageKey = keyof typeof en
@@ -50,6 +52,8 @@ export const fr: Record<MessageKey, string> = {
   'decimal.title': '{unsigned} (signé : {signed})',
   'screen.resolution': 'Résolution : 320×200',
   'screen.colors': 'Couleurs : RGBA 32 bits',
+  'gamepad.detected': '🎮 Manette détectée',
+  'gamepad.virtual': 'Boutons virtuels',
 }
 
 export const es: Record<MessageKey, string> = {
@@ -76,6 +80,8 @@ export const es: Record<MessageKey, string> = {
   'decimal.title': '{unsigned} (con signo: {signed})',
   'screen.resolution': 'Resolución: 320×200',
   'screen.colors': 'Colores: RGBA de 32 bits',
+  'gamepad.detected': '🎮 Mando detectado',
+  'gamepad.virtual': 'Botones virtuales',
 }
 
 export const LOCALES = { en, fr, es }
