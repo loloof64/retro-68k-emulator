@@ -71,6 +71,19 @@ docs:pdf:user`.
   `src/cpu/opcodes.ts`; docs in `docs/ASSEMBLER.md`. Spec:
   `docs/superpowers/specs/2026-09-20-assembler-design.md`, plan:
   `docs/superpowers/plans/2026-09-20-assembler.md`.
+  Deferred assembler follow-ups (none produce wrong code for valid
+  source): DC values not range-checked (truncated); DC.W/L at an odd
+  address not flagged; `.S` suffix accepted on non-branches and size
+  suffixes ignored on size-less mnemonics (NOP.L); AssemblerError.column is
+  always the mnemonic's column; test gaps (negative operand shapes, ADDQ #8,
+  BSR.S, DBcc range, BRA.L). User-guide snippets using MULU/ASL/BTST/ABCD/
+  CHK/MOVEM/DIVU are illustrative only (not assemblable yet).
+  **Next step: wire the assembler into the UI** — Editor "Assemble" ->
+  `assemble()`; show `AssemblerError[]`; load `bytecode` at `origin`
+  into the `SystemMemory` in `App.tsx`, `createCPU(entry)`; Debugger
+  Step = `step(cpu, memory, opcodeTable)` (+ Run/Reset, register/flag view,
+  highlight the `lineMap` line, Screen repaint). Needs a small design pass
+  first (Run loop pacing, error display), not started.
 - **Debugger/Editor UI: shell only**, not wired to a real CPU execution
   loop (`src/components/Debugger.tsx`'s Step handler is a literal TODO;
   `Editor.tsx` is a bare `<textarea>`, no syntax highlighting).
