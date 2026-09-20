@@ -83,9 +83,11 @@ docs:pdf:user`.
   animation frame, Step, Reset), shows registers/flags/PC/cycles, the
   source line of PC (`lineMap`), assembler errors and runtime errors;
   Screen paints the framebuffer (alpha forced opaque) on each `frame`
-  bump. Not done: highlighting the current line inside the Editor
-  textarea, breakpoints, Run speed control.
-- **Editor UI: bare `<textarea>`**, no syntax highlighting.
+  bump. Editor: line-number gutter (click = breakpoint), yellow bar on
+  the line about to execute (fixed 18px line height, no wrapping, so
+  the overlay math holds); Run stops on a breakpoint line; a select
+  sets instructions per frame. Still a plain `<textarea>`, no syntax
+  highlighting.
 - **Gamepad UI: implemented** (on-screen + real Gamepad API, auto-switches),
   **including physical-controller visual feedback** (`src/components/
   Controller.tsx`): the polled bitmask is mirrored into a `buttonMask`

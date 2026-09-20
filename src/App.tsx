@@ -28,6 +28,14 @@ START:
 `)
 
   const [isRunning, setIsRunning] = useState(false)
+  const [currentLine, setCurrentLine] = useState<number>()
+  const [breakpoints, setBreakpoints] = useState<Set<number>>(new Set())
+  const toggleBreakpoint = (line: number) =>
+    setBreakpoints((prev) => {
+      const next = new Set(prev)
+      if (!next.delete(line)) next.add(line)
+      return next
+    })
   const [frame, setFrame] = useState(0) // bumped to make Screen repaint
 
   // Not React state on purpose: the controller reports button changes up to
@@ -43,7 +51,13 @@ START:
       <div className="container">
         <div className="panel editor-panel">
           <h2>Assembleur</h2>
-          <Editor code={asmCode} onChange={setAsmCode} />
+          <Editor
+            code={asmCode}
+            onChange={setAsmCode}
+            currentLine={currentLine}
+            breakpoints={breakpoints}
+            onToggleBreakpoint={toggleBreakpoint}
+          />
         </div>
 
         <div className="panel debugger-panel">
@@ -51,6 +65,8 @@ START:
           <Debugger
             code={asmCode}
             memory={memoryRef.current}
+            breakpoints={breakpoints}
+            onLineChange={setCurrentLine}
             isRunning={isRunning}
             onRunningChange={setIsRunning}
             onFrame={() => setFrame((f) => f + 1)}

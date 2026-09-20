@@ -7,11 +7,13 @@ import type { AssembledProgram, CPUState } from '../types/cpu'
 import type { SystemMemory } from '../memory'
 
 // Instructions executed per animation frame while running (~60 fps).
-const STEPS_PER_FRAME = 2000
+const SPEEDS = [10, 200, 2000, 20000]
 
 interface DebuggerProps {
   code: string
   memory: SystemMemory
+  breakpoints: Set<number> // source lines
+  onLineChange: (line: number | undefined) => void // line of the next instruction
   isRunning: boolean
   onRunningChange: (running: boolean) => void
   onFrame: () => void // framebuffer may have changed: repaint the screen
@@ -20,6 +22,8 @@ interface DebuggerProps {
 export default function Debugger({
   code,
   memory,
+  breakpoints,
+  onLineChange,
   isRunning,
   onRunningChange,
   onFrame,
@@ -29,7 +33,20 @@ export default function Debugger({
   const [, setTick] = useState(0) // bumped to re-render from the mutable CPU
   const [errors, setErrors] = useState<AssemblerError[]>([])
   const [runtimeError, setRuntimeError] = useState<string | null>(null)
-  const refresh = () => setTick((t) => t + 1)
+  const [speed, setSpeed] = useState(2000)
+  const speedRef = useRef(speed)
+  speedRef.current = speed
+  const breakpointsRef = useRef(breakpoints)
+  breakpointsRef.current = breakpoints
+
+  const lineAtPc = () => {
+    const p = programRef.current?.program
+    return p && p.lineMap.get(cpuRef.current.pc - p.origin)
+  }
+  const refresh = () => {
+    setTick((t) => t + 1)
+    onLineChange(lineAtPc())
+  }
 
   // Copies the program into RAM and points a fresh CPU at its entry.
   // memory.reset() also wipes the button mask, so restore it (the gamepad
@@ -61,22 +78,28 @@ export default function Debugger({
 
   const stepCpu = (count: number) => {
     const cpu = cpuRef.current
+    let hitBreakpoint = false
     try {
-      for (let i = 0; i < count && !cpu.halted; i++) step(cpu, memory, opcodeTable)
+      for (let i = 0; i < count && !cpu.halted && !hitBreakpoint; i++) {
+        step(cpu, memory, opcodeTable)
+        const line = lineAtPc()
+        hitBreakpoint = count > 1 && line !== undefined && breakpointsRef.current.has(line)
+      }
     } catch (e) {
       setRuntimeError(e instanceof Error ? e.message : String(e))
       cpu.halted = true
     }
-    if (cpu.halted) onRunningChange(false)
+    const stop = cpu.halted || hitBreakpoint
+    if (stop) onRunningChange(false)
     onFrame()
     refresh()
+    return !stop
   }
 
   useEffect(() => {
     if (!isRunning) return
     let raf = requestAnimationFrame(function loop() {
-      stepCpu(STEPS_PER_FRAME)
-      if (!cpuRef.current.halted) raf = requestAnimationFrame(loop)
+      if (stepCpu(speedRef.current)) raf = requestAnimationFrame(loop)
     })
     return () => cancelAnimationFrame(raf)
     // stepCpu closes over props that don't change while running.
@@ -125,6 +148,13 @@ export default function Debugger({
         <button className="btn" onClick={handleReset}>
           ⟲ Reset
         </button>
+        <select value={speed} onChange={(e) => setSpeed(Number(e.target.value))} title="Instructions par image">
+          {SPEEDS.map((n) => (
+            <option key={n} value={n}>
+              {n}/img
+            </option>
+          ))}
+        </select>
       </div>
 
       {errors.length > 0 && (
