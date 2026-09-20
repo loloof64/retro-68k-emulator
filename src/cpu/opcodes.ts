@@ -703,8 +703,25 @@ function branchConditionTrue(cc: number, status: StatusFlags): boolean {
   }
 }
 
+function branch(base: number, useCc: boolean): NonNullable<OpcodeDefinition['encode']> {
+  return (ops, size, ctx) => {
+    if (ops.length !== 1 || ops[0].kind !== 'abs') return null
+    if (size === 'long') throw new Error('Branches are .S or .W only')
+    const opcode = base | (useCc ? (ctx.cc ?? 0) << 8 : 0)
+    const disp = ctx.eval(ops[0].expr) - (ctx.pc + 2)
+    if (size === 'byte') {
+      if (ctx.final && disp === 0) throw new Error('Short branch with zero displacement (use .W)')
+      if (ctx.final && (disp < -128 || disp > 127)) throw new Error(`Branch displacement ${disp} out of range for .S`)
+      return [opcode | (disp & 0xff)]
+    }
+    if (ctx.final && (disp < -32768 || disp > 32767)) throw new Error(`Branch displacement ${disp} out of range`)
+    return [opcode, disp & 0xffff]
+  }
+}
+
 const Bcc: OpcodeDefinition = {
   mnemonic: 'Bcc',
+  encode: branch(0x6000, true),
   encoding: '0110ccccdddddddd',
   size: 'variable',
   handler: (cpu: CPUState, memory: Memory, args: unknown[]) => {
@@ -745,6 +762,12 @@ const Bcc: OpcodeDefinition = {
 
 const DBcc: OpcodeDefinition = {
   mnemonic: 'DBcc',
+  encode: (ops, _size, ctx) => {
+    if (ops.length !== 2 || ops[0].kind !== 'dn' || ops[1].kind !== 'abs') return null
+    const disp = ctx.eval(ops[1].expr) - (ctx.pc + 2)
+    if (ctx.final && (disp < -32768 || disp > 32767)) throw new Error(`DBcc displacement ${disp} out of range`)
+    return [0x50c8 | ((ctx.cc ?? 0) << 8) | ops[0].n, disp & 0xffff]
+  },
   encoding: '0101cccc11001rrr',
   size: 'variable',
   handler: (cpu: CPUState, memory: Memory, args: unknown[]) => {
@@ -920,6 +943,7 @@ const JMP: OpcodeDefinition = {
 
 const BSR: OpcodeDefinition = {
   mnemonic: 'BSR',
+  encode: branch(0x6100, false),
   encoding: '01100001dddddddd',
   size: 'variable',
   handler: (cpu: CPUState, memory: Memory, args: unknown[]) => {
