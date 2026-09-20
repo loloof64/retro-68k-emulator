@@ -2,7 +2,7 @@ import { drawString } from '../graphics/font'
 import { Register, type CPUState, type Memory, type OpcodeDefinition, type StatusFlags } from '../types/cpu'
 import type { OpcodeEntry } from './index'
 import { readRegister, updateFlags, writeRegister } from './index'
-import { encodeEA, isControl, isDataAlterable, isMemory, sizeBits } from '../assembler/encodeEA'
+import { encodeEA, immWords, isControl, isDataAlterable, isMemory, sizeBits } from '../assembler/encodeEA'
 import { decodeEA, decodeControlAddress, type Size } from './addressing'
 import { addWithFlags, subWithFlags, type ArithmeticFlags } from './arithmetic'
 import {
@@ -317,6 +317,7 @@ function bcdHandler(op: (src: number, dst: number, x: number) => { result: numbe
 
 const ABCD: OpcodeDefinition = {
   mnemonic: 'ABCD',
+  encode: pair(0xc100, false, ['dn', 'pre']),
   encoding: '1100xxx10000ryyy',
   size: 'byte',
   handler: bcdHandler(bcdAdd),
@@ -324,6 +325,7 @@ const ABCD: OpcodeDefinition = {
 
 const SBCD: OpcodeDefinition = {
   mnemonic: 'SBCD',
+  encode: pair(0x8100, false, ['dn', 'pre']),
   encoding: '1000xxx10000ryyy',
   size: 'byte',
   handler: bcdHandler(bcdSub),
@@ -399,6 +401,7 @@ function extendHandler(
 
 const ADDX: OpcodeDefinition = {
   mnemonic: 'ADDX',
+  encode: pair(0xd100, true, ['dn', 'pre']),
   encoding: '1101xxx1ss00ryyy',
   size: 'variable',
   handler: extendHandler(addExtend),
@@ -406,6 +409,7 @@ const ADDX: OpcodeDefinition = {
 
 const SUBX: OpcodeDefinition = {
   mnemonic: 'SUBX',
+  encode: pair(0x9100, true, ['dn', 'pre']),
   encoding: '1001xxx1ss00ryyy',
   size: 'variable',
   handler: extendHandler(subExtend),
@@ -472,14 +476,48 @@ function quick(base: number): NonNullable<OpcodeDefinition['encode']> {
   }
 }
 
-// CLR/TST <ea> (data-alterable).
-function unary(base: number): NonNullable<OpcodeDefinition['encode']> {
+// CLR/TST/NOT/NEG/NEGX <ea> (data-alterable); TAS/NBCD have no size field.
+function unary(base: number, sized = true): NonNullable<OpcodeDefinition['encode']> {
   return (ops, size, ctx) => {
     if (ops.length !== 1 || !isDataAlterable(ops[0])) return null
     const dst = encodeEA(ops[0], size, ctx)
-    return [base | (sizeBits(size) << 6) | dst.field, ...dst.ext]
+    return [base | (sized ? sizeBits(size) << 6 : 0) | dst.field, ...dst.ext]
   }
 }
+
+// <ea>,Dn where <ea> is a data source (no An): AND/OR (sized), MULU/MULS/
+// DIVU/DIVS/CHK (word only, opmode already in `base`).
+function dataToDn(base: number, sized: boolean): NonNullable<OpcodeDefinition['encode']> {
+  return (ops, size, ctx) => {
+    if (ops.length !== 2 || ops[1].kind !== 'dn' || ops[0].kind === 'an') return null
+    if (!sized && size !== 'word') return null
+    const src = encodeEA(ops[0], size, ctx)
+    return [base | (ops[1].n << 9) | (sized ? sizeBits(size) << 6 : 0) | src.field, ...src.ext]
+  }
+}
+
+// Dn,<ea> (data-alterable): EOR.
+function dnToEa(base: number): NonNullable<OpcodeDefinition['encode']> {
+  return (ops, size, ctx) => {
+    if (ops.length !== 2 || ops[0].kind !== 'dn' || !isDataAlterable(ops[1])) return null
+    const dst = encodeEA(ops[1], size, ctx)
+    return [base | (ops[0].n << 9) | (sizeBits(size) << 6) | dst.field, ...dst.ext]
+  }
+}
+
+// Register-to-register / memory-to-memory pairs: ADDX/SUBX/ABCD/SBCD (Dy,Dx or
+// -(Ay),-(Ax)) and CMPM ((Ay)+,(Ax)+). For CMPM the "memory" bit is already in `base`.
+function pair(base: number, sized: boolean, forms: string[]): NonNullable<OpcodeDefinition['encode']> {
+  return (ops, size) => {
+    if (ops.length !== 2) return null
+    const [s, d] = ops
+    if (s.kind !== d.kind || !forms.includes(s.kind) || !('n' in s) || !('n' in d)) return null
+    return [base | (d.n << 9) | (sized ? sizeBits(size) << 6 : 0) | (s.kind === 'pre' ? 8 : 0) | s.n]
+  }
+}
+
+// Single fixed word, no operands: TRAPV/RTR/ILLEGAL.
+const fixed = (word: number): NonNullable<OpcodeDefinition['encode']> => (ops) => (ops.length === 0 ? [word] : null)
 
 // JMP/JSR <ea> (control modes only).
 function jump(base: number): NonNullable<OpcodeDefinition['encode']> {
@@ -812,6 +850,11 @@ const DBcc: OpcodeDefinition = {
 
 const Scc: OpcodeDefinition = {
   mnemonic: 'Scc',
+  encode: (ops, size, ctx) => {
+    if (ops.length !== 1 || !isDataAlterable(ops[0])) return null
+    const dst = encodeEA(ops[0], size, ctx)
+    return [0x50c0 | ((ctx.cc ?? 0) << 8) | dst.field, ...dst.ext]
+  },
   encoding: '0101cccc11mmmrrr',
   size: 'byte',
   handler: (cpu: CPUState, memory: Memory, args: unknown[]) => {
@@ -870,6 +913,7 @@ const LEA: OpcodeDefinition = {
 
 const PEA: OpcodeDefinition = {
   mnemonic: 'PEA',
+  encode: jump(0x4840),
   encoding: '0100100001mmmrrr',
   size: 'long',
   handler: (cpu: CPUState, memory: Memory, args: unknown[]) => {
@@ -994,6 +1038,7 @@ const RTS: OpcodeDefinition = {
 
 const TRAPV: OpcodeDefinition = {
   mnemonic: 'TRAPV',
+  encode: fixed(0x4e76),
   encoding: '0100111001110110',
   size: 'word',
   handler: (cpu: CPUState, memory: Memory) => {
@@ -1019,6 +1064,7 @@ const TRAPV: OpcodeDefinition = {
 
 const RTR: OpcodeDefinition = {
   mnemonic: 'RTR',
+  encode: fixed(0x4e77),
   encoding: '0100111001110111',
   size: 'word',
   handler: (cpu: CPUState, memory: Memory) => {
@@ -1049,6 +1095,10 @@ const RTR: OpcodeDefinition = {
 
 const LINK: OpcodeDefinition = {
   mnemonic: 'LINK',
+  encode: (ops, _size, ctx) =>
+    ops.length === 2 && ops[0].kind === 'an' && ops[1].kind === 'imm'
+      ? [0x4e50 | ops[0].n, ...immWords(ctx.eval(ops[1].expr), 'word', ctx.final)]
+      : null,
   encoding: '0100111001010rrr',
   size: 'word',
   handler: (cpu: CPUState, memory: Memory, args: unknown[]) => {
@@ -1078,6 +1128,7 @@ const LINK: OpcodeDefinition = {
 
 const UNLK: OpcodeDefinition = {
   mnemonic: 'UNLK',
+  encode: (ops) => (ops.length === 1 && ops[0].kind === 'an' ? [0x4e58 | ops[0].n] : null),
   encoding: '0100111001011rrr',
   size: 'long',
   handler: (cpu: CPUState, memory: Memory, args: unknown[]) => {
@@ -1362,6 +1413,7 @@ function decodeMulDiv(cpu: CPUState, memory: Memory, opcodeWord: number) {
 
 const MULU: OpcodeDefinition = {
   mnemonic: 'MULU',
+  encode: dataToDn(0xc0c0, false),
   encoding: '1100ddd011mmmrrr',
   size: 'word',
   handler: (cpu: CPUState, memory: Memory, args: unknown[]) => {
@@ -1382,6 +1434,7 @@ const MULU: OpcodeDefinition = {
 
 const MULS: OpcodeDefinition = {
   mnemonic: 'MULS',
+  encode: dataToDn(0xc1c0, false),
   encoding: '1100ddd111mmmrrr',
   size: 'word',
   handler: (cpu: CPUState, memory: Memory, args: unknown[]) => {
@@ -1409,6 +1462,7 @@ const MULS: OpcodeDefinition = {
 
 const DIVU: OpcodeDefinition = {
   mnemonic: 'DIVU',
+  encode: dataToDn(0x80c0, false),
   encoding: '1000ddd011mmmrrr',
   size: 'word',
   handler: (cpu: CPUState, memory: Memory, args: unknown[]) => {
@@ -1441,6 +1495,7 @@ const DIVU: OpcodeDefinition = {
 
 const DIVS: OpcodeDefinition = {
   mnemonic: 'DIVS',
+  encode: dataToDn(0x81c0, false),
   encoding: '1000ddd111mmmrrr',
   size: 'word',
   handler: (cpu: CPUState, memory: Memory, args: unknown[]) => {
@@ -1475,6 +1530,7 @@ const DIVS: OpcodeDefinition = {
 
 const AND: OpcodeDefinition = {
   mnemonic: 'AND',
+  encode: dataToDn(0xc000, true),
   encoding: '1100rrr0ssmmmRRR',
   size: 'variable',
   handler: (cpu: CPUState, memory: Memory, args: unknown[]) => {
@@ -1495,6 +1551,7 @@ const AND: OpcodeDefinition = {
 
 const OR: OpcodeDefinition = {
   mnemonic: 'OR',
+  encode: dataToDn(0x8000, true),
   encoding: '1000rrr0ssmmmRRR',
   size: 'variable',
   handler: (cpu: CPUState, memory: Memory, args: unknown[]) => {
@@ -1534,6 +1591,7 @@ function decodeDnAndEa(cpu: CPUState, memory: Memory, opcodeWord: number) {
 
 const XOR: OpcodeDefinition = {
   mnemonic: 'XOR',
+  encode: dnToEa(0xb100),
   encoding: '1011rrr1ssmmmRRR',
   size: 'variable',
   handler: (cpu: CPUState, memory: Memory, args: unknown[]) => {
@@ -1570,6 +1628,7 @@ const XOR: OpcodeDefinition = {
 
 const CMPM: OpcodeDefinition = {
   mnemonic: 'CMPM',
+  encode: pair(0xb108, true, ['post']),
   encoding: '1011xxx1ss001yyy',
   size: 'variable',
   handler: (cpu: CPUState, memory: Memory, args: unknown[]) => {
@@ -1620,6 +1679,15 @@ const EXG_DATA_ADDRESS = 0b10001
 
 const EXG: OpcodeDefinition = {
   mnemonic: 'EXG',
+  encode: (ops) => {
+    if (ops.length !== 2 || !('n' in ops[0]) || !('n' in ops[1])) return null
+    const [a, b] = ops
+    if (a.kind === 'dn' && b.kind === 'dn') return [0xc100 | (EXG_DATA << 3) | (a.n << 9) | b.n]
+    if (a.kind === 'an' && b.kind === 'an') return [0xc100 | (EXG_ADDRESS << 3) | (a.n << 9) | b.n]
+    if (a.kind === 'dn' && b.kind === 'an') return [0xc100 | (EXG_DATA_ADDRESS << 3) | (a.n << 9) | b.n]
+    if (a.kind === 'an' && b.kind === 'dn') return [0xc100 | (EXG_DATA_ADDRESS << 3) | (b.n << 9) | a.n]
+    return null
+  },
   encoding: '1100rrr1ooooosss',
   size: 'long',
   handler: (cpu: CPUState, _memory: Memory, args: unknown[]) => {
@@ -1726,6 +1794,7 @@ const SUB_MEM: OpcodeDefinition = {
 
 const AND_MEM: OpcodeDefinition = {
   mnemonic: 'AND',
+  encode: dnToMem(0xc000),
   encoding: '1100rrr1ssmmmrrr',
   size: 'variable',
   handler: (cpu: CPUState, memory: Memory, args: unknown[]) => {
@@ -1745,6 +1814,7 @@ const AND_MEM: OpcodeDefinition = {
 
 const OR_MEM: OpcodeDefinition = {
   mnemonic: 'OR',
+  encode: dnToMem(0x8000),
   encoding: '1000rrr1ssmmmrrr',
   size: 'variable',
   handler: (cpu: CPUState, memory: Memory, args: unknown[]) => {
@@ -1887,6 +1957,7 @@ function immediateLogicalHandler(op: (dest: number, imm: number) => number): Opc
 
 const ANDI: OpcodeDefinition = {
   mnemonic: 'ANDI',
+  encode: immToEa(0x0200),
   encoding: '00000010ssmmmrrr',
   size: 'variable',
   handler: immediateLogicalHandler((dest, imm) => dest & imm),
@@ -1894,6 +1965,7 @@ const ANDI: OpcodeDefinition = {
 
 const ORI: OpcodeDefinition = {
   mnemonic: 'ORI',
+  encode: immToEa(0x0000),
   encoding: '00000000ssmmmrrr',
   size: 'variable',
   handler: immediateLogicalHandler((dest, imm) => dest | imm),
@@ -1901,6 +1973,7 @@ const ORI: OpcodeDefinition = {
 
 const EORI: OpcodeDefinition = {
   mnemonic: 'EORI',
+  encode: immToEa(0x0a00),
   encoding: '00001010ssmmmrrr',
   size: 'variable',
   handler: immediateLogicalHandler((dest, imm) => dest ^ imm),
@@ -1994,6 +2067,7 @@ const CMPI: OpcodeDefinition = {
 
 const NOT: OpcodeDefinition = {
   mnemonic: 'NOT',
+  encode: unary(0x4600),
   encoding: '01000110ssmmmrrr',
   size: 'variable',
   handler: (cpu: CPUState, memory: Memory, args: unknown[]) => {
@@ -2073,6 +2147,7 @@ const MOVE_FROM_SR: OpcodeDefinition = {
 
 const NEGX: OpcodeDefinition = {
   mnemonic: 'NEGX',
+  encode: unary(0x4000),
   encoding: '01000000ssmmmrrr',
   size: 'variable',
   handler: (cpu: CPUState, memory: Memory, args: unknown[]) => {
@@ -2134,6 +2209,7 @@ const CLR: OpcodeDefinition = {
 
 const SWAP: OpcodeDefinition = {
   mnemonic: 'SWAP',
+  encode: (ops) => (ops.length === 1 && ops[0].kind === 'dn' ? [0x4840 | ops[0].n] : null),
   encoding: '0100100001000rrr',
   size: 'long',
   handler: (cpu: CPUState, _memory: Memory, args: unknown[]) => {
@@ -2155,6 +2231,8 @@ const SWAP: OpcodeDefinition = {
 
 const EXT: OpcodeDefinition = {
   mnemonic: 'EXT',
+  encode: (ops, size) =>
+    ops.length === 1 && ops[0].kind === 'dn' && size !== 'byte' ? [(size === 'long' ? 0x48c0 : 0x4880) | ops[0].n] : null,
   encoding: '010010001s000rrr',
   size: 'variable',
   handler: (cpu: CPUState, _memory: Memory, args: unknown[]) => {
@@ -2336,6 +2414,7 @@ const MOVE_TO_CCR: OpcodeDefinition = {
 
 const NEG: OpcodeDefinition = {
   mnemonic: 'NEG',
+  encode: unary(0x4400),
   encoding: '01000100ssmmmrrr',
   size: 'variable',
   handler: (cpu: CPUState, memory: Memory, args: unknown[]) => {
@@ -2382,6 +2461,7 @@ const NEG: OpcodeDefinition = {
 
 const NBCD: OpcodeDefinition = {
   mnemonic: 'NBCD',
+  encode: unary(0x4800, false),
   encoding: '0100100000mmmrrr',
   size: 'byte',
   handler: (cpu: CPUState, memory: Memory, args: unknown[]) => {
@@ -2459,6 +2539,7 @@ const TST: OpcodeDefinition = {
 
 const ILLEGAL: OpcodeDefinition = {
   mnemonic: 'ILLEGAL',
+  encode: fixed(0x4afc),
   encoding: '0100101011111100',
   size: 'word',
   handler: (cpu: CPUState, memory: Memory) => {
@@ -2491,6 +2572,7 @@ const ILLEGAL: OpcodeDefinition = {
 
 const TAS: OpcodeDefinition = {
   mnemonic: 'TAS',
+  encode: unary(0x4ac0, false),
   encoding: '0100101011mmmrrr',
   size: 'byte',
   handler: (cpu: CPUState, memory: Memory, args: unknown[]) => {
@@ -3037,6 +3119,7 @@ const ROXR_MEM: OpcodeDefinition = {
 
 const CHK: OpcodeDefinition = {
   mnemonic: 'CHK',
+  encode: dataToDn(0x4180, false),
   encoding: '0100ddd110mmmrrr',
   size: 'word',
   handler: (cpu: CPUState, memory: Memory, args: unknown[]) => {

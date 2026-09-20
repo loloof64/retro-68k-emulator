@@ -21,7 +21,7 @@ for (const { definition } of opcodeTable) {
   encodable.set(name, list)
 }
 
-const ALIASES: Record<string, string> = { MOVEA: 'MOVE' }
+const ALIASES: Record<string, string> = { MOVEA: 'MOVE', EOR: 'XOR' }
 
 function resolveMnemonic(name: string): { defs: OpcodeDefinition[]; cc?: number } {
   let base = ALIASES[name] ?? name
@@ -34,6 +34,9 @@ function resolveMnemonic(name: string): { defs: OpcodeDefinition[]; cc?: number 
     cc = 0
   } else if (name !== 'BSR' && name[0] === 'B' && name.slice(1) in CONDITIONS && name !== 'BF') {
     base = 'BCC'
+    cc = CONDITIONS[name.slice(1)]
+  } else if (name[0] === 'S' && name.slice(1) in CONDITIONS) {
+    base = 'SCC'
     cc = CONDITIONS[name.slice(1)]
   }
   const defs = encodable.get(base)
