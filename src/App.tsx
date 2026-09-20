@@ -28,6 +28,7 @@ START:
 `)
 
   const [isRunning, setIsRunning] = useState(false)
+  const [frame, setFrame] = useState(0) // bumped to make Screen repaint
 
   // Not React state on purpose: the controller reports button changes up to
   // 60x/second, and nothing here needs a re-render when they happen — only
@@ -49,14 +50,16 @@ START:
           <h2>Débogueur</h2>
           <Debugger
             code={asmCode}
+            memory={memoryRef.current}
             isRunning={isRunning}
             onRunningChange={setIsRunning}
+            onFrame={() => setFrame((f) => f + 1)}
           />
         </div>
 
         <div className="panel screen-panel">
           <h2>Écran LCD</h2>
-          <Screen />
+          <Screen memory={memoryRef.current} frame={frame} />
           <Controller onButtonStateChange={(mask) => memoryRef.current?.setButtonState(mask)} />
         </div>
       </div>

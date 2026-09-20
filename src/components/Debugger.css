@@ -137,3 +137,15 @@
 .flag:hover {
   border-color: var(--accent);
 }
+
+.errors {
+  margin: 0;
+  padding: 8px 8px 8px 24px;
+  color: #ff6b6b;
+  font-size: 12px;
+  font-family: monospace;
+}
+
+p.errors {
+  padding-left: 8px;
+}

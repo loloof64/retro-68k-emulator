@@ -1,97 +1,113 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import './Debugger.css'
+import { assemble, type AssemblerError } from '../assembler'
+import { createCPU, reset, step } from '../cpu'
+import { opcodeTable } from '../cpu/opcodes'
+import type { AssembledProgram, CPUState } from '../types/cpu'
+import type { SystemMemory } from '../memory'
+
+// Instructions executed per animation frame while running (~60 fps).
+const STEPS_PER_FRAME = 2000
 
 interface DebuggerProps {
   code: string
+  memory: SystemMemory
   isRunning: boolean
   onRunningChange: (running: boolean) => void
+  onFrame: () => void // framebuffer may have changed: repaint the screen
 }
 
 export default function Debugger({
   code,
+  memory,
   isRunning,
   onRunningChange,
+  onFrame,
 }: DebuggerProps) {
-  const [registers, setRegisters] = useState({
-    D0: 0,
-    D1: 0,
-    D2: 0,
-    D3: 0,
-    D4: 0,
-    D5: 0,
-    D6: 0,
-    D7: 0,
-    A0: 0,
-    A1: 0,
-    A2: 0,
-    A3: 0,
-    A4: 0,
-    A5: 0,
-    A6: 0,
-    A7: 0,
-  })
+  const cpuRef = useRef<CPUState>(createCPU())
+  const programRef = useRef<{ source: string; program: AssembledProgram } | null>(null)
+  const [, setTick] = useState(0) // bumped to re-render from the mutable CPU
+  const [errors, setErrors] = useState<AssemblerError[]>([])
+  const [runtimeError, setRuntimeError] = useState<string | null>(null)
+  const refresh = () => setTick((t) => t + 1)
 
-  const [flags, setFlags] = useState({
-    N: false,
-    Z: false,
-    V: false,
-    C: false,
-    X: false,
-  })
-
-  const [pc, setPc] = useState(0x1000)
-  const [cycles, setCycles] = useState(0)
-
-  const handleAssemble = () => {
-    // TODO: Implement assembler
-    console.log('Assembling code...')
+  // Copies the program into RAM and points a fresh CPU at its entry.
+  // memory.reset() also wipes the button mask, so restore it (the gamepad
+  // only reports changes, a held button would otherwise be lost).
+  const load = ({ program }: NonNullable<typeof programRef.current>) => {
+    const buttons = memory.getButtonState()
+    memory.reset()
+    memory.setButtonState(buttons)
+    program.bytecode.forEach((b, i) => memory.write8(program.origin + i, b))
+    reset(cpuRef.current, program.entry)
+    setRuntimeError(null)
+    onFrame()
+    refresh()
   }
 
-  const handleRun = () => {
-    if (!isRunning) {
-      onRunningChange(true)
-      handleAssemble()
-      // TODO: Run emulation
-    } else {
-      onRunningChange(false)
+  // Assembles if the source changed since the last load; false on errors.
+  const ensureProgram = (): boolean => {
+    if (programRef.current?.source === code) return true
+    const result = assemble(code)
+    if (Array.isArray(result)) {
+      setErrors(result)
+      return false
     }
+    setErrors([])
+    programRef.current = { source: code, program: result }
+    load(programRef.current)
+    return true
+  }
+
+  const stepCpu = (count: number) => {
+    const cpu = cpuRef.current
+    try {
+      for (let i = 0; i < count && !cpu.halted; i++) step(cpu, memory, opcodeTable)
+    } catch (e) {
+      setRuntimeError(e instanceof Error ? e.message : String(e))
+      cpu.halted = true
+    }
+    if (cpu.halted) onRunningChange(false)
+    onFrame()
+    refresh()
+  }
+
+  useEffect(() => {
+    if (!isRunning) return
+    let raf = requestAnimationFrame(function loop() {
+      stepCpu(STEPS_PER_FRAME)
+      if (!cpuRef.current.halted) raf = requestAnimationFrame(loop)
+    })
+    return () => cancelAnimationFrame(raf)
+    // stepCpu closes over props that don't change while running.
+  }, [isRunning])
+
+  const handleRun = () => {
+    if (isRunning) return onRunningChange(false)
+    if (ensureProgram() && !cpuRef.current.halted) onRunningChange(true)
   }
 
   const handleStep = () => {
-    handleAssemble()
-    // TODO: Step through instruction
+    if (ensureProgram()) stepCpu(1)
   }
 
   const handleReset = () => {
-    setRegisters({
-      D0: 0,
-      D1: 0,
-      D2: 0,
-      D3: 0,
-      D4: 0,
-      D5: 0,
-      D6: 0,
-      D7: 0,
-      A0: 0,
-      A1: 0,
-      A2: 0,
-      A3: 0,
-      A4: 0,
-      A5: 0,
-      A6: 0,
-      A7: 0,
-    })
-    setFlags({
-      N: false,
-      Z: false,
-      V: false,
-      C: false,
-      X: false,
-    })
-    setPc(0x1000)
-    setCycles(0)
     onRunningChange(false)
+    setErrors([])
+    if (programRef.current) load(programRef.current)
   }
+
+  const cpu = cpuRef.current
+  const registers: Record<string, number> = {}
+  for (let i = 0; i < 8; i++) {
+    registers[`D${i}`] = cpu.registers[i]
+    registers[`A${i}`] = cpu.registers[8 + i]
+  }
+  const flags = cpu.status
+  const pc = cpu.pc
+  const cycles = cpu.cycles
+  const loaded = programRef.current
+  const sourceLine = loaded?.program.lineMap.get(pc - loaded.program.origin)
 
   return (
     <div className="debugger">
@@ -103,13 +119,24 @@ export default function Debugger({
         >
           {isRunning ? '⏸ Pause' : '▶ Run'}
         </button>
-        <button className="btn" onClick={handleStep} disabled={!code.trim()}>
+        <button className="btn" onClick={handleStep} disabled={!code.trim() || isRunning}>
           ⤵ Step
         </button>
         <button className="btn" onClick={handleReset}>
           ⟲ Reset
         </button>
       </div>
+
+      {errors.length > 0 && (
+        <ul className="errors">
+          {errors.map((e, i) => (
+            <li key={i}>
+              Ligne {e.line}: {e.message}
+            </li>
+          ))}
+        </ul>
+      )}
+      {runtimeError && <p className="errors">Erreur d'exécution : {runtimeError}</p>}
 
       <div className="state-info">
         <div className="info-row">
@@ -120,6 +147,13 @@ export default function Debugger({
           <span>Cycles:</span>
           <code>{cycles}</code>
         </div>
+        {sourceLine !== undefined && (
+          <div className="info-row">
+            <span>Ligne:</span>
+            <code>{sourceLine}</code>
+          </div>
+        )}
+        {cpu.halted && <div className="info-row">Programme terminé</div>}
       </div>
 
       <div className="registers-section">
@@ -129,7 +163,7 @@ export default function Debugger({
             <div key={reg} className="register">
               <span className="reg-name">{reg}:</span>
               <code>
-                ${(registers[reg as keyof typeof registers] >>> 0)
+                ${(registers[reg] >>> 0)
                   .toString(16)
                   .toUpperCase()
                   .padStart(8, '0')}
@@ -146,7 +180,7 @@ export default function Debugger({
             <div key={reg} className="register">
               <span className="reg-name">{reg}:</span>
               <code>
-                ${(registers[reg as keyof typeof registers] >>> 0)
+                ${(registers[reg] >>> 0)
                   .toString(16)
                   .toUpperCase()
                   .padStart(8, '0')}

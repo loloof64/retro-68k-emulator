@@ -78,15 +78,14 @@ docs:pdf:user`.
   always the mnemonic's column; test gaps (negative operand shapes, ADDQ #8,
   BSR.S, DBcc range, BRA.L). User-guide snippets using MULU/ASL/BTST/ABCD/
   CHK/MOVEM/DIVU are illustrative only (not assemblable yet).
-  **Next step: wire the assembler into the UI** — Editor "Assemble" ->
-  `assemble()`; show `AssemblerError[]`; load `bytecode` at `origin`
-  into the `SystemMemory` in `App.tsx`, `createCPU(entry)`; Debugger
-  Step = `step(cpu, memory, opcodeTable)` (+ Run/Reset, register/flag view,
-  highlight the `lineMap` line, Screen repaint). Needs a small design pass
-  first (Run loop pacing, error display), not started.
-- **Debugger/Editor UI: shell only**, not wired to a real CPU execution
-  loop (`src/components/Debugger.tsx`'s Step handler is a literal TODO;
-  `Editor.tsx` is a bare `<textarea>`, no syntax highlighting).
+  **UI wiring done**: Debugger assembles (only when the source changed),
+  loads `bytecode` at `origin`, runs `step()` (Run = 2000 steps per
+  animation frame, Step, Reset), shows registers/flags/PC/cycles, the
+  source line of PC (`lineMap`), assembler errors and runtime errors;
+  Screen paints the framebuffer (alpha forced opaque) on each `frame`
+  bump. Not done: highlighting the current line inside the Editor
+  textarea, breakpoints, Run speed control.
+- **Editor UI: bare `<textarea>`**, no syntax highlighting.
 - **Gamepad UI: implemented** (on-screen + real Gamepad API, auto-switches),
   **including physical-controller visual feedback** (`src/components/
   Controller.tsx`): the polled bitmask is mirrored into a `buttonMask`
