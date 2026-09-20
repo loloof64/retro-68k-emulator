@@ -35,7 +35,7 @@ Where:
 Each instruction below has a **Flags** line naming which of the status flags (`N`, `Z`, `V`, `C`, `X` — see [Architecture](./ARCHITECTURE.md#status-flags)) it touches. Three notations appear there:
 - A flag listed on its own (e.g. `N, Z`) is set or cleared to reflect what the instruction actually produced.
 - A flag followed by `(0)` (e.g. `V (0)`) is unconditionally cleared to `0`, regardless of the result — real 68000 hardware does this where the flag has no meaningful value for that instruction (multiply/divide, for instance, can't overflow the way add/sub can, so `MULU`/`MULS` always clear `V`; `AND`/`OR`/`XOR`/`NOT`/shifts and rotates without a genuine carry out always clear `C` and/or `V` the same way).
-- A flag missing from the list entirely is left untouched — its value carries over from whatever it was before the instruction ran.
+- A flag missing from the list entirely is left untouched — its value carries over from whatever it was before the instruction ran. "No flags affected" therefore does **not** mean the flags are reset to `0`; only `(0)` does that (e.g. `DBcc` never touches the flags, so a flag set by the previous instruction stays set).
 
 ## Data Movement
 

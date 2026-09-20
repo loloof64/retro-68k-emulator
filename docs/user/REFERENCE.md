@@ -24,7 +24,7 @@ A freshly created CPU — internally, `createCPU()`/`reset()` in the emulator's 
 | `C` | Carry | Set on unsigned carry/borrow |
 | `X` | Extend | Mirrors `C` for most operations; used in multi-precision arithmetic |
 
-Which flags a given instruction touches is listed per-instruction below, in the "Flags affected" column, using three notations: a flag on its own (e.g. `N, Z`) is set or cleared to reflect what the instruction actually produced; a flag followed by `(0)` (e.g. `V (0)`) is unconditionally cleared to `0`, regardless of the result — real hardware does this where the flag has no meaningful value for that instruction (multiply/divide can't overflow the way add/sub can, so `MULU`/`MULS` always clear `V`); and a flag missing from the list entirely is left untouched, keeping whatever value it had before the instruction ran.
+Which flags a given instruction touches is listed per-instruction below, in the "Flags affected" column, using three notations: a flag on its own (e.g. `N, Z`) is set or cleared to reflect what the instruction actually produced; a flag followed by `(0)` (e.g. `V (0)`) is unconditionally cleared to `0`, regardless of the result — real hardware does this where the flag has no meaningful value for that instruction (multiply/divide can't overflow the way add/sub can, so `MULU`/`MULS` always clear `V`); and a flag missing from the list entirely is left untouched, keeping whatever value it had before the instruction ran. So "none" (or a missing flag) does **not** mean the flags are reset to `0`: they simply keep their previous values (for example, `DBRA` never touches them, so a flag set by the previous instruction stays lit through the whole loop).
 
 ## Instruction Format
 
