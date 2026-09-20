@@ -520,7 +520,7 @@ The `10`/`40` cycle split isn't arbitrary: `10` is just the cost of fetching and
 
 ### How does MOVEM's register list work?
 
-`MOVEM` moves any subset of the 16 registers (`D0`-`D7`, `A0`-`A7`) to or from memory in one instruction. The register list — written as a range/list like `D0-D2/A0`, meaning `D0`, `D1`, `D2`, and `A0` — gets packed into a 16-bit bitmask, one bit per register, that follows the opcode word. (The assembler doesn't accept `MOVEM` yet — it's a "not assemblable yet" mnemonic — so today that bitmask has to be hand-encoded, the same way `Bcc`'s target does.)
+`MOVEM` moves any subset of the 16 registers (`D0`-`D7`, `A0`-`A7`) to or from memory in one instruction. The register list — written as a range/list like `D0-D2/A0`, meaning `D0`, `D1`, `D2`, and `A0` — gets packed into a 16-bit bitmask, one bit per register, that follows the opcode word. (The assembler builds that bitmask for you from the written list; for `-(An)` stores it reverses the bit order automatically.)
 
 Which addressing modes are valid depends on which direction the data is moving:
 - **Register list → memory** (`MOVEM.size list,dst`): the [control addressing modes](#which-addressing-modes-can-jsr-target) `JSR`/`LEA`/`PEA` use, plus predecrement (`-(An)`).
@@ -643,7 +643,7 @@ throws a generic error instead of raising a catchable exception.
 
 ### Worked Examples
 
-Small programs to read alongside the instruction tables. All of them assemble except the `MOVEM` one, which is illustrative until the assembler supports `MOVEM`.
+Small programs to read alongside the instruction tables. All of them assemble.
 
 **Example** — add two numbers and write a white pixel, using a direct absolute address:
 
@@ -827,7 +827,7 @@ START:                         ; a label: a name for this address
 - Mnemonics, registers and directives are case-insensitive; labels are case-sensitive.
 - Numbers: `123`, `$FF` (hex), `%1010` (binary), `'A'` (character code).
 - Expressions combine numbers and labels with `+` and `-` only.
-- Operands: `D0`-`D7`, `A0`-`A7` (`SP` means `A7`), `(A0)`, `(A0)+`, `-(A0)`, `4(A0)`, `#5`, and a bare address or label.
+- Operands: `D0`-`D7`, `A0`-`A7` (`SP` means `A7`), `(A0)`, `(A0)+`, `-(A0)`, `4(A0)`, `#5`, and a bare address or label. `MOVEM` also takes a register list such as `D0-D2/A0`.
 - A bare address or label is always stored as a 4-byte address.
 - An instruction must sit at an even address (the 68000 reads instructions two bytes at a time); put `EVEN` before it after odd-sized data.
 
@@ -879,15 +879,19 @@ Rules worth knowing:
 
 ### Assemblable Instructions
 
-Every instruction the CPU runs is in the tables above, but the assembler currently accepts only the ones below. Any other real mnemonic reports "'X' is not assemblable yet".
+Every real mnemonic is assemblable except the ones listed at the end of the table; those report "'X' is not assemblable yet".
 
 | Category | Mnemonics |
 |---|---|
-| Data Movement | `MOVE`, `MOVEA`, `MOVEQ`, `LEA` |
-| Arithmetic | `ADD`, `SUB`, `CMP`, `ADDA`, `SUBA`, `CMPA`, `ADDI`, `SUBI`, `CMPI`, `ADDQ`, `SUBQ`, `CLR`, `TST` |
+| Data Movement | `MOVE`, `MOVEA`, `MOVEQ`, `MOVEM`, `LEA`, `PEA`, `EXG`, `SWAP`, `EXT` |
+| Arithmetic | `ADD`, `SUB`, `CMP`, `ADDA`, `SUBA`, `CMPA`, `ADDI`, `SUBI`, `CMPI`, `ADDQ`, `SUBQ`, `ADDX`, `SUBX`, `CMPM`, `CLR`, `TST`, `NEG`, `NEGX`, `MULU`, `MULS`, `DIVU`, `DIVS`, `ABCD`, `SBCD`, `NBCD` |
+| Logical | `AND`, `OR`, `EOR`, `ANDI`, `ORI`, `EORI`, `NOT`, `Scc` |
+| Bit Manipulation | `BTST`, `BCHG`, `BCLR`, `BSET`, `TAS` |
+| Shift and Rotate | `ASL`, `ASR`, `LSL`, `LSR`, `ROL`, `ROR`, `ROXL`, `ROXR` |
 | Branches | `BRA`, `BSR`, `Bcc` (all conditions), `DBcc`, `DBRA` |
-| Subroutine Control | `JMP`, `JSR`, `RTS` |
-| System | `NOP`, `TRAP` |
+| Subroutine Control | `JMP`, `JSR`, `RTS`, `RTR`, `LINK`, `UNLK` |
+| System | `NOP`, `TRAP`, `TRAPV`, `CHK`, `ILLEGAL` |
+| Not assemblable yet | `MOVEP`, `MOVE` to CCR / from SR, `ANDI`/`ORI`/`EORI` to CCR |
 
 ### Assembler Limits
 

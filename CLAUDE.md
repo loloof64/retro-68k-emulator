@@ -63,9 +63,10 @@ docs:pdf:user`.
     `0xFF0000FF`) — `docs/MEMORY.md`'s diagram/examples fixed to match.
 - **Assembler: v1 library implemented** (`src/assembler/`, two-pass,
   `assemble(source)` -> `AssembledProgram | AssemblerError[]`); UI wiring
-  pending. Assemblable subset: MOVE/MOVEA/MOVEQ, ADD/SUB/CMP (+A/I),
-  ADDQ/SUBQ, LEA, CLR, TST, BRA/BSR/Bcc, DBcc, JMP/JSR/RTS, NOP, TRAP;
-  others report "not assemblable yet". Known limits: no forward refs to
+  pending. Assemblable: every real mnemonic except MOVEP, MOVE to CCR/from
+  SR and ANDI/ORI/EORI to CCR (those report "not assemblable yet"). MOVEM
+  takes register-list operands (`D0-D2/A0`, an Operand `list` kind).
+  Known limits: no forward refs to
   EQU/DS counts, absolute always long, no branch relaxation, no PC-relative
   or indexed operands. Each mnemonic is encoded by an `encode` field in
   `src/cpu/opcodes.ts`; docs in `docs/ASSEMBLER.md`. Spec:
@@ -76,8 +77,8 @@ docs:pdf:user`.
   address not flagged; `.S` suffix accepted on non-branches and size
   suffixes ignored on size-less mnemonics (NOP.L); AssemblerError.column is
   always the mnemonic's column; test gaps (negative operand shapes, ADDQ #8,
-  BSR.S, DBcc range, BRA.L). User-guide snippets using MULU/ASL/BTST/ABCD/
-  CHK/MOVEM/DIVU are illustrative only (not assemblable yet).
+  BSR.S, DBcc range, BRA.L); size suffix is ignored on ABCD/SBCD/MULU-style
+  mnemonics that only exist at one size.
   **UI wiring done**: Debugger assembles (only when the source changed),
   loads `bytecode` at `origin`, runs `step()` (Run = 2000 steps per
   animation frame, Step, Reset), shows registers/flags/PC/cycles, the

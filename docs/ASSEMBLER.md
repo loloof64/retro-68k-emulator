@@ -43,7 +43,7 @@ Encoding is table-driven: each real instruction in `opcodeTable` (`src/cpu/opcod
 - Comments start with `;`, or with `*` in column 0.
 - Numbers: `123` (decimal), `$FF` (hex), `%1010` (binary), `'A'` (character code).
 - Expressions are constants and labels combined with `+` and `-` only.
-- Operands: `Dn`, `An` (`SP` is `A7`), `(An)`, `(An)+`, `-(An)`, `d(An)`, `#imm`, and a bare address or label.
+- Operands: `Dn`, `An` (`SP` is `A7`), `(An)`, `(An)+`, `-(An)`, `d(An)`, `#imm`, and a bare address or label. `MOVEM` also takes a register list such as `D0-D2/A0` (ranges joined by `/`).
 - A bare address or label is always encoded as a 4-byte absolute-long address; there is no short-absolute form.
 - An instruction at an odd address is an error; put `EVEN` before it.
 
@@ -90,7 +90,7 @@ Real mnemonics without an `encode` field report `'X' is not assemblable yet`; un
 
 ## Assembled Subset and Known Limits
 
-Assemblable in v1: `MOVE`, `MOVEA`, `MOVEQ`, `ADD`, `SUB`, `CMP`, `ADDA`, `SUBA`, `CMPA`, `ADDI`, `SUBI`, `CMPI`, `ADDQ`, `SUBQ`, `LEA`, `CLR`, `TST`, `BRA`, `BSR`, `Bcc`, `DBcc`/`DBRA`, `JMP`, `JSR`, `RTS`, `NOP`, `TRAP`.
+Assemblable: every real mnemonic except `MOVEP`, `MOVE` to CCR / from SR and `ANDI`/`ORI`/`EORI` to CCR (those still report "not assemblable yet"). That covers `MOVE`, `MOVEA`, `MOVEQ`, `MOVEM`, `LEA`, `PEA`, `EXG`, `SWAP`, `EXT`, `ADD`/`SUB`/`CMP` and their `A`/`I`/`Q`/`X` variants, `MULU`/`MULS`/`DIVU`/`DIVS`, `ABCD`/`SBCD`/`NBCD`, `CMPM`, `AND`/`OR`/`EOR` (+ `I`), `NOT`, `NEG`/`NEGX`, `CLR`, `TST`, `TAS`, `Scc`, the shifts and rotates (`ASL`..`ROXR`), `BTST`/`BCHG`/`BCLR`/`BSET`, `Bcc`/`BRA`/`BSR`/`DBcc`, `JMP`/`JSR`/`RTS`/`RTR`, `LINK`/`UNLK`, `CHK`, `TRAP`/`TRAPV`, `ILLEGAL` and `NOP`.
 
 Known limits:
 
