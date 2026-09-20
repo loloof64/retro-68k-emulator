@@ -149,3 +149,10 @@
 p.errors {
   padding-left: 8px;
 }
+
+.speed-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+}

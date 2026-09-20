@@ -929,6 +929,19 @@ A few habits worth having, some of them straight from gotchas this emulator's ow
 - **Prefer `MOVEQ` for small constants (`-128` to `127`)** into a data register — it's the same 4 cycles as `MOVE.L #imm,Dn` but a shorter encoding, and shifts (`ASL`/`LSL`, etc.) are a cheap way to multiply or divide by a power of two instead of reaching for `MULU`/`DIVU`.
 - **Comment the *why*, not just the *what*, even in illustrative examples.** Every worked example on this page does — it's what makes a hand-traced instruction sequence checkable later.
 
+## Running a Program
+
+The toolbar above the registers has four controls:
+
+- **Run / Pause** starts or stops continuous execution. Run also stops by itself on a breakpoint (see [My breakpoint is ignored](./TROUBLESHOOTING.md#my-breakpoint-is-ignored)), a runtime error, or the program's exit.
+- **Step** executes exactly one instruction, ignores breakpoints, and is only available while the program is paused.
+- **Reset** puts the CPU back to its initial state.
+- **Speed** (**Vitesse** in a French-language browser or system) is the drop-down list (`10`, `200`, `2000` or `20000` instr./frame, or instr./image in French). It sets how many instructions Run executes per *frame* — one refresh of the screen, roughly 60 times per second on a typical display.
+
+At the default `2000 instr./frame`, that is about 120,000 instructions per second. `10` gives about 600 per second, slow enough to follow a program by eye, and `20000` about 1.2 million per second, for long computations. Speed only changes how fast the program runs on screen, never what it computes, and it has no effect on Step.
+
+The screen is repainted once per frame, so a low Speed also makes a drawing program appear pixel by pixel. Speed does not change the cycle counter, which counts the emulated CPU's instructions, not real time (see [Performance Notes](#performance-notes)).
+
 ## Performance Notes
 
 - **Simple interpretation, no recompilation**: each instruction is fetched, decoded, and executed one at a time — there's no JIT, no bytecode caching. That keeps the implementation easy to follow, which matters more here than raw speed for hand-written assembly programs at this scale.

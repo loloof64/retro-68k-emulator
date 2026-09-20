@@ -20,6 +20,12 @@ interface DebuggerProps {
   onFrame: () => void // framebuffer may have changed: repaint the screen
 }
 
+// ponytail: only the speed selector is localized (no app-wide i18n yet); add a real i18n layer when more strings need it.
+const FR = typeof navigator !== 'undefined' && navigator.language.toLowerCase().startsWith('fr')
+const SPEED_LABEL = FR ? 'Vitesse' : 'Speed'
+const SPEED_UNIT = FR ? 'instr./image' : 'instr./frame'
+const SPEED_TITLE = FR ? 'Instructions exécutées par image affichée (Run uniquement)' : 'Instructions executed per frame (Run only)'
+
 // Tooltip: unsigned and signed (two's complement) decimal of a 32-bit value.
 const decimalTitle = (v: number) => `${v >>> 0} (signé : ${v | 0})`
 
@@ -151,13 +157,16 @@ export default function Debugger({
         <button className="btn" onClick={handleReset}>
           ⟲ Reset
         </button>
-        <select value={speed} onChange={(e) => setSpeed(Number(e.target.value))} title="Instructions par image">
-          {SPEEDS.map((n) => (
-            <option key={n} value={n}>
-              {n}/img
-            </option>
-          ))}
-        </select>
+        <label className="speed-label">
+          {SPEED_LABEL}
+          <select value={speed} onChange={(e) => setSpeed(Number(e.target.value))} title={SPEED_TITLE}>
+            {SPEEDS.map((n) => (
+              <option key={n} value={n}>
+                {n} {SPEED_UNIT}
+              </option>
+            ))}
+          </select>
+        </label>
       </div>
 
       {errors.length > 0 && (

@@ -32,6 +32,7 @@ A `DBcc`/`DBRA` loop can do the same thing if its counter never reaches its stop
 
 The emulator's cycle counter is currently a flat number per instruction, not the real 68000's addressing-mode-dependent timing — see [Performance Notes](./REFERENCE.md#performance-notes). If a program's cycle count looks unexpectedly high:
 
+- Raise the **Speed** setting above the registers (up to `20000` instr./frame) — see [Running a Program](./REFERENCE.md#running-a-program).
 - Millions of loop iterations add up on their own — the counter isn't wrong, a large loop bound might just be the actual cause.
 - Prefer `MOVEQ` over `MOVE.L #imm` for small constants, and shifts (`ASL`/`LSL`, etc.) over `MULU`/`DIVU` for power-of-two math — see [Tips](./REFERENCE.md#tips).
 - Minimize memory access inside a hot loop where a register would do just as well — each cycle interprets exactly one instruction, with no recompilation to optimize a hot path away (see [Performance Notes](./REFERENCE.md#performance-notes)).
