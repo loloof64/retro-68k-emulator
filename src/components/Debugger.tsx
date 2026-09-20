@@ -13,6 +13,7 @@ interface DebuggerProps {
   code: string
   memory: SystemMemory
   breakpoints: Set<number> // source lines
+  currentLine?: number // shown in the state box; follows source edits
   onLineChange: (line: number | undefined) => void // line of the next instruction
   isRunning: boolean
   onRunningChange: (running: boolean) => void
@@ -23,6 +24,7 @@ export default function Debugger({
   code,
   memory,
   breakpoints,
+  currentLine,
   onLineChange,
   isRunning,
   onRunningChange,
@@ -129,8 +131,6 @@ export default function Debugger({
   const flags = cpu.status
   const pc = cpu.pc
   const cycles = cpu.cycles
-  const loaded = programRef.current
-  const sourceLine = loaded?.program.lineMap.get(pc - loaded.program.origin)
 
   return (
     <div className="debugger">
@@ -177,10 +177,10 @@ export default function Debugger({
           <span>Cycles:</span>
           <code>{cycles}</code>
         </div>
-        {sourceLine !== undefined && (
+        {currentLine !== undefined && (
           <div className="info-row">
             <span>Ligne:</span>
-            <code>{sourceLine}</code>
+            <code>{currentLine}</code>
           </div>
         )}
         {cpu.halted && <div className="info-row">Programme terminé</div>}

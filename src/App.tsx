@@ -56,6 +56,10 @@ START:
             code={asmCode}
             onChange={(code) => {
               setBreakpoints((prev) => remapBreakpoints(prev, asmCode, code))
+              // The yellow bar follows its instruction too (until re-assembly).
+              setCurrentLine((line) =>
+                line === undefined ? line : [...remapBreakpoints(new Set([line]), asmCode, code)][0],
+              )
               setAsmCode(code)
             }}
             currentLine={currentLine}
@@ -70,6 +74,7 @@ START:
             code={asmCode}
             memory={memoryRef.current}
             breakpoints={breakpoints}
+            currentLine={currentLine}
             onLineChange={setCurrentLine}
             isRunning={isRunning}
             onRunningChange={setIsRunning}
