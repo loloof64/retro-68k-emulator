@@ -86,11 +86,11 @@ encode?: (
 3. Run `npx vitest run`, `npx tsc --noEmit` and `npm run lint`.
 4. Update the mnemonic table in the user reference and this page, then commit: one commit per mnemonic.
 
-Real mnemonics without an `encode` field report `'X' is not assemblable yet`; unknown names report `Unknown mnemonic`.
+Real mnemonics without an `encode` field report `'X' is not assemblable yet` (none are left today); unknown names, such as the privileged `STOP`/`RTE`, report `Unknown mnemonic`.
 
 ## Assembled Subset and Known Limits
 
-Assemblable: every real mnemonic except `MOVEP`, `MOVE` to CCR / from SR and `ANDI`/`ORI`/`EORI` to CCR (those still report "not assemblable yet"). That covers `MOVE`, `MOVEA`, `MOVEQ`, `MOVEM`, `LEA`, `PEA`, `EXG`, `SWAP`, `EXT`, `ADD`/`SUB`/`CMP` and their `A`/`I`/`Q`/`X` variants, `MULU`/`MULS`/`DIVU`/`DIVS`, `ABCD`/`SBCD`/`NBCD`, `CMPM`, `AND`/`OR`/`EOR` (+ `I`), `NOT`, `NEG`/`NEGX`, `CLR`, `TST`, `TAS`, `Scc`, the shifts and rotates (`ASL`..`ROXR`), `BTST`/`BCHG`/`BCLR`/`BSET`, `Bcc`/`BRA`/`BSR`/`DBcc`, `JMP`/`JSR`/`RTS`/`RTR`, `LINK`/`UNLK`, `CHK`, `TRAP`/`TRAPV`, `ILLEGAL` and `NOP`.
+Assemblable: every real mnemonic. That covers `MOVE` (including `MOVE <ea>,CCR` and `MOVE SR,<ea>`), `MOVEA`, `MOVEQ`, `MOVEM`, `MOVEP` (`Dn,d(An)` and `d(An),Dn`, always with a displacement), `LEA`, `PEA`, `EXG`, `SWAP`, `EXT`, `ADD`/`SUB`/`CMP` and their `A`/`I`/`Q`/`X` variants, `MULU`/`MULS`/`DIVU`/`DIVS`, `ABCD`/`SBCD`/`NBCD`, `CMPM`, `AND`/`OR`/`EOR` (+ `I`, including `#imm,CCR`), `NOT`, `NEG`/`NEGX`, `CLR`, `TST`, `TAS`, `Scc`, the shifts and rotates (`ASL`..`ROXR`), `BTST`/`BCHG`/`BCLR`/`BSET`, `Bcc`/`BRA`/`BSR`/`DBcc`, `JMP`/`JSR`/`RTS`/`RTR`, `LINK`/`UNLK`, `CHK`, `TRAP`/`TRAPV`, `ILLEGAL` and `NOP`.
 
 Known limits:
 

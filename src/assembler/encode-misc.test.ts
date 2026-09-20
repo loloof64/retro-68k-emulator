@@ -55,3 +55,38 @@ describe('quick / unary / jumps', () => {
     expect(cpu.registers[Register.D1]).toBe(2)
   })
 })
+
+describe('CCR / SR operands and MOVEP', () => {
+  it('encodes MOVE to CCR and from SR', () => {
+    expect(asm('MOVE D0,CCR')).toEqual([0x44c0])
+    expect(asm('MOVE #$1F,CCR')).toEqual([0x44fc, 0x001f])
+    expect(asm('MOVE SR,D1')).toEqual([0x40c1])
+    expect(asm('MOVE SR,(A0)')).toEqual([0x40d0])
+  })
+  it('rejects the privileged MOVE to SR and byte-sized forms', () => {
+    expect(Array.isArray(assemble('  MOVE D0,SR'))).toBe(true)
+    expect(Array.isArray(assemble('  MOVE.B D0,CCR'))).toBe(true)
+    expect(Array.isArray(assemble('  ANDI #1,SR'))).toBe(true)
+  })
+  it('encodes ANDI/ORI/EORI to CCR', () => {
+    expect(asm('ANDI #$FE,CCR')).toEqual([0x023c, 0x00fe])
+    expect(asm('ORI #1,CCR')).toEqual([0x003c, 0x0001])
+    expect(asm('EORI.B #$10,CCR')).toEqual([0x0a3c, 0x0010])
+  })
+  it('encodes MOVEP both ways', () => {
+    expect(asm('MOVEP.W D0,4(A1)')).toEqual([0x0189, 0x0004])
+    expect(asm('MOVEP.L D2,0(A3)')).toEqual([0x05cb, 0x0000])
+    expect(asm('MOVEP.W 2(A0),D1')).toEqual([0x0308, 0x0002])
+    expect(asm('MOVEP.L -2(A0),D1')).toEqual([0x0348, 0xfffe])
+  })
+  it('round trip: MOVE/ANDI on the CCR', () => {
+    const cpu = run('  MOVE #$1F,CCR\n  ANDI #$FB,CCR\n  MOVE SR,D0', 3)
+    expect(cpu.registers[Register.D0]).toBe(0x1b)
+    expect(cpu.status.Z).toBe(false)
+    expect(cpu.status.X).toBe(true)
+  })
+  it('round trip: MOVEP.L spreads a long over alternate bytes', () => {
+    const cpu = run('  MOVE.L #$11223344,D0\n  LEA $4000,A0\n  MOVEP.L D0,0(A0)\n  MOVEP.L 0(A0),D1', 4)
+    expect(cpu.registers[Register.D1]).toBe(0x11223344)
+  })
+})

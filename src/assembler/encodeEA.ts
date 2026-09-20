@@ -43,6 +43,9 @@ export function encodeEA(op: Operand, size: Size, ctx: EncodeContext): EncodedEA
     }
     case 'imm':
       return { field: 0b111100, ext: immWords(ctx.eval(op.expr), size, ctx.final) }
+    case 'ccr':
+    case 'sr':
+      throw new Error('CCR/SR is only valid in MOVE, ANDI, ORI and EORI')
     case 'list':
       throw new Error('A register list is only valid for MOVEM')
   }

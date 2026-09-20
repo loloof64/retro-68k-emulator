@@ -58,6 +58,8 @@ export function parseOperand(raw: string): Operand {
   let m: RegExpMatchArray | null
   if ((m = text.match(/^D([0-7])$/i))) return { kind: 'dn', n: Number(m[1]) }
   if ((m = text.match(new RegExp(`^${AN}$`, 'i')))) return { kind: 'an', n: regNum(m[1]) }
+  if (/^CCR$/i.test(text)) return { kind: 'ccr' }
+  if (/^SR$/i.test(text)) return { kind: 'sr' }
   if (LIST.test(text)) return { kind: 'list', mask: listMask(text) }
   if ((m = text.match(new RegExp(`^\\(${AN}\\)$`, 'i')))) return { kind: 'ind', n: regNum(m[1]) }
   if ((m = text.match(new RegExp(`^\\(${AN}\\)\\+$`, 'i')))) return { kind: 'post', n: regNum(m[1]) }

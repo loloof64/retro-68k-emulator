@@ -879,19 +879,18 @@ Rules worth knowing:
 
 ### Assemblable Instructions
 
-Every real mnemonic is assemblable except the ones listed at the end of the table; those report "'X' is not assemblable yet".
+Every real mnemonic is assemblable. `CCR` and `SR` are accepted as operands only where they make sense: `MOVE <ea>,CCR`, `MOVE SR,<ea>` and `ANDI`/`ORI`/`EORI #imm,CCR`. `MOVE <ea>,SR` and the other privileged instructions are not part of this emulator.
 
 | Category | Mnemonics |
 |---|---|
-| Data Movement | `MOVE`, `MOVEA`, `MOVEQ`, `MOVEM`, `LEA`, `PEA`, `EXG`, `SWAP`, `EXT` |
+| Data Movement | `MOVE`, `MOVEA`, `MOVEQ`, `MOVEM`, `MOVEP`, `LEA`, `PEA`, `EXG`, `SWAP`, `EXT` |
 | Arithmetic | `ADD`, `SUB`, `CMP`, `ADDA`, `SUBA`, `CMPA`, `ADDI`, `SUBI`, `CMPI`, `ADDQ`, `SUBQ`, `ADDX`, `SUBX`, `CMPM`, `CLR`, `TST`, `NEG`, `NEGX`, `MULU`, `MULS`, `DIVU`, `DIVS`, `ABCD`, `SBCD`, `NBCD` |
-| Logical | `AND`, `OR`, `EOR`, `ANDI`, `ORI`, `EORI`, `NOT`, `Scc` |
+| Logical | `AND`, `OR`, `EOR`, `ANDI`, `ORI`, `EORI` (also `#imm,CCR`), `NOT`, `Scc` |
 | Bit Manipulation | `BTST`, `BCHG`, `BCLR`, `BSET`, `TAS` |
 | Shift and Rotate | `ASL`, `ASR`, `LSL`, `LSR`, `ROL`, `ROR`, `ROXL`, `ROXR` |
 | Branches | `BRA`, `BSR`, `Bcc` (all conditions), `DBcc`, `DBRA` |
 | Subroutine Control | `JMP`, `JSR`, `RTS`, `RTR`, `LINK`, `UNLK` |
 | System | `NOP`, `TRAP`, `TRAPV`, `CHK`, `ILLEGAL` |
-| Not assemblable yet | `MOVEP`, `MOVE` to CCR / from SR, `ANDI`/`ORI`/`EORI` to CCR |
 
 ### Assembler Limits
 

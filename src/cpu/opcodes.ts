@@ -131,6 +131,14 @@ function immToEa(base: number): NonNullable<OpcodeDefinition['encode']> {
   }
 }
 
+// #imm,CCR form shared by ANDI/ORI/EORI: opcode word + the byte in a full word.
+function immToCcr(word: number): NonNullable<OpcodeDefinition['encode']> {
+  return (ops, size, ctx) => {
+    if (ops.length !== 2 || ops[0].kind !== 'imm' || ops[1].kind !== 'ccr' || size === 'long') return null
+    return [word, ...immWords(ctx.eval(ops[0].expr), 'byte', ctx.final)]
+  }
+}
+
 // MOVEA isn't a separate opcode encoding on real 68000 hardware — a MOVE
 // whose destination mode is "An direct" *is* MOVEA, word-for-word the same
 // bit pattern. The only behavioral difference is that it never touches the
@@ -144,6 +152,7 @@ const MOVE: OpcodeDefinition = {
   size: 'variable',
   encode: (ops, size, ctx) => {
     if (ops.length !== 2 || ops[1].kind === 'imm') return null
+    if (ops.some((o) => o.kind === 'ccr' || o.kind === 'sr')) return null
     if (size === 'byte' && (ops[0].kind === 'an' || ops[1].kind === 'an')) return null
     const src = encodeEA(ops[0], size, ctx)
     const dst = encodeEA(ops[1], size, ctx)
@@ -1434,6 +1443,15 @@ const MOVEP: OpcodeDefinition = {
   mnemonic: 'MOVEP',
   encoding: '0000ddd1oo001aaa',
   size: 'variable',
+  encode: (ops, size, ctx) => {
+    if (ops.length !== 2 || size === 'byte') return null
+    const [store, mem, dn] = ops[0].kind === 'dn' ? [true, ops[1], ops[0]] : [false, ops[0], ops[1]]
+    if (dn.kind !== 'dn' || mem.kind !== 'disp') return null
+    const d = ctx.eval(mem.expr)
+    if (ctx.final && (d < -32768 || d > 32767)) throw new Error(`Displacement ${d} out of range (-32768..32767)`)
+    const opmode = 0b100 | (store ? 0b10 : 0) | (size === 'long' ? 1 : 0)
+    return [(dn.n << 9) | (opmode << 6) | 0b001000 | mem.n, d & 0xffff]
+  },
   handler: (cpu: CPUState, memory: Memory, args: unknown[]) => {
     const opcodeWord = opcodeWordOf(args)
     const dataReg = (Register.D0 + ((opcodeWord >> 9) & 0b111)) as Register
@@ -2095,6 +2113,7 @@ const ANDI_TO_CCR: OpcodeDefinition = {
   mnemonic: 'ANDI',
   encoding: '0000001000111100',
   size: 'byte',
+  encode: immToCcr(0x023c),
   handler: logicalToCcrHandler((ccr, imm) => ccr & imm),
 }
 
@@ -2102,6 +2121,7 @@ const ORI_TO_CCR: OpcodeDefinition = {
   mnemonic: 'ORI',
   encoding: '0000000000111100',
   size: 'byte',
+  encode: immToCcr(0x003c),
   handler: logicalToCcrHandler((ccr, imm) => ccr | imm),
 }
 
@@ -2109,6 +2129,7 @@ const EORI_TO_CCR: OpcodeDefinition = {
   mnemonic: 'EORI',
   encoding: '0000101000111100',
   size: 'byte',
+  encode: immToCcr(0x0a3c),
   handler: logicalToCcrHandler((ccr, imm) => ccr ^ imm),
 }
 
@@ -2183,6 +2204,11 @@ const MOVE_FROM_SR: OpcodeDefinition = {
   mnemonic: 'MOVE',
   encoding: '0100000011mmmrrr',
   size: 'word',
+  encode: (ops, size, ctx) => {
+    if (ops.length !== 2 || ops[0].kind !== 'sr' || !isDataAlterable(ops[1]) || size !== 'word') return null
+    const dst = encodeEA(ops[1], size, ctx)
+    return [0x40c0 | dst.field, ...dst.ext]
+  },
   handler: (cpu: CPUState, memory: Memory, args: unknown[]) => {
     const opcodeWord = opcodeWordOf(args)
     const mode = (opcodeWord >> 3) & 0b111
@@ -2464,6 +2490,11 @@ const MOVE_TO_CCR: OpcodeDefinition = {
   mnemonic: 'MOVE',
   encoding: '0100010011mmmrrr',
   size: 'word',
+  encode: (ops, size, ctx) => {
+    if (ops.length !== 2 || ops[1].kind !== 'ccr' || ops[0].kind === 'an' || size !== 'word') return null
+    const src = encodeEA(ops[0], size, ctx)
+    return [0x44c0 | src.field, ...src.ext]
+  },
   handler: (cpu: CPUState, memory: Memory, args: unknown[]) => {
     const opcodeWord = opcodeWordOf(args)
     const mode = (opcodeWord >> 3) & 0b111
