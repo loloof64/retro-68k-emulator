@@ -85,7 +85,7 @@ The emulator's memory system is implemented and working. Every address below is 
 |---|---|---|---|
 | System area | `$00000`–`$01FFF` | 8 KB | Reserved for TRAP vectors and system data |
 | User RAM | `$02000`–`$3FFFF` | ~248 KB | Your program's code, data, and stack |
-| Framebuffer | `$40000`–`$7E7FF` | 250 KB | The 320×200 screen, 4 bytes (RGBA) per pixel |
+| Framebuffer | `$40000`–`$7E7FF` | 250 KB | The 320×200 screen, 4 bytes per pixel, as a 32-bit `$RRGGBBAA` value (red `$FF0000FF`) |
 | Controller Input | `$7E800`–`$7E803` | 4 B | Gamepad button state, as a bitmask (see below) |
 | Sound | `$7E804`–`$7E80B` | 8 B | Tone generator registers, written by `TRAP #6` — no audio backend consumes them yet (see below) |
 

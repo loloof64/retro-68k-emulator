@@ -154,7 +154,7 @@ Each pixel occupies 4 bytes (32-bit):
 ```
 Bits:   31-24      23-16      15-8       7-0
         ─────────────────────────────────────
-        Alpha      Blue       Green      Red
+        Red        Green      Blue       Alpha
 ```
 
 Example 32-bit colors:
@@ -163,9 +163,9 @@ Example 32-bit colors:
 |-------|-----------|-------|
 | Black | `0x000000FF` | Red=0, Green=0, Blue=0, Alpha=255 |
 | White | `0xFFFFFFFF` | Red=255, Green=255, Blue=255, Alpha=255 |
-| Red | `0x0000FFFF` | Pure red |
+| Red | `0xFF0000FF` | Pure red |
 | Green | `0x00FF00FF` | Pure green |
-| Blue | `0xFF0000FF` | Pure blue |
+| Blue | `0x0000FFFF` | Pure blue |
 
 ### Calculating Pixel Address
 

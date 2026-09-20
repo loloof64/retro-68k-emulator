@@ -59,10 +59,8 @@ docs:pdf:user`.
   transparent background, `\n`/right-edge wrap resets x to 0, no
   scrolling (out-of-screen throws explicitly, since the framebuffer is
   directly followed by the input registers and wouldn't fault by itself).
-  - **Still-open caveat**: `docs/MEMORY.md`'s framebuffer byte-order table
-    (Alpha/Blue/Green/Red) and its worked example (`0x0000FFFF` = "Pure
-    red") are internally inconsistent. Predates TRAP #1; affects the
-    color argument of `#1`/`#3`/`#4` alike. Worth resolving.
+  - Color format settled as `0xRRGGBBAA` (matches `docs/API.md`; red =
+    `0xFF0000FF`) — `docs/MEMORY.md`'s diagram/examples fixed to match.
 - **Assembler: not started** (planned — turns `.asm` source into runnable
   bytecode; right now opcodes are hand-assembled as raw words in tests).
 - **Debugger/Editor UI: shell only**, not wired to a real CPU execution
