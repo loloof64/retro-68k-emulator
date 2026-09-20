@@ -22,6 +22,20 @@
     grid-template-rows: auto auto auto;
     overflow-y: auto;
   }
+
+  /* Stacked: the page scrolls instead of squeezing panels to fit the
+     window (the screen panel would otherwise be left with ~0px). */
+  .editor-panel {
+    min-height: 320px;
+  }
+
+  .debugger-panel {
+    min-height: 460px;
+  }
+
+  .screen-panel {
+    min-height: 520px;
+  }
 }
 
 .panel {
