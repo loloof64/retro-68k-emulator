@@ -96,12 +96,39 @@ export default function Controller({ onButtonStateChange }: ControllerProps) {
     virtualMaskRef.current = pressed ? virtualMaskRef.current | bit : virtualMaskRef.current & ~bit
   }, [])
 
+  // State pushed by the Rust side (src-tauri/src/lib.rs) when the webview
+  // has no Gamepad API (WebKitGTK on Linux); null when no pad is connected.
+  const nativePadRef = useRef<ReturnType<typeof findStandardGamepad>>(null)
+
+  useEffect(() => {
+    if (!('__TAURI_INTERNALS__' in window)) return
+    let unlisten: (() => void) | undefined
+    let cancelled = false
+    import('@tauri-apps/api/event')
+      .then(({ listen }) =>
+        listen<{ buttons: boolean[]; axes: number[] } | null>('gamepad-state', (e) => {
+          const s = e.payload
+          nativePadRef.current = s && {
+            connected: true,
+            mapping: 'standard',
+            buttons: s.buttons.map((pressed) => ({ pressed }) as GamepadButton),
+            axes: s.axes,
+          }
+        })
+      )
+      .then((u) => (cancelled ? u() : (unlisten = u)))
+    return () => {
+      cancelled = true
+      unlisten?.()
+    }
+  }, [])
+
   useEffect(() => {
     let rafId: number
 
     const tick = () => {
       const pads = typeof navigator.getGamepads === 'function' ? navigator.getGamepads() : []
-      const gamepad = findStandardGamepad(pads)
+      const gamepad = findStandardGamepad(pads) ?? nativePadRef.current
 
       if (!!gamepad !== lastConnectedRef.current) {
         lastConnectedRef.current = !!gamepad
