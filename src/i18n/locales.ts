@@ -24,6 +24,28 @@ export const en = {
   'screen.colors': 'Colors: 32-bit RGBA',
   'gamepad.detected': '🎮 Gamepad detected',
   'gamepad.virtual': 'Virtual buttons',
+  'sample.program': `; Retro 68K Assembly Example
+; Simple program to test the emulator
+
+        ORG     $2000           ; Origin at $2000
+
+START:
+        MOVE.L  #100,D0         ; Load 100 into D0
+        MOVE.L  #200,D1         ; Load 200 into D1
+        ADD.L   D1,D0           ; D0 += D1
+        
+        ; Draw a white line (320 pixels, colors are $RRGGBBAA)
+        MOVE.L  #$40000,A0      ; Framebuffer base
+        MOVE.W  #319,D2         ; Loop counter: 320 iterations
+LINE:
+        MOVE.L  #$FFFFFFFF,(A0)+ ; White pixel, then A0 += 4
+        DBRA    D2,LINE         ; Repeat until D2 wraps to -1
+
+        ; Halt
+        TRAP    #0              ; Exit
+        
+        END     START
+`,
 }
 
 export type MessageKey = keyof typeof en
@@ -54,6 +76,28 @@ export const fr: Record<MessageKey, string> = {
   'screen.colors': 'Couleurs : RGBA 32 bits',
   'gamepad.detected': '🎮 Manette détectée',
   'gamepad.virtual': 'Boutons virtuels',
+  'sample.program': `; Exemple d'assembleur Retro 68K
+; Programme simple pour tester l'émulateur
+
+        ORG     $2000           ; Origine à $2000
+
+START:
+        MOVE.L  #100,D0         ; Charge 100 dans D0
+        MOVE.L  #200,D1         ; Charge 200 dans D1
+        ADD.L   D1,D0           ; D0 += D1
+        
+        ; Dessine une ligne blanche (320 pixels, couleurs au format $RRGGBBAA)
+        MOVE.L  #$40000,A0      ; Base du framebuffer
+        MOVE.W  #319,D2         ; Compteur de boucle : 320 itérations
+LINE:
+        MOVE.L  #$FFFFFFFF,(A0)+ ; Pixel blanc, puis A0 += 4
+        DBRA    D2,LINE         ; Répète jusqu'à ce que D2 passe à -1
+
+        ; Arrêt
+        TRAP    #0              ; Sortie
+        
+        END     START
+`,
 }
 
 export const es: Record<MessageKey, string> = {
@@ -82,6 +126,28 @@ export const es: Record<MessageKey, string> = {
   'screen.colors': 'Colores: RGBA de 32 bits',
   'gamepad.detected': '🎮 Mando detectado',
   'gamepad.virtual': 'Botones virtuales',
+  'sample.program': `; Ejemplo de ensamblador Retro 68K
+; Programa sencillo para probar el emulador
+
+        ORG     $2000           ; Origen en $2000
+
+START:
+        MOVE.L  #100,D0         ; Carga 100 en D0
+        MOVE.L  #200,D1         ; Carga 200 en D1
+        ADD.L   D1,D0           ; D0 += D1
+        
+        ; Dibuja una línea blanca (320 píxeles, colores en formato $RRGGBBAA)
+        MOVE.L  #$40000,A0      ; Base del framebuffer
+        MOVE.W  #319,D2         ; Contador del bucle: 320 iteraciones
+LINE:
+        MOVE.L  #$FFFFFFFF,(A0)+ ; Píxel blanco, luego A0 += 4
+        DBRA    D2,LINE         ; Repite hasta que D2 pase a -1
+
+        ; Detener
+        TRAP    #0              ; Salir
+        
+        END     START
+`,
 }
 
 export const LOCALES = { en, fr, es }

@@ -157,7 +157,9 @@ placeholders), `src/i18n/index.tsx` (`I18nProvider`, `useI18n().t(key, params)`,
 auto-detect from `navigator.languages`, choice saved in localStorage, selector
 = `LanguageSelect` under the gamepad). **Any new user-visible UI string goes
 through `t()` with all three locales — never hardcode text in a component.**
-Not translated: assembler/CPU error messages (English) and the docs.
+The editor's starter program is the `sample.program` message (comments
+translated, code identical — a test enforces it), picked from the locale at
+startup only. Not translated: assembler/CPU error messages (English) and the docs.
 
 ## Workflow: adding a CPU opcode, TRAP, or memory-mapped feature
 

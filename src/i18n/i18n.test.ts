@@ -19,3 +19,15 @@ describe('i18n', () => {
         expect(params(messages[key]), `${name}:${key}`).toBe(params(LOCALES.en[key]))
   })
 })
+
+describe('sample program', () => {
+  const code = (s: string) => s.split('\n').map((l) => l.replace(/;.*$/, '').trimEnd())
+  it('only differs by its comments across locales', () => {
+    const en = LOCALES.en['sample.program']
+    for (const messages of [LOCALES.fr, LOCALES.es]) expect(code(messages['sample.program'])).toEqual(code(en))
+  })
+  it('translates its comments', () => {
+    expect(LOCALES.fr['sample.program']).not.toBe(LOCALES.en['sample.program'])
+    expect(LOCALES.es['sample.program']).not.toBe(LOCALES.en['sample.program'])
+  })
+})

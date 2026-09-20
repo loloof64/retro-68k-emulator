@@ -7,32 +7,11 @@ import Controller from './components/Controller'
 import { SystemMemory } from './memory'
 import LanguageSelect from './components/LanguageSelect'
 import { remapBreakpoints } from './breakpoints'
-import { useI18n } from './i18n'
+import { translate, useI18n } from './i18n'
 
 export default function App() {
-  const { t } = useI18n()
-  const [asmCode, setAsmCode] = useState<string>(`; Retro 68K Assembly Example
-; Simple program to test the emulator
-
-        ORG     $2000           ; Origin at $2000
-
-START:
-        MOVE.L  #100,D0         ; Load 100 into D0
-        MOVE.L  #200,D1         ; Load 200 into D1
-        ADD.L   D1,D0           ; D0 += D1
-        
-        ; Draw a white line (320 pixels, colors are $RRGGBBAA)
-        MOVE.L  #$40000,A0      ; Framebuffer base
-        MOVE.W  #319,D2         ; Loop counter: 320 iterations
-LINE:
-        MOVE.L  #$FFFFFFFF,(A0)+ ; White pixel, then A0 += 4
-        DBRA    D2,LINE         ; Repeat until D2 wraps to -1
-
-        ; Halt
-        TRAP    #0              ; Exit
-        
-        END     START
-`)
+  const { t, locale } = useI18n()
+  const [asmCode, setAsmCode] = useState<string>(() => translate(locale, 'sample.program'))
 
   const [isRunning, setIsRunning] = useState(false)
   const [currentLine, setCurrentLine] = useState<number>()
