@@ -115,6 +115,17 @@ docs:pdf:user`.
   the `portable-windows` artifact, unzip on a clean Windows, run it); the
   `softprops/action-gh-release` draft-attach on tag is the least certain
   part. No release has shipped yet.
+- **Release 0.1.4 (2026-09-20)**: "Functional assembler with subsets of
+  op-codes". Tag `v0.1.4` triggers `.github/workflows/build.yml`: tauri
+  installers + Windows portable zip + a `user-guide-pdf` job (runs after
+  the platform builds) that attaches `dist-docs/Retro68K-User-Guide.pdf`
+  to the draft release. That job needs WeasyPrint 67 via pip (apt's 53.x
+  hung in CI) and Chrome (`npx puppeteer browsers install
+  chrome-headless-shell`) plus `MERMAID_PUPPETEER_CONFIG` (`--no-sandbox`,
+  read by `docs-html.js`) or Mermaid diagrams silently fall back to code
+  blocks. A tag build uses the workflow as of the tagged commit, so fix
+  the workflow *then* move the tag (force-push). The release body text is
+  hardcoded in `build.yml` (`releaseBody`) — update it per release.
 - **Fixed**: `scripts/lib/docs-html.js`'s cross-file-link regex (line
   187) used to have two bugs. (1) Its lazy, unrestricted text-capture
   group `(.*?)` could backtrack across unrelated content when a link's
