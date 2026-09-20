@@ -93,7 +93,7 @@ npm run test:ui
 - Vite/React configuration
 - Base UI
 
-### Phase 2: Assembler (🔄 In progress)
+### Phase 2: Assembler (✅ Done)
 
 - Tokenizer parser
 - Opcode table
