@@ -1,4 +1,4 @@
-# Opcode & TRAP Reference
+# References and Guidelines
 
 This page is filled in progressively, as each part of the emulator becomes real — it documents what you can actually *do* today, not the final wish list (see [Presentation](./PRESENTATION.md) for the full roadmap).
 
