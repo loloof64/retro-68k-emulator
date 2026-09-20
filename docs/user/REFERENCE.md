@@ -727,22 +727,33 @@ The rest of the ~80-instruction set lands in upcoming sessions — each one gets
 
 ## TRAP System Calls
 
-Six TRAP vectors are wired in:
+All seven TRAP vectors are wired in:
 
 | Vector | Syntax | Cycles | Description |
 |---|---|---|---|
 | `#0` | `TRAP #0` | 4 | Halts the CPU (ends the program). |
+| `#1` | `TRAP #1` | 4 | Draws the null-terminated ASCII string at `A0` at pixel (`D0`, `D1`) in the `D2` color. See [Printing Text with TRAP #1](#printing-text-with-trap-1) below. |
 | `#2` | `TRAP #2` | 4 | Reads the pixel at the framebuffer address in `A0` into `D0` (32-bit RGBA). See [Addressing a Pixel for TRAP #2/#3](#addressing-a-pixel-for-trap-23) above. |
 | `#3` | `TRAP #3` | 4 | Writes `D0` (32-bit RGBA) as the pixel at the framebuffer address in `A0`. |
 | `#4` | `TRAP #4` | 4 | Fills every one of the 64,000 framebuffer pixels with `D0` (32-bit RGBA) — clears the screen to any solid color, not just black. |
 | `#5` | `TRAP #5` | 4 | Loads the controller button bitmask into D0 — a shortcut for reading `$7E800` directly. |
 | `#6` | `TRAP #6` | 4 | Writes D0 (frequency), D1 (duration), D2 (volume), D3 (waveform) into the [sound registers](#sound-wired-up-silent-for-now) and sets the trigger byte. |
 
-`#1` (print string) isn't implemented yet — it needs a font/glyph
-rendering subsystem this emulator doesn't have, unlike `#2`-`#4` which
-are thin wrappers around framebuffer memory already readable/writable
-directly. Calling it throws a plain error rather than raising a
-catchable exception, same as any other genuinely-unimplemented opcode.
+### Printing Text with TRAP #1
+
+`A0` points at a *null-terminated* string - ASCII bytes followed by a
+`0` byte that marks the end (the same convention as C strings). `D0` is
+the x pixel and `D1` the y pixel of the first character's top-left
+corner, and `D2` is the 32-bit RGBA text color.
+
+Every character is an 8x8 pixel cell, so the next one starts 8 pixels to
+the right. A newline byte (`$0A`) drops to the next line, back at x = 0.
+Text that would run past the right edge wraps to the next line by
+itself. Only the letter shapes are drawn; the pixels behind them are
+left as they were. Bytes outside `$20`-`$7E` draw nothing.
+
+There is no scrolling: drawing past the bottom of the screen (or at a
+negative position) stops the program with an error.
 
 `TRAP #2`/`#3` take a *framebuffer byte address* in `A0`, not `x`/`y`
 coordinates directly — see [Memory Map](#memory-map) above for the

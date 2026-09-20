@@ -1786,25 +1786,30 @@ each.
 | TRAP # | Function | Description |
 |--------|----------|-------------|
 | 0 | Exit | Terminate program |
-| 1 | Print String | **Not implemented** - raises a plain JS error (`Unimplemented TRAP vector: 1`), not a catchable CPU exception. Needs a text-rendering subsystem (font/glyph data) this emulator doesn't have yet - see the "Why doesn't TRAP #1 (Print String) work yet?" section right below this table. |
+| 1 | Print String | `A0` = address of a null-terminated ASCII string, `D0` = x, `D1` = y (pixel position of the first glyph's top-left), `D2` = 32-bit RGBA foreground color. See "How TRAP #1 (Print String) renders text" below. |
 | 2 | Read Pixel | `A0` = the pixel's framebuffer byte address (the caller computes it - see docs/MEMORY.md's "Calculating Pixel Address"). `D0` <- the 32-bit RGBA color read from there. |
 | 3 | Write Pixel | `A0` = framebuffer byte address (same convention as `TRAP #2`), `D0` = 32-bit RGBA color to write there. |
 | 4 | Clear Screen | `D0` = 32-bit RGBA color to fill every one of the 64,000 pixels with. |
 | 5 | Read Controller State | Load the controller button bitmask into D0 |
 | 6 | Play Tone | Write D0-D3 (frequency, duration, volume, waveform) into the sound registers and trigger playback |
 
-### Why doesn't TRAP #1 (Print String) work yet?
+### How TRAP #1 (Print String) renders text
 
-`TRAP #2`/`#3`/`#4` (reading, writing, and clearing pixels) are thin
-wrappers around memory this emulator already has and already lets a
-program touch directly - the same 32-bit-RGBA framebuffer `MOVE.L`
-already reads and writes today. `TRAP #1` is different in kind, not just
-missing glue code: printing text means rasterizing characters onto the
-framebuffer, which needs font/glyph data (a bitmap or vector shape per
-character) that doesn't exist anywhere in this codebase yet. Implementing
-it means designing that subsystem first - what "the console" even means
-on a graphical-only 320x200 framebuffer with no separate text layer -
-not just wiring up a fourth `trapHandlers` entry the way `#2`-`#4` were.
+Glyphs come from a fixed 8x8 monospace bitmap font (`font8x8_basic`,
+public domain) baked into `src/graphics/font.ts` - hardware-fixed ROM,
+not memory-mapped, so a program can't read or replace it. It covers
+printable ASCII `0x20`-`0x7E`; any other byte draws nothing (no error).
+
+The string at `A0` is walked byte by byte until a `0x00` terminator. Only
+a glyph's "on" pixels are written, in the `D2` color - the background is
+left untouched (transparent text). Each glyph advances x by 8. A `0x0A`
+(newline) byte, or a glyph that would overflow the right edge (x + 8 >
+320), moves to the next line: x goes back to 0 and y grows by 8.
+
+There is no scrolling: a glyph outside the 320x200 screen (including
+past the bottom, or a negative position) throws a plain JS error rather
+than silently writing into the memory that follows the framebuffer.
+Glyphs already drawn before that point stay on screen.
 
 ---
 

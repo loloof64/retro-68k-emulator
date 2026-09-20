@@ -1,3 +1,4 @@
+import { drawString } from '../graphics/font'
 import { Register, type CPUState, type Memory, type OpcodeDefinition, type StatusFlags } from '../types/cpu'
 import type { OpcodeEntry } from './index'
 import { readRegister, updateFlags, writeRegister } from './index'
@@ -2943,6 +2944,18 @@ export type TrapHandler = (cpu: CPUState, memory: Memory, vector: number) => voi
 export const trapHandlers: Record<number, TrapHandler> = {
   0: (cpu) => {
     cpu.halted = true
+  },
+  // TRAP #1: print string. A0 = address of a null-terminated ASCII string,
+  // D0 = x, D1 = y (pixel position of the first glyph's top-left), D2 =
+  // 32-bit RGBA foreground color. See src/graphics/font.ts.
+  1: (cpu, memory) => {
+    drawString(
+      memory,
+      readRegister(cpu, Register.A0, 'long'),
+      readRegister(cpu, Register.D0, 'long'),
+      readRegister(cpu, Register.D1, 'long'),
+      readRegister(cpu, Register.D2, 'long'),
+    )
   },
   // TRAP #2: read pixel. A0 = the pixel's framebuffer address (the caller
   // computes it - see docs/MEMORY.md's "Calculating Pixel Address" - the

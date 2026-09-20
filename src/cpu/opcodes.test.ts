@@ -3589,9 +3589,30 @@ describe('TRAP', () => {
   it('throws on an unimplemented TRAP vector', () => {
     const cpu = createCPU(0x2000)
     const memory = new SystemMemory()
+    memory.write16(0x2000, 0x4e47) // TRAP #7
+
+    expect(() => step(cpu, memory, opcodeTable)).toThrow(/Unimplemented TRAP vector: 7/)
+  })
+
+  it('TRAP #1 draws a null-terminated string at (D0, D1) in the D2 color', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    'A\0'.split('').forEach((c, i) => memory.write8(0x3000 + i, c.charCodeAt(0)))
+    writeRegister(cpu, Register.A0, 0x3000, 'long')
+    writeRegister(cpu, Register.D0, 10, 'long')
+    writeRegister(cpu, Register.D1, 20, 'long')
+    writeRegister(cpu, Register.D2, 0xff0000ff, 'long')
     memory.write16(0x2000, 0x4e41) // TRAP #1
 
-    expect(() => step(cpu, memory, opcodeTable)).toThrow(/Unimplemented TRAP vector: 1/)
+    step(cpu, memory, opcodeTable)
+
+    const px = (x: number, y: number) =>
+      memory.read32(FRAMEBUFFER_START + (y * FRAMEBUFFER_WIDTH + x) * FRAMEBUFFER_BYTES_PER_PIXEL)
+    // 'A' row 0 = 0x0C: bits 2 and 3 set (bit 0 = leftmost)
+    expect(px(12, 20)).toBe(0xff0000ff)
+    expect(px(13, 20)).toBe(0xff0000ff)
+    expect(px(10, 20)).toBe(0) // background untouched
+    expect(px(14, 20)).toBe(0)
   })
 
   it('TRAP #2 reads the pixel at the address in A0 into D0', () => {

@@ -50,63 +50,19 @@ docs:pdf:user`.
   supervisor-mode/status-register model, by design (see
   `docs/user/REFERENCE.md#why-doesnt-this-emulator-implement-rtestopresetmove-sr`).
   No known correctness bugs remain in the implemented set.
-- **TRAP system calls: 6 of 7 planned.** `#0` (exit), `#2`/`#3` (read/write
-  pixel), `#4` (clear screen), `#5` (read controller), `#6` (play tone) are
-  done. `#1` (print string) is **not** implemented — unlike the others,
-  it needs an actual text-rendering subsystem (font/glyph data), which
-  doesn't exist anywhere in this codebase. That's a real subsystem-design
-  task, not a quick `trapHandlers` entry — don't underestimate it. See
-  `docs/OPCODES.md`'s "Why doesn't TRAP #1 (Print String) work yet?".
-  **Design decided (2026-09-16), not yet implemented** — a future
-  session can start straight from this, no re-derivation needed:
-  - **Font**: fixed 8×8 monospace bitmap, 1 bit/pixel (8 bytes/glyph,
-    MSB = leftmost pixel), covering printable ASCII `0x20`–`0x7E` (95
-    chars, 760 bytes). Laurent chose porting a known public-domain 8×8
-    font (e.g. `font8x8_basic`, derived from the IBM VGA ROM font,
-    widely used in hobby OS/emulator projects) over hand-drawing one —
-    verified/legible glyphs beat 95 hand-typed bitmaps with no preview
-    tooling to catch mistakes. Attribute the source in the new file.
-  - **Font storage**: baked into the emulator's TS source as an internal
-    constant (e.g. `src/graphics/font.ts`), **not** memory-mapped. A
-    memory-mapped font (readable/writable by a running program) was
-    considered and rejected — it needs a "preload ROM data at reset"
-    mechanism this emulator's flat-zeroed `Memory` model doesn't have,
-    for a customizable-font benefit that's out of scope. Treat it like
-    hardware-fixed ROM, unlike everything else a program can read/write.
-  - **Calling convention**: `A0` = address of a null-terminated ASCII
-    string (C-style, matches what an asm program would naturally build).
-    `D0` = x, `D1` = y (pixel position of the first glyph's top-left —
-    not a pre-computed framebuffer address like `A0` in `#2`/`#3`,
-    because text wrapping needs real 2D x/y, not a flat address). `D2`
-    = 32-bit RGBA foreground color (same role `D0` plays in `#3`/`#4`,
-    just shifted since `D0`/`D1` now carry position).
-  - **Rendering**: walk the string byte-by-byte from `A0` until a `0x00`
-    terminator. `\n` (`0x0A`) moves to the next line (x resets, y += 8).
-    A byte outside `0x20`–`0x7E` draws nothing (no error). Only the
-    glyph's "on" bits are written, in the foreground color — the
-    background is left untouched (transparent text, no opaque cell
-    background/color needed). x += 8 per glyph; if x + 8 would exceed
-    320 (screen width), auto-wrap to the next line first. Running past
-    the bottom of the screen (y + 8 > 200) is **out of scope for v1** —
-    let it raise the normal out-of-bounds memory error, documented as a
-    known limitation (no scrolling yet; a separate feature if ever
-    needed).
-  - **Code shape**: new `src/graphics/font.ts` module (glyph table +
-    pure, independently-testable `drawChar`/`drawString` functions),
-    called from a new `trapHandlers[1]` entry in `src/cpu/opcodes.ts`
-    using the same `readRegister`/`memory.read8`/`memory.write32`
-    helpers every other trap already uses — no new abstractions needed.
-  - **Caveat noticed but not resolved**: `docs/MEMORY.md`'s framebuffer
-    byte-order table (Alpha/Blue/Green/Red) and its own worked example
-    (`0x0000FFFF` = "Pure red") are internally inconsistent. This
-    predates TRAP #1 and already affects `#3`/`#4`'s color argument too
-    — worth resolving before or during TRAP #1 implementation, not
-    something introduced by this design.
-  - Still open at implementation time: add the actual glyph byte table,
-    write `drawChar`/`drawString` + their tests, wire up
-    `trapHandlers[1]`, and update `docs/OPCODES.md`,
-    `docs/user/REFERENCE.md`, and `docs/user/PRESENTATION.md`'s roadmap
-    line (6 of 7 → 7 of 7) in tandem, per the usual workflow below.
+- **TRAP system calls: 7 of 7 done.** `#0` (exit), `#1` (print string),
+  `#2`/`#3` (read/write pixel), `#4` (clear screen), `#5` (read
+  controller), `#6` (play tone). `#1`: `A0` = null-terminated ASCII
+  string, `D0`/`D1` = x/y pixel, `D2` = RGBA color; 8×8 `font8x8_basic`
+  in `src/graphics/font.ts` (bit 0 = leftmost pixel, kept verbatim from
+  upstream — deviates from the earlier "MSB = leftmost" design note),
+  transparent background, `\n`/right-edge wrap resets x to 0, no
+  scrolling (out-of-screen throws explicitly, since the framebuffer is
+  directly followed by the input registers and wouldn't fault by itself).
+  - **Still-open caveat**: `docs/MEMORY.md`'s framebuffer byte-order table
+    (Alpha/Blue/Green/Red) and its worked example (`0x0000FFFF` = "Pure
+    red") are internally inconsistent. Predates TRAP #1; affects the
+    color argument of `#1`/`#3`/`#4` alike. Worth resolving.
 - **Assembler: not started** (planned — turns `.asm` source into runnable
   bytecode; right now opcodes are hand-assembled as raw words in tests).
 - **Debugger/Editor UI: shell only**, not wired to a real CPU execution
