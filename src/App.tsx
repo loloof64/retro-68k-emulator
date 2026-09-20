@@ -10,7 +10,7 @@ export default function App() {
   const [asmCode, setAsmCode] = useState<string>(`; Retro 68K Assembly Example
 ; Simple program to test the emulator
 
-        ORG     $1000           ; Origin at $1000
+        ORG     $2000           ; Origin at $2000
 
 START:
         MOVE.L  #100,D0         ; Load 100 into D0
