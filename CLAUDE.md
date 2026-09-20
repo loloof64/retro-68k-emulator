@@ -133,6 +133,10 @@ docs:pdf:user`.
   pipeline as 0.1.4; `releaseBody` in `build.yml` updated. Bump = `package.json`,
   `package-lock.json` (2 spots), `src-tauri/Cargo.toml`, `src-tauri/tauri.conf.json`
   + `CHANGELOG.md`.
+- **Release 0.3.0 (2026-09-21)**: gamepad fix. D-pad-as-axes (6/7) + left
+  stick read in `gamepadToMask`; under Tauri on Linux WebKitGTK has no
+  `navigator.getGamepads`, so `src-tauri/src/lib.rs` polls `gilrs` and emits
+  `gamepad-state` events that `Controller.tsx` consumes. Dev port moved to 1420.
 - **Fixed**: `scripts/lib/docs-html.js`'s cross-file-link regex (line
   187) used to have two bugs. (1) Its lazy, unrestricted text-capture
   group `(.*?)` could backtrack across unrelated content when a link's

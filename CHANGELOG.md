@@ -6,6 +6,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-09-21
+
+Gamepad support fixed.
+
+### Added
+- Desktop app: the gamepad is read natively (Rust, `gilrs`) when the webview has no Gamepad API (WebKitGTK on Linux)
+
+### Fixed
+- D-pad reported as axes (6/7) by generic Xbox/PlayStation-style pads is now recognised; the left stick also acts as a D-pad
+
+### Changed
+- Dev server port is now 1420 (3000 is commonly taken)
+
 ## [0.2.0] - 2026-09-21
 
 The assembler is complete.
