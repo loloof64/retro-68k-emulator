@@ -66,12 +66,12 @@ docs:pdf:user`.
   pending. Assemblable: every real mnemonic (`CCR`/`SR` are Operand kinds `ccr`/`sr`, valid only in
   MOVE <ea>,CCR / MOVE SR,<ea> / ANDI-ORI-EORI #imm,CCR; MOVEP is `Dn,d(An)` <-> `d(An),Dn`, always with a displacement).
   MOVEM takes register-list operands (`D0-D2/A0`, an Operand `list` kind).
-  **One chantier left**: PC-relative `d(PC)` and indexed `d(An,Xn)`/
-  `d(PC,Xn)` operands (Operand kind + encodeEA brief-extension word;
-  check `decodeEA` in `src/cpu/addressing.ts` supports them first).
+  PC-relative `d(PC)`/`d(PC,Xn)` and indexed `d(An,Xn)` assemble too (encodeEA takes an `at`
+  param = extension words emitted before the operand, since PC-relative is measured from its own
+  extension word; MOVEM passes 1). **No assembler chantier left.**
   Known limits: no forward refs to
-  EQU/DS counts, absolute always long, no branch relaxation, no PC-relative
-  or indexed operands. Each mnemonic is encoded by an `encode` field in
+  EQU/DS counts, absolute always long, no branch relaxation, `BTST #n,d(PC)` not
+  assemblable. Each mnemonic is encoded by an `encode` field in
   `src/cpu/opcodes.ts`; docs in `docs/ASSEMBLER.md`. Spec:
   `docs/superpowers/specs/2026-09-20-assembler-design.md`, plan:
   `docs/superpowers/plans/2026-09-20-assembler.md`.

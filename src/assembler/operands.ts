@@ -64,6 +64,13 @@ export function parseOperand(raw: string): Operand {
   if ((m = text.match(new RegExp(`^\\(${AN}\\)$`, 'i')))) return { kind: 'ind', n: regNum(m[1]) }
   if ((m = text.match(new RegExp(`^\\(${AN}\\)\\+$`, 'i')))) return { kind: 'post', n: regNum(m[1]) }
   if ((m = text.match(new RegExp(`^-\\(${AN}\\)$`, 'i')))) return { kind: 'pre', n: regNum(m[1]) }
+  if ((m = text.match(new RegExp(`^(.*)\\(\\s*(${AN}|PC)\\s*,\\s*(${REG})(?:\\.([WL]))?\\s*\\)$`, 'i')))) {
+    const r = m[4].toUpperCase()
+    const xn = { a: r[0] === 'A' || r === 'SP', num: regNum(r), long: m[5]?.toUpperCase() === 'L' }
+    const expr = m[1].trim() || '0'
+    return m[2].toUpperCase() === 'PC' ? { kind: 'pcidx', expr, xn } : { kind: 'idx', n: regNum(m[2]), expr, xn }
+  }
+  if ((m = text.match(/^(.*)\(\s*PC\s*\)$/i))) return { kind: 'pcdisp', expr: m[1].trim() || '0' }
   if ((m = text.match(new RegExp(`^(.+)\\(${AN}\\)$`, 'i')))) {
     return { kind: 'disp', n: regNum(m[2]), expr: m[1].trim() }
   }

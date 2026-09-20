@@ -2,7 +2,7 @@ import { drawString } from '../graphics/font'
 import { Register, type CPUState, type Memory, type OpcodeDefinition, type StatusFlags } from '../types/cpu'
 import type { OpcodeEntry } from './index'
 import { readRegister, updateFlags, writeRegister } from './index'
-import { encodeEA, immWords, isControl, isDataAlterable, isMemory, sizeBits } from '../assembler/encodeEA'
+import { encodeEA, immWords, isControl, isDataAlterable, isMemory, isPcRelative, sizeBits } from '../assembler/encodeEA'
 import type { Operand } from '../assembler/types'
 import { decodeEA, decodeControlAddress, type Size } from './addressing'
 import { addWithFlags, subWithFlags, type ArithmeticFlags } from './arithmetic'
@@ -152,7 +152,7 @@ const MOVE: OpcodeDefinition = {
   size: 'variable',
   encode: (ops, size, ctx) => {
     if (ops.length !== 2 || ops[1].kind === 'imm') return null
-    if (ops.some((o) => o.kind === 'ccr' || o.kind === 'sr')) return null
+    if (ops.some((o) => o.kind === 'ccr' || o.kind === 'sr') || isPcRelative(ops[1])) return null
     if (size === 'byte' && (ops[0].kind === 'an' || ops[1].kind === 'an')) return null
     const src = encodeEA(ops[0], size, ctx)
     const dst = encodeEA(ops[1], size, ctx)
@@ -575,13 +575,13 @@ const movem: NonNullable<OpcodeDefinition['encode']> = (ops, size, ctx) => {
   if (ops.length !== 2 || size === 'byte') return null
   const sizeField = size === 'long' ? 0x40 : 0
   const toMem = regMask(ops[0])
-  if (toMem !== null && (isControl(ops[1]) || ops[1].kind === 'pre')) {
-    const dst = encodeEA(ops[1], size, ctx)
+  if (toMem !== null && ((isControl(ops[1]) && !isPcRelative(ops[1])) || ops[1].kind === 'pre')) {
+    const dst = encodeEA(ops[1], size, ctx, 1)
     return [0x4880 | sizeField | dst.field, ops[1].kind === 'pre' ? reverse16(toMem) : toMem, ...dst.ext]
   }
   const fromMem = regMask(ops[1])
   if (fromMem !== null && (isControl(ops[0]) || ops[0].kind === 'post')) {
-    const src = encodeEA(ops[0], size, ctx)
+    const src = encodeEA(ops[0], size, ctx, 1)
     return [0x4c80 | sizeField | src.field, fromMem, ...src.ext]
   }
   return null

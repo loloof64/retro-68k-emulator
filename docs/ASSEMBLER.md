@@ -43,7 +43,8 @@ Encoding is table-driven: each real instruction in `opcodeTable` (`src/cpu/opcod
 - Comments start with `;`, or with `*` in column 0.
 - Numbers: `123` (decimal), `$FF` (hex), `%1010` (binary), `'A'` (character code).
 - Expressions are constants and labels combined with `+` and `-` only.
-- Operands: `Dn`, `An` (`SP` is `A7`), `(An)`, `(An)+`, `-(An)`, `d(An)`, `#imm`, and a bare address or label. `MOVEM` also takes a register list such as `D0-D2/A0` (ranges joined by `/`).
+- Operands: `Dn`, `An` (`SP` is `A7`), `(An)`, `(An)+`, `-(An)`, `d(An)`, `d(An,Xn)`, `d(PC)`, `d(PC,Xn)`, `#imm`, and a bare address or label. `MOVEM` also takes a register list such as `D0-D2/A0` (ranges joined by `/`).
+- `Xn` is `Dn` or `An` with an optional `.W` (default) or `.L`; the displacement of an indexed mode is 8 bits and may be omitted (`(A0,D1.W)`). For `d(PC)` and `d(PC,Xn)`, write the target label as `d`: the assembler subtracts the address of the displacement's own extension word. PC-relative operands are sources only, and `BTST #n,d(PC)` is not assemblable.
 - A bare address or label is always encoded as a 4-byte absolute-long address; there is no short-absolute form.
 - An instruction at an odd address is an error; put `EVEN` before it.
 
@@ -96,7 +97,6 @@ Known limits:
 
 - Forward references to `EQU` symbols, and in `ORG` or `DS` counts, are not supported (a `DS` count that changes size between passes reports an error).
 - `DC` values are not range-checked; they are truncated to the width.
-- PC-relative and indexed `(An,Xn)` operands are not assemblable yet.
 - Labels defined before the first `ORG` bind to the default origin.
 - Absolute operands are always long (4 bytes); branches are never relaxed.
 - Nothing calls the assembler from the UI yet.

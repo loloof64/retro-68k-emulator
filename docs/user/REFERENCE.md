@@ -896,7 +896,7 @@ Every real mnemonic is assemblable. `CCR` and `SR` are accepted as operands only
 
 - A label defined by `EQU` must appear before it is used, and `ORG` and `DS` counts cannot use labels defined later.
 - `DC` values are not range-checked; oversized values are truncated.
-- PC-relative and indexed `(An,Xn)` operands are not assemblable yet.
+- `d(PC)` and `d(PC,Xn)` take the target label as `d` (e.g. `LEA table(PC),A0`); the assembler works out the distance. They are source-only, and `BTST #n,d(PC)` is not assemblable.
 - Errors are reported all at once as a list of line, column and message.
 
 ## Assembly Programming Tips

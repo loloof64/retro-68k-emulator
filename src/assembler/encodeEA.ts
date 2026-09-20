@@ -1,4 +1,4 @@
-import type { EncodeContext, Operand, Size } from './types'
+import type { EncodeContext, IndexReg, Operand, Size } from './types'
 
 export const CONDITIONS: Record<string, number> = {
   T: 0, F: 1, HI: 2, LS: 3, CC: 4, HS: 4, CS: 5, LO: 5, NE: 6, EQ: 7,
@@ -19,13 +19,22 @@ export function immWords(value: number, size: Size, final: boolean): number[] {
   return [value & (size === 'byte' ? 0xff : 0xffff)]
 }
 
+// 68000 brief extension word: D/A | reg | W/L | 000 | signed 8-bit displacement.
+function briefExt(xn: IndexReg, d: number, final: boolean): number {
+  checkRange(d, -128, 127, 'Index displacement', final)
+  return (xn.a ? 0x8000 : 0) | (xn.num << 12) | (xn.long ? 0x800 : 0) | (d & 0xff)
+}
+
 export interface EncodedEA {
   field: number // 6 bits: mode << 3 | register
   ext: number[] // extension words, in order
 }
 
 // Mirror of decodeEA (src/cpu/addressing.ts) for the v1 modes.
-export function encodeEA(op: Operand, size: Size, ctx: EncodeContext): EncodedEA {
+// `at` = extension words the instruction emits before this operand's own
+// (a PC-relative displacement is measured from its own extension word).
+export function encodeEA(op: Operand, size: Size, ctx: EncodeContext, at = 0): EncodedEA {
+  const extAddr = ctx.pc + 2 + 2 * at
   switch (op.kind) {
     case 'dn': return { field: op.n, ext: [] }
     case 'an': return { field: 0b001000 | op.n, ext: [] }
@@ -37,6 +46,14 @@ export function encodeEA(op: Operand, size: Size, ctx: EncodeContext): EncodedEA
       checkRange(d, -32768, 32767, 'Displacement', ctx.final)
       return { field: 0b101000 | op.n, ext: [d & 0xffff] }
     }
+    case 'pcdisp': {
+      const d = ctx.eval(op.expr) - extAddr
+      checkRange(d, -32768, 32767, 'PC displacement', ctx.final)
+      return { field: 0b111010, ext: [d & 0xffff] }
+    }
+    case 'idx': return { field: 0b110000 | op.n, ext: [briefExt(op.xn, ctx.eval(op.expr), ctx.final)] }
+    case 'pcidx':
+      return { field: 0b111011, ext: [briefExt(op.xn, ctx.eval(op.expr) - extAddr, ctx.final)] }
     case 'abs': {
       const a = ctx.eval(op.expr) >>> 0
       return { field: 0b111001, ext: [a >>> 16, a & 0xffff] }
@@ -52,6 +69,7 @@ export function encodeEA(op: Operand, size: Size, ctx: EncodeContext): EncodedEA
 }
 
 // Operand-class predicates, named after the 68000 manual's addressing categories.
-export const isMemory = (o: Operand) => ['ind', 'post', 'pre', 'disp', 'abs'].includes(o.kind)
+export const isMemory = (o: Operand) => ['ind', 'post', 'pre', 'disp', 'idx', 'abs'].includes(o.kind)
 export const isDataAlterable = (o: Operand) => o.kind === 'dn' || isMemory(o)
-export const isControl = (o: Operand) => ['ind', 'disp', 'abs'].includes(o.kind)
+export const isControl = (o: Operand) => ['ind', 'disp', 'idx', 'abs', 'pcdisp', 'pcidx'].includes(o.kind)
+export const isPcRelative = (o: Operand) => o.kind === 'pcdisp' || o.kind === 'pcidx'

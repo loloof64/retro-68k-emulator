@@ -90,3 +90,34 @@ describe('CCR / SR operands and MOVEP', () => {
     expect(cpu.registers[Register.D1]).toBe(0x11223344)
   })
 })
+
+describe('PC-relative and indexed operands', () => {
+  it('encodes d(An,Xn) with brief extension words', () => {
+    expect(asm('MOVE.W 4(A0,D1.W),D2')).toEqual([0x3430, 0x1004])
+    expect(asm('MOVE.L (A1,A2.L),D0')).toEqual([0x2031, 0xa800])
+    expect(asm('CLR.B -2(A3,D7)')).toEqual([0x4233, 0x70fe])
+    expect(asm('LEA 8(SP,D0.L),A1')).toEqual([0x43f7, 0x0808])
+  })
+  it('encodes d(PC) and d(PC,Xn) relative to their extension word', () => {
+    // opcode at $2000 (USER_RAM_START may differ): label 6 bytes on -> d = 6 - 2 = 4
+    expect(asm('LEA t(PC),A0\nt: NOP')).toEqual([0x41fa, 0x0002, 0x4e71])
+    expect(asm('MOVE.W t(PC),D0\n NOP\nt: NOP')).toEqual([0x303a, 0x0004, 0x4e71, 0x4e71])
+    expect(asm('JMP t(PC,D1.W)\nt: NOP')).toEqual([0x4efb, 0x1002, 0x4e71])
+  })
+  it('measures the displacement from the extension word after a MOVEM mask', () => {
+    expect(asm('MOVEM.L t(PC),D0/D1\nt: NOP')).toEqual([0x4cfa, 0x0003, 0x0002, 0x4e71])
+  })
+  it('rejects PC-relative destinations and out-of-range index displacements', () => {
+    expect(Array.isArray(assemble('t: MOVE D0,t(PC)'))).toBe(true)
+    expect(Array.isArray(assemble('  MOVEM.L D0,4(PC)'))).toBe(true)
+    expect(Array.isArray(assemble('  MOVE.W 200(A0,D1),D2'))).toBe(true)
+  })
+  it('round trip: table lookup through d(PC,Xn) and d(An,Xn)', () => {
+    const cpu = run(
+      '  MOVEQ #2,D1\n  MOVE.B tab(PC,D1.W),D0\n  LEA tab(PC),A0\n  MOVE.B 1(A0,D1.W),D2\n  BRA done\ntab: DC.B 10,20,30,40\n  EVEN\ndone: NOP',
+      4,
+    )
+    expect(cpu.registers[Register.D0] & 0xff).toBe(30)
+    expect(cpu.registers[Register.D2] & 0xff).toBe(40)
+  })
+})
