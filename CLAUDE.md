@@ -149,6 +149,16 @@ docs:pdf:user`.
   `Presentation` link) — both now render as clean, correctly-bounded
   links.
 
+## UI language (i18n)
+
+The UI ships in `en` (default), `fr` and `es`: `src/i18n/locales.ts` (typed
+dictionaries; `en` defines the keys, the others must match — a test checks
+placeholders), `src/i18n/index.tsx` (`I18nProvider`, `useI18n().t(key, params)`,
+auto-detect from `navigator.languages`, choice saved in localStorage, selector
+= `LanguageSelect` under the gamepad). **Any new user-visible UI string goes
+through `t()` with all three locales — never hardcode text in a component.**
+Not translated: assembler/CPU error messages (English) and the docs.
+
 ## Workflow: adding a CPU opcode, TRAP, or memory-mapped feature
 
 The full unit of work, confirmed repeatedly as the expected default (not

@@ -931,12 +931,12 @@ A few habits worth having, some of them straight from gotchas this emulator's ow
 
 ## Running a Program
 
-The toolbar above the registers has four controls:
+The interface is available in English, French and Spanish. It starts in your browser's or system's language (English if that isn't one of the three); change it with the **Language** list under the gamepad, and the choice is remembered. This guide names the controls by their English labels. The toolbar above the registers has four controls:
 
-- **Run / Pause** starts or stops continuous execution. Run also stops by itself on a breakpoint (see [My breakpoint is ignored](./TROUBLESHOOTING.md#my-breakpoint-is-ignored)), a runtime error, or the program's exit.
-- **Step** executes exactly one instruction, ignores breakpoints, and is only available while the program is paused.
-- **Reset** puts the CPU back to its initial state.
-- **Speed** (**Vitesse** in a French-language browser or system) is the drop-down list (`10`, `200`, `2000` or `20000` instr./frame, or instr./image in French). It sets how many instructions Run executes per *frame* — one refresh of the screen, roughly 60 times per second on a typical display.
+- **Run / Pause** (*Exécuter* / *Ejecutar* in French / Spanish) starts or stops continuous execution. Run also stops by itself on a breakpoint (see [My breakpoint is ignored](./TROUBLESHOOTING.md#my-breakpoint-is-ignored)), a runtime error, or the program's exit.
+- **Step** (*Pas à pas* / *Paso*) executes exactly one instruction, ignores breakpoints, and is only available while the program is paused.
+- **Reset** (*Réinitialiser* / *Reiniciar*) puts the CPU back to its initial state.
+- **Speed** (*Vitesse* in French, *Velocidad* in Spanish) is the drop-down list (`10`, `200`, `2000` or `20000` instr./frame). It sets how many instructions Run executes per *frame* — one refresh of the screen, roughly 60 times per second on a typical display.
 
 At the default `2000 instr./frame`, that is about 120,000 instructions per second. `10` gives about 600 per second, slow enough to follow a program by eye, and `20000` about 1.2 million per second, for long computations. Speed only changes how fast the program runs on screen, never what it computes, and it has no effect on Step.
 

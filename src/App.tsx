@@ -5,9 +5,12 @@ import Debugger from './components/Debugger'
 import Screen from './components/Screen'
 import Controller from './components/Controller'
 import { SystemMemory } from './memory'
+import LanguageSelect from './components/LanguageSelect'
 import { remapBreakpoints } from './breakpoints'
+import { useI18n } from './i18n'
 
 export default function App() {
+  const { t } = useI18n()
   const [asmCode, setAsmCode] = useState<string>(`; Retro 68K Assembly Example
 ; Simple program to test the emulator
 
@@ -54,7 +57,7 @@ LINE:
     <div className="app">
       <div className="container">
         <div className="panel editor-panel">
-          <h2>Assembleur</h2>
+          <h2>{t('panel.editor')}</h2>
           <Editor
             code={asmCode}
             onChange={(code) => {
@@ -72,7 +75,7 @@ LINE:
         </div>
 
         <div className="panel debugger-panel">
-          <h2>Débogueur</h2>
+          <h2>{t('panel.debugger')}</h2>
           <Debugger
             code={asmCode}
             memory={memoryRef.current}
@@ -86,9 +89,10 @@ LINE:
         </div>
 
         <div className="panel screen-panel">
-          <h2>Écran LCD</h2>
+          <h2>{t('panel.screen')}</h2>
           <Screen memory={memoryRef.current} frame={frame} />
           <Controller onButtonStateChange={(mask) => memoryRef.current?.setButtonState(mask)} />
+          <LanguageSelect />
         </div>
       </div>
     </div>

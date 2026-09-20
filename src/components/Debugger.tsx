@@ -5,6 +5,7 @@ import { createCPU, reset, step } from '../cpu'
 import { opcodeTable } from '../cpu/opcodes'
 import type { AssembledProgram, CPUState } from '../types/cpu'
 import type { SystemMemory } from '../memory'
+import { useI18n } from '../i18n'
 
 // Instructions executed per animation frame while running (~60 fps).
 const SPEEDS = [10, 200, 2000, 20000]
@@ -20,14 +21,6 @@ interface DebuggerProps {
   onFrame: () => void // framebuffer may have changed: repaint the screen
 }
 
-// ponytail: only the speed selector is localized (no app-wide i18n yet); add a real i18n layer when more strings need it.
-const FR = typeof navigator !== 'undefined' && navigator.language.toLowerCase().startsWith('fr')
-const SPEED_LABEL = FR ? 'Vitesse' : 'Speed'
-const SPEED_UNIT = FR ? 'instr./image' : 'instr./frame'
-const SPEED_TITLE = FR ? 'Instructions exécutées par image affichée (Run uniquement)' : 'Instructions executed per frame (Run only)'
-
-// Tooltip: unsigned and signed (two's complement) decimal of a 32-bit value.
-const decimalTitle = (v: number) => `${v >>> 0} (signé : ${v | 0})`
 
 export default function Debugger({
   code,
@@ -39,6 +32,9 @@ export default function Debugger({
   onRunningChange,
   onFrame,
 }: DebuggerProps) {
+  const { t } = useI18n()
+  // Tooltip: unsigned and signed (two's complement) decimal of a 32-bit value.
+  const decimalTitle = (v: number) => t('decimal.title', { unsigned: v >>> 0, signed: v | 0 })
   const cpuRef = useRef<CPUState>(createCPU())
   const programRef = useRef<{ source: string; program: AssembledProgram } | null>(null)
   const [, setTick] = useState(0) // bumped to re-render from the mutable CPU
@@ -149,20 +145,20 @@ export default function Debugger({
           onClick={handleRun}
           disabled={!isRunning && !code.trim()}
         >
-          {isRunning ? '⏸ Pause' : '▶ Run'}
+          {isRunning ? `⏸ ${t('pause')}` : `▶ ${t('run')}`}
         </button>
         <button className="btn" onClick={handleStep} disabled={!code.trim() || isRunning}>
-          ⤵ Step
+          ⤵ {t('step')}
         </button>
         <button className="btn" onClick={handleReset}>
-          ⟲ Reset
+          ⟲ {t('reset')}
         </button>
         <label className="speed-label">
-          {SPEED_LABEL}
-          <select value={speed} onChange={(e) => setSpeed(Number(e.target.value))} title={SPEED_TITLE}>
+          {t('speed')}
+          <select value={speed} onChange={(e) => setSpeed(Number(e.target.value))} title={t('speed.title')}>
             {SPEEDS.map((n) => (
               <option key={n} value={n}>
-                {n} {SPEED_UNIT}
+                {n} {t('speed.unit')}
               </option>
             ))}
           </select>
@@ -173,33 +169,33 @@ export default function Debugger({
         <ul className="errors">
           {errors.map((e, i) => (
             <li key={i}>
-              Ligne {e.line}: {e.message}
+              {t('error.line', { line: e.line, message: e.message })}
             </li>
           ))}
         </ul>
       )}
-      {runtimeError && <p className="errors">Erreur d'exécution : {runtimeError}</p>}
+      {runtimeError && <p className="errors">{t('error.runtime', { message: runtimeError })}</p>}
 
       <div className="state-info">
         <div className="info-row">
-          <span>PC:</span>
+          <span>{t('pc')}:</span>
           <code title={decimalTitle(pc)}>${pc.toString(16).toUpperCase().padStart(8, '0')}</code>
         </div>
         <div className="info-row">
-          <span>Cycles:</span>
+          <span>{t('cycles')}:</span>
           <code>{cycles}</code>
         </div>
         {currentLine !== undefined && (
           <div className="info-row">
-            <span>Ligne:</span>
+            <span>{t('line')}:</span>
             <code>{currentLine}</code>
           </div>
         )}
-        {cpu.halted && <div className="info-row">Programme terminé</div>}
+        {cpu.halted && <div className="info-row">{t('halted')}</div>}
       </div>
 
       <div className="registers-section">
-        <h3>Registres de données</h3>
+        <h3>{t('registers.data')}</h3>
         <div className="registers-grid">
           {['D0', 'D1', 'D2', 'D3', 'D4', 'D5', 'D6', 'D7'].map((reg) => (
             <div key={reg} className="register" title={decimalTitle(registers[reg])}>
@@ -216,7 +212,7 @@ export default function Debugger({
       </div>
 
       <div className="registers-section">
-        <h3>Registres adresse</h3>
+        <h3>{t('registers.address')}</h3>
         <div className="registers-grid">
           {['A0', 'A1', 'A2', 'A3', 'A4', 'A5', 'A6', 'A7'].map((reg) => (
             <div key={reg} className="register" title={decimalTitle(registers[reg])}>
@@ -233,7 +229,7 @@ export default function Debugger({
       </div>
 
       <div className="flags-section">
-        <h3>Flags</h3>
+        <h3>{t('flags')}</h3>
         <div className="flags">
           {Object.entries(flags).map(([flag, value]) => (
             <div key={flag} className={`flag ${value ? 'set' : ''}`}>

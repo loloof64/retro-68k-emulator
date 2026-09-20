@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import './Screen.css'
 import type { SystemMemory } from '../memory'
+import { useI18n } from '../i18n'
 
 interface ScreenProps {
   memory: SystemMemory
@@ -8,6 +9,7 @@ interface ScreenProps {
 }
 
 export default function Screen({ memory, frame }: ScreenProps) {
+  const { t } = useI18n()
   const canvasRef = useRef<HTMLCanvasElement>(null)
 
   useEffect(() => {
@@ -64,8 +66,8 @@ export default function Screen({ memory, frame }: ScreenProps) {
         className="lcd-screen"
       />
       <div className="screen-info">
-        <p>Résolution: 320×200</p>
-        <p>Couleurs: RGBA 32 bits</p>
+        <p>{t('screen.resolution')}</p>
+        <p>{t('screen.colors')}</p>
       </div>
     </div>
   )
