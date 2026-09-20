@@ -2,6 +2,7 @@ name: Build & Release (Tauri)
 
 # Triggers:
 # - Push a tag like "v0.1.0" -> builds all 3 platforms and publishes a GitHub Release with installers attached
+#   (plus a portable .zip for Windows)
 # - Manual run from the Actions tab -> builds all 3 platforms but does NOT publish (good for testing)
 on:
   push:
@@ -64,13 +65,46 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tagName: ${{ github.ref_name }}
-          releaseName: 'TI-89 68K Emulator ${{ github.ref_name }}'
+          releaseName: '68K Emulator ${{ github.ref_name }}'
           releaseBody: 'See CHANGELOG.md for details on this release.'
           # Only actually create/publish a GitHub Release when triggered by a tag push.
           # Manual "workflow_dispatch" runs just build and upload artifacts below, for testing.
           releaseDraft: true
           prerelease: false
           args: ${{ matrix.args }}
+
+      # Portable Windows build: the .exe (plus any .dll the build left next to
+      # it) in a folder, zipped, no installer needed. The C runtime is linked
+      # statically (src-tauri/.cargo/config.toml) and Tauri links the WebView2
+      # loader into the .exe, so normally there are no DLLs to add; the copy
+      # below only guards against a future dependency adding one. WebView2 itself
+      # ships with Windows 10/11.
+      - name: Package portable Windows zip
+        if: matrix.platform == 'windows-latest'
+        shell: pwsh
+        run: |
+          $release = 'src-tauri/target/release'
+          $stage = 'portable/Retro68K-Emulator'
+          New-Item -ItemType Directory -Force $stage | Out-Null
+          Copy-Item "$release/retro-68k-emulator.exe" "$stage/Retro68K-Emulator.exe"
+          Copy-Item "$release/*.dll" $stage -ErrorAction SilentlyContinue
+          Get-ChildItem $stage
+          Compress-Archive -Path 'portable/Retro68K-Emulator' -DestinationPath 'Retro68K-Emulator-${{ github.ref_name }}-windows-portable.zip'
+
+      - name: Attach portable zip to the draft release (on tag)
+        if: matrix.platform == 'windows-latest' && startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          draft: true
+          files: Retro68K-Emulator-${{ github.ref_name }}-windows-portable.zip
+
+      - name: Upload portable zip (for manual/testing runs)
+        if: matrix.platform == 'windows-latest' && github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v4
+        with:
+          name: portable-windows
+          path: Retro68K-Emulator-*-windows-portable.zip
 
       - name: Upload build artifacts (for manual/testing runs)
         if: github.event_name == 'workflow_dispatch'

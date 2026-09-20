@@ -1,0 +1,5 @@
+# Link the Microsoft C runtime statically on Windows, so the .exe does not
+# need vcruntime140.dll next to it (or the VC++ Redistributable installed).
+# This is what makes the portable .zip release self-contained.
+[target.x86_64-pc-windows-msvc]
+rustflags = ["-C", "target-feature=+crt-static"]

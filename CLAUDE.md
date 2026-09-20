@@ -103,10 +103,17 @@ docs:pdf:user`.
   individual buttons, so a currently-pressed button can pop back to full
   opacity instead of being capped at the panel's 0.35 dim like its
   inactive siblings.
-- **Windows portable build: not started.** Laurent wants a no-install
-  `.zip` (exe + DLLs) alongside the installer-based release, for both
-  `.github/workflows/build.yml` and `docs/user/DOWNLOAD.md`. No release
-  has shipped at all yet, so this is a planning item, not a regression.
+- **Windows portable build: implemented, untested in CI.** A
+  `Package portable Windows zip` step in `.github/workflows/build.yml`
+  zips `Retro68K-Emulator.exe` (+ any `*.dll` left beside it) and attaches
+  it to the draft release on tag pushes (artifact on manual runs).
+  `src-tauri/.cargo/config.toml` links the MSVC C runtime statically so no
+  vcruntime DLL is needed; the WebView2 loader is linked into the exe and
+  the WebView2 runtime itself ships with Windows 10/11. `DOWNLOAD.md`
+  documents it. **First real check = a `workflow_dispatch` run** (download
+  the `portable-windows` artifact, unzip on a clean Windows, run it); the
+  `softprops/action-gh-release` draft-attach on tag is the least certain
+  part. No release has shipped yet.
 - **Fixed**: `scripts/lib/docs-html.js`'s cross-file-link regex (line
   187) used to have two bugs. (1) Its lazy, unrestricted text-capture
   group `(.*?)` could backtrack across unrelated content when a link's

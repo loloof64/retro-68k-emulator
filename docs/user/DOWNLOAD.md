@@ -13,10 +13,13 @@ Each release will include one installer per platform:
 | Platform | File to download | How to install |
 |---|---|---|
 | Windows | `.msi` or `.exe` | Double-click, follow the installer |
+| Windows (portable) | `-windows-portable.zip` | Unzip anywhere and double-click `Retro68K-Emulator.exe` — nothing gets installed |
 | macOS | `.dmg` | Open it, drag the app to `Applications` |
 | Linux | `.deb`, `.AppImage`, or `.rpm` | `.deb`/`.rpm`: install via your package manager. `.AppImage`: make it executable and run it directly |
 
 You won't need to pick a specific architecture — pick the file matching your operating system, that's it.
+
+The portable Windows zip contains the program and everything it needs to start; it relies only on Microsoft's WebView2 component, which comes with Windows 10 and 11.
 
 ## Staying up to date
 
