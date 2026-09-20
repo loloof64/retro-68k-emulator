@@ -298,6 +298,8 @@ restriction, and cycle cost.
 | `ILLEGAL` | `ILLEGAL` | word | 34 | none | Deliberately raises the [Illegal Instruction exception](#exceptions) — a reserved opcode, useful as a portable, explicit "trap here" marker. |
 | `TRAPV` | `TRAPV` | word | 4 (V clear), 34 (V set) | none (reads V, doesn't set it) | Raises the [TRAPV exception](#exceptions) if `V` is set, otherwise falls through — checks for overflow after an `ADD`/`SUB` without a separate `BVC`/`TRAP` pair. |
 
+Detailed explanations, restrictions and examples for individual instructions live in [Instruction Usage Guidance](#instruction-usage-guidance).
+
 See [TRAP System Calls](#trap-system-calls) below for `TRAP`, and
 [below](#why-doesnt-this-emulator-implement-rtestopresetmove-sr) for why
 `ILLEGAL`/`TRAPV` are here but `RTE`/`STOP`/`RESET`/`MOVE SR` aren't.
@@ -337,6 +339,10 @@ See [TRAP System Calls](#trap-system-calls) below for `TRAP`, and
 **U** — [UNLK](#program-control)
 
 **X** — [XOR](#logical)
+
+## Instruction Usage Guidance
+
+Answers to the "how does this actually behave?" questions the tables above can't fit in a cell: operand directions, flag and register side effects, which addressing modes an instruction accepts, and worked examples. The instruction tables and the alphabetical index stay in [Instruction Set (Opcodes)](#instruction-set-opcodes).
 
 ### How does the memory-destination direction work?
 
@@ -656,6 +662,10 @@ Hand-encoding one today doesn't do anything meaningful — with no
 dedicated opcode entry of its own, it reaches `ANDI`/`ORI`/`EORI`'s own
 general form (no longer silently `MOVE`, that bug is fixed), which then
 throws a generic error instead of raising a catchable exception.
+
+### Worked Examples
+
+Small programs to read alongside the instruction tables. All of them assemble except the `MOVEM` one, which is illustrative until the assembler supports `MOVEM`.
 
 **Example** — add two numbers and write a white pixel, using a direct absolute address:
 
