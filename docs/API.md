@@ -70,6 +70,8 @@ interface Instruction {
 ```typescript
 interface AssembledProgram {
   bytecode: Uint8Array;            // Machine code
+  origin: number;                  // Address bytecode[0] belongs at (ORG)
+  entry: number;                   // Start address (END label, else origin)
   labels: Map<string, number>;     // Label -> address
   symbols: Map<string, number>;    // Symbol -> value
   lineMap: Map<number, number>;    // Bytecode offset -> source line

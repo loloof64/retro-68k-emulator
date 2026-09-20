@@ -2,6 +2,8 @@
  * Retro 68K Emulator - Type Definitions
  */
 
+import type { Operand, EncodeContext, Size } from '../assembler/types'
+
 // Register indices
 export enum Register {
   D0 = 0,
@@ -60,6 +62,8 @@ export interface Token {
 // Assembled program
 export interface AssembledProgram {
   bytecode: Uint8Array;
+  origin: number; // address bytecode[0] belongs at (ORG)
+  entry: number; // START address (END label, else origin)
   labels: Map<string, number>;
   symbols: Map<string, number>;
   lineMap: Map<number, number>; // bytecode offset -> source line
@@ -73,6 +77,10 @@ export interface OpcodeDefinition {
   // Takes memory too (not just cpu/args): almost every addressing mode needs
   // it to read operands/extension words, and to leave cpu.pc past them.
   handler: (cpu: CPUState, memory: Memory, args: any[]) => number; // returns cycles
+  // Optional: only assemblable instructions have one. Returns the opcode
+  // word + extension words, or null when the operand shapes don't fit this
+  // definition (the assembler then tries the next definition of that mnemonic).
+  encode?: (operands: Operand[], size: Size, ctx: EncodeContext) => number[] | null;
 }
 
 // Memory interface

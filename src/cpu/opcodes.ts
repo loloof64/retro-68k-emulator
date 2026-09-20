@@ -78,6 +78,7 @@ const NOP: OpcodeDefinition = {
   mnemonic: 'NOP',
   encoding: '0100111001110001',
   size: 'word',
+  encode: (ops) => (ops.length === 0 ? [0x4e71] : null),
   handler: () => 4,
 }
 
@@ -851,6 +852,7 @@ const RTS: OpcodeDefinition = {
   mnemonic: 'RTS',
   encoding: '0100111001110101',
   size: 'long',
+  encode: (ops) => (ops.length === 0 ? [0x4e75] : null),
   handler: (cpu: CPUState, memory: Memory) => {
     const sp = readRegister(cpu, Register.A7, 'long')
     cpu.pc = memory.read32(sp)
@@ -3004,6 +3006,12 @@ const TRAP: OpcodeDefinition = {
   mnemonic: 'TRAP',
   encoding: '010011100100vvvv',
   size: 'word',
+  encode: (ops, _size, ctx) => {
+    if (ops.length !== 1 || ops[0].kind !== 'imm') return null
+    const n = ctx.eval(ops[0].expr)
+    if (ctx.final && (n < 0 || n > 15)) throw new Error(`TRAP vector ${n} out of range (0..15)`)
+    return [0x4e40 | (n & 0xf)]
+  },
   handler: (cpu: CPUState, memory: Memory, args: unknown[]) => {
     const vector = opcodeWordOf(args) & 0xf
     const handler = trapHandlers[vector]
