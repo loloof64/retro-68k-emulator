@@ -29,7 +29,7 @@ export function parseLine(raw: string, lineNo: number): ParsedLine | null {
   let rest = text
   let offset = 0
   let label: string | undefined
-  const first = text.match(/^\s*(\S+)/)!
+  const first = text.match(/^\s*(\S+?:|\S+)/)!
   const startsAtCol0 = !/^\s/.test(text)
   if (startsAtCol0 || first[1].endsWith(':')) {
     label = first[1].replace(/:$/, '')

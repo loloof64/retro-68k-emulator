@@ -22,4 +22,14 @@ describe('parseLine', () => {
   it('does not treat ; inside a string as a comment', () => {
     expect(parseLine('  DC.B "a;b",0', 1)).toMatchObject({ mnemonic: 'DC', size: 'B', operands: ['"a;b"', '0'] })
   })
+  it('splits LABEL:MNEMONIC written without a space', () => {
+    expect(parseLine('LOOP:NOP', 1)).toEqual({
+      line: 1, column: 6, label: 'LOOP', mnemonic: 'NOP', size: undefined, operands: [],
+    })
+  })
+  it('does not mistake a colon inside a string for a label colon', () => {
+    const p = parseLine('  DC.B "a:b",0', 1)
+    expect(p).toMatchObject({ mnemonic: 'DC', size: 'B', operands: ['"a:b"', '0'] })
+    expect(p?.label).toBeUndefined()
+  })
 })
