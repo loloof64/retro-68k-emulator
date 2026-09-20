@@ -847,7 +847,28 @@ START:                         ; a label: a name for this address
 
 ### Branch Sizes
 
-Branches take a size suffix: `.S` is a short 8-bit distance (nonzero), `.W` (the default) a 16-bit one. A target too far away is an error; the assembler does not switch sizes for you.
+A **branch** is an instruction that makes the CPU continue somewhere other than the next instruction: `BRA` (always), `Bcc` (only if a condition holds, e.g. `BNE`, `BEQ`), `BSR` (like `JSR`: remember where to come back to), and `DBcc` (a loop counter). You give it a **label** as the target, and the assembler works out the rest.
+
+What the assembler actually stores in the instruction is not the label's address but a **distance**: how many bytes forward (positive) or backward (negative) the target is, measured from the address just after the branch's first word. Storing a distance, rather than an address, is what lets the same code run wherever it is loaded. The instruction has room for that distance in one of two sizes, which you can pick with a suffix on the mnemonic:
+
+| Suffix | Distance stored in | Reaches | Instruction size |
+|---|---|---|---|
+| `.S` (short) | 8 bits | -128 to +127 bytes, but not 0 | 2 bytes |
+| `.W` (word, the default) | 16 bits | -32768 to +32767 bytes | 4 bytes |
+
+```
+LOOP:   SUBQ.L  #1,D0
+        BNE.S   LOOP        ; close target: short form is enough
+        BRA     FAR_AWAY    ; no suffix = .W, reaches much farther
+```
+
+Rules worth knowing:
+
+- **No suffix means `.W`**, which is always the safe choice; `.S` only saves two bytes.
+- **Too far is an error**, not a silent mistake: `BNE.S` to a label 200 bytes away reports a "displacement out of range" error. Change it to `BNE.W` (or drop the suffix). The assembler never switches sizes on your behalf.
+- **`.S` cannot branch to the very next instruction** (a distance of 0 would be read as "a 16-bit distance follows"); use `.W` or just remove the branch.
+- **`DBcc` has no suffix**: its distance is always 16 bits.
+- **`JMP` and `JSR` are not branches** in this sense: they take a full address, so distance never limits them.
 
 ### Assemblable Instructions
 
