@@ -2,7 +2,7 @@ import { drawString } from '../graphics/font'
 import { Register, type CPUState, type Memory, type OpcodeDefinition, type StatusFlags } from '../types/cpu'
 import type { OpcodeEntry } from './index'
 import { readRegister, updateFlags, writeRegister } from './index'
-import { encodeEA, isControl } from '../assembler/encodeEA'
+import { encodeEA, isControl, isDataAlterable, isMemory, sizeBits } from '../assembler/encodeEA'
 import { decodeEA, decodeControlAddress, type Size } from './addressing'
 import { addWithFlags, subWithFlags, type ArithmeticFlags } from './arithmetic'
 import {
@@ -92,6 +92,44 @@ function decodeMoveSize(bits: number): Size {
   throw new Error(`Invalid MOVE size bits: ${bits.toString(2)}`)
 }
 
+// <ea>,Dn form shared by ADD/SUB/CMP.
+function eaToDn(base: number): NonNullable<OpcodeDefinition['encode']> {
+  return (ops, size, ctx) => {
+    if (ops.length !== 2 || ops[1].kind !== 'dn') return null
+    if (size === 'byte' && ops[0].kind === 'an') return null
+    const src = encodeEA(ops[0], size, ctx)
+    return [base | (ops[1].n << 9) | (sizeBits(size) << 6) | src.field, ...src.ext]
+  }
+}
+
+// Dn,<ea> form shared by ADD/SUB (memory destinations only).
+function dnToMem(base: number): NonNullable<OpcodeDefinition['encode']> {
+  return (ops, size, ctx) => {
+    if (ops.length !== 2 || ops[0].kind !== 'dn' || !isMemory(ops[1])) return null
+    const dst = encodeEA(ops[1], size, ctx)
+    return [base | 0x100 | (ops[0].n << 9) | (sizeBits(size) << 6) | dst.field, ...dst.ext]
+  }
+}
+
+// <ea>,An form shared by ADDA/SUBA/CMPA.
+function eaToAn(base: number): NonNullable<OpcodeDefinition['encode']> {
+  return (ops, size, ctx) => {
+    if (ops.length !== 2 || ops[1].kind !== 'an' || size === 'byte') return null
+    const src = encodeEA(ops[0], size, ctx)
+    return [base | (ops[1].n << 9) | (size === 'long' ? 0x1c0 : 0xc0) | src.field, ...src.ext]
+  }
+}
+
+// #imm,<ea> form shared by ADDI/SUBI/CMPI.
+function immToEa(base: number): NonNullable<OpcodeDefinition['encode']> {
+  return (ops, size, ctx) => {
+    if (ops.length !== 2 || ops[0].kind !== 'imm' || !isDataAlterable(ops[1])) return null
+    const dst = encodeEA(ops[1], size, ctx)
+    const imm = encodeEA(ops[0], size, ctx)
+    return [base | (sizeBits(size) << 6) | dst.field, ...imm.ext, ...dst.ext]
+  }
+}
+
 // MOVEA isn't a separate opcode encoding on real 68000 hardware — a MOVE
 // whose destination mode is "An direct" *is* MOVEA, word-for-word the same
 // bit pattern. The only behavioral difference is that it never touches the
@@ -165,6 +203,7 @@ const ADD: OpcodeDefinition = {
   mnemonic: 'ADD',
   encoding: '1101rrr0ssmmmRRR',
   size: 'variable',
+  encode: eaToDn(0xd000),
   handler: (cpu: CPUState, memory: Memory, args: unknown[]) => {
     const { src, dest, size } = decodeEaAndDest(cpu, memory, opcodeWordOf(args))
 
@@ -187,6 +226,7 @@ const SUB: OpcodeDefinition = {
   mnemonic: 'SUB',
   encoding: '1001rrr0ssmmmRRR',
   size: 'variable',
+  encode: eaToDn(0x9000),
   handler: (cpu: CPUState, memory: Memory, args: unknown[]) => {
     const { src, dest, size } = decodeEaAndDest(cpu, memory, opcodeWordOf(args))
 
@@ -440,6 +480,7 @@ const CMP: OpcodeDefinition = {
   mnemonic: 'CMP',
   encoding: '1011rrr0ssmmmRRR',
   size: 'variable',
+  encode: eaToDn(0xb000),
   handler: (cpu: CPUState, memory: Memory, args: unknown[]) => {
     const { src, dest, size } = decodeEaAndDest(cpu, memory, opcodeWordOf(args))
 
@@ -506,6 +547,7 @@ const ADDA: OpcodeDefinition = {
   mnemonic: 'ADDA',
   encoding: '1101aaas11mmmrrr',
   size: 'variable',
+  encode: eaToAn(0xd000),
   handler: addaSubaHandler(1),
 }
 
@@ -513,6 +555,7 @@ const SUBA: OpcodeDefinition = {
   mnemonic: 'SUBA',
   encoding: '1001aaas11mmmrrr',
   size: 'variable',
+  encode: eaToAn(0x9000),
   handler: addaSubaHandler(-1),
 }
 
@@ -530,6 +573,7 @@ const CMPA: OpcodeDefinition = {
   mnemonic: 'CMPA',
   encoding: '1011aaas11mmmrrr',
   size: 'variable',
+  encode: eaToAn(0xb000),
   handler: (cpu: CPUState, memory: Memory, args: unknown[]) => {
     const opcodeWord = opcodeWordOf(args)
     const destReg = (Register.A0 + ((opcodeWord >> 9) & 0b111)) as Register
@@ -1582,6 +1626,7 @@ const ADD_MEM: OpcodeDefinition = {
   mnemonic: 'ADD',
   encoding: '1101rrr1ssmmmrrr',
   size: 'variable',
+  encode: dnToMem(0xd000),
   handler: (cpu: CPUState, memory: Memory, args: unknown[]) => {
     const { src, dest, size } = decodeDnAndMemDest(cpu, memory, opcodeWordOf(args))
     if (!dest) return 34
@@ -1603,6 +1648,7 @@ const SUB_MEM: OpcodeDefinition = {
   mnemonic: 'SUB',
   encoding: '1001rrr1ssmmmrrr',
   size: 'variable',
+  encode: dnToMem(0x9000),
   handler: (cpu: CPUState, memory: Memory, args: unknown[]) => {
     const { src, dest, size } = decodeDnAndMemDest(cpu, memory, opcodeWordOf(args))
     if (!dest) return 34
@@ -1719,6 +1765,7 @@ const ADDI: OpcodeDefinition = {
   mnemonic: 'ADDI',
   encoding: '00000110ssmmmrrr',
   size: 'variable',
+  encode: immToEa(0x0600),
   handler: (cpu: CPUState, memory: Memory, args: unknown[]) => {
     const decoded = decodeImmediateAndEa(cpu, memory, opcodeWordOf(args))
     if (!decoded) return 34
@@ -1742,6 +1789,7 @@ const SUBI: OpcodeDefinition = {
   mnemonic: 'SUBI',
   encoding: '00000100ssmmmrrr',
   size: 'variable',
+  encode: immToEa(0x0400),
   handler: (cpu: CPUState, memory: Memory, args: unknown[]) => {
     const decoded = decodeImmediateAndEa(cpu, memory, opcodeWordOf(args))
     if (!decoded) return 34
@@ -1867,6 +1915,7 @@ const CMPI: OpcodeDefinition = {
   mnemonic: 'CMPI',
   encoding: '00001100ssmmmrrr',
   size: 'variable',
+  encode: immToEa(0x0c00),
   handler: (cpu: CPUState, memory: Memory, args: unknown[]) => {
     const decoded = decodeImmediateAndEa(cpu, memory, opcodeWordOf(args))
     if (!decoded) return 34
