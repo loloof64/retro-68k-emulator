@@ -12,7 +12,7 @@ The CPU core (registers, status flags, and the fetch-decode-execute loop) is imp
 | `A0`–`A7` | 32-bit | Address registers — hold memory addresses. `A7` doubles as the Stack Pointer (SP) |
 | `PC` | 32-bit | Program Counter — address of the next instruction to fetch |
 
-A freshly created CPU — internally, `createCPU()`/`reset()` in the emulator's core — starts with every register at `0` except `A7`, which starts at `$03FFF` (the top of the default stack, which grows downward). This isn't tied to any button in today's UI yet: the app doesn't have a working "load a program and run it" flow at all right now, so nothing currently triggers this reset from the interface (the Debugger panel's own "⟲ Reset" button doesn't drive the real CPU either — see [Troubleshooting](./TROUBLESHOOTING.md#run-step-pause-dont-do-anything)).
+A freshly created CPU — internally, `createCPU()`/`reset()` in the emulator's core — starts with every register at `0` except `A7`, which starts at `$03FFF` (the top of the default stack, which grows downward). The Debugger panel's "⟲ Reset" button does exactly this, then reloads the assembled program and points the CPU at its entry address.
 
 ### Status Flags
 

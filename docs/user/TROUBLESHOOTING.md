@@ -4,9 +4,15 @@ Answers for the things most likely to trip you up while working through the [Ref
 
 ## Program Issues
 
-### "Run / Step / Pause don't do anything"
+### "My breakpoint is ignored"
 
-The editor and debugger panels aren't connected to the emulator yet (see [Project Status](./PRESENTATION.md#project-status)) — the buttons are there, but nothing behind them actually loads or executes code today, and there's no syntax highlighting either. This isn't a sign anything is broken on your end; it's just not wired up yet.
+A breakpoint is a red line number in the editor's left margin (click a number to set or remove it). **Run** stops when the *next instruction to execute* sits on a marked line — the line highlighted in yellow. A breakpoint silently does nothing in these cases:
+
+- **The line holds no instruction.** Blank lines, comments, a label alone on its line, and directives (`ORG`, `EQU`, `END`, `EVEN`) produce no code, so the CPU never arrives there. Put the breakpoint on the instruction line itself. Data lines (`DC`, `DS`) are only "reached" if the CPU actually executes them as code, which a working program doesn't.
+- **The instruction is never reached.** It sits after a `TRAP #0`, in a branch that is never taken, or in a subroutine that is never called.
+- **It's on the very first instruction.** The check happens *after* each instruction runs, so pressing Run from the start executes the first instruction before looking at breakpoints. Use **Step** for that one. The same applies when you resume from a breakpoint: the instruction you're stopped on runs first (a loop that comes back to it will stop there again).
+- **You're using Step.** Step always executes exactly one instruction and ignores breakpoints.
+- **You inserted or deleted lines.** Breakpoints are tied to line *numbers*, not to the text: they don't move with your code, so a breakpoint may now sit on a different line (or on a comment) after an edit. Re-check the margin. The edited source is re-assembled the next time you press Run or Step.
 
 ### "My program never finishes / seems to hang"
 
@@ -20,7 +26,7 @@ LOOP:
 
 A `DBcc`/`DBRA` loop can do the same thing if its counter never reaches its stop condition — see [How does DBcc decide?](./REFERENCE.md#how-does-dbcc-decide).
 
-**What to check today**: since Pause isn't wired up yet (see above), there's no way to interrupt a running program from the UI. Hand-tracing the loop's exit condition — the way every worked example on the Reference page does — is the reliable way to catch this before it becomes a real problem.
+**What to check today**: **Pause** stops a running program, and a breakpoint inside the loop (see [My breakpoint is ignored](#my-breakpoint-is-ignored)) lets you watch its registers change. Hand-tracing the loop's exit condition — the way every worked example on the Reference page does — is the reliable way to catch this before it becomes a real problem.
 
 ### "Program runs too slowly"
 

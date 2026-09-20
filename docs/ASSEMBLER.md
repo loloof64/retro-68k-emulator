@@ -1,6 +1,6 @@
 # Assembler
 
-The assembler turns 68000 assembly source text into machine-code bytes the CPU can run. Version 1 is a library only: `src/assembler/` is not yet wired into the Editor or Debugger, and no execution loop drives it. Design spec: `docs/superpowers/specs/2026-09-20-assembler-design.md`; implementation plan: `docs/superpowers/plans/2026-09-20-assembler.md`.
+The assembler turns 68000 assembly source text into machine-code bytes the CPU can run. Version 1 is wired into the Debugger: Run/Step assemble the editor's source, load the bytecode at `origin` and drive the CPU. Design spec: `docs/superpowers/specs/2026-09-20-assembler-design.md`; implementation plan: `docs/superpowers/plans/2026-09-20-assembler.md`.
 
 ## Assembler Public Interface
 
@@ -11,7 +11,7 @@ import { assemble } from './assembler'
 const result = assemble(source)
 ```
 
-On success the result is an `AssembledProgram` (see [API Documentation](./API.md)): `bytecode` (the machine code), `origin` (the address the first byte belongs at, from `ORG`, default `$2000`, i.e. `USER_RAM_START`), `entry` (the `END` label's address, else `origin`), `labels`, `symbols` (labels plus `EQU` constants), and `lineMap` (bytecode offset to source line, for the future debugger).
+On success the result is an `AssembledProgram` (see [API Documentation](./API.md)): `bytecode` (the machine code), `origin` (the address the first byte belongs at, from `ORG`, default `$2000`, i.e. `USER_RAM_START`), `entry` (the `END` label's address, else `origin`), `labels`, `symbols` (labels plus `EQU` constants), and `lineMap` (bytecode offset to source line, used by the Debugger for the current-line highlight and breakpoints).
 
 On failure the result is an array of `AssemblerError` (`line`, `column`, `message`) holding every error found, not just the first, sorted by position.
 
