@@ -103,14 +103,14 @@ same formula as above:
 
 ```asm
 ; address = $40000 + (y * 320 + x) * 4
-MOVE.L  #10,D0          ; y
-MULU.W  #320,D0
-ADD.L   #50,D0          ; + x
-ASL.L   #2,D0           ; * 4 bytes/pixel
-ADD.L   #$40000,D0
-MOVE.L  D0,A0
-MOVE.L  #$FFFFFFFF,D0   ; white
-TRAP    #3              ; write it
+        MOVE.L  #10,D0          ; y
+        MULU.W  #320,D0
+        ADD.L   #50,D0          ; + x
+        ASL.L   #2,D0           ; * 4 bytes/pixel
+        ADD.L   #$40000,D0
+        MOVE.L  D0,A0
+        MOVE.L  #$FFFFFFFF,D0   ; white
+        TRAP    #3              ; write it
 ```
 
 ### Reading the Gamepad
@@ -136,9 +136,9 @@ on-screen buttons stop doing anything while it's plugged in).
 | 9 | Select |
 
 ```
-TRAP    #5                ; D0 = controller state
-BTST    #0,D0              ; test bit 0 (button A)
-BEQ     A_NOT_PRESSED      ; Z=1 -> button A isn't held
+        TRAP    #5                ; D0 = controller state
+        BTST    #0,D0              ; test bit 0 (button A)
+        BEQ     A_NOT_PRESSED      ; Z=1 -> button A isn't held
 ```
 
 ### Sound (Wired Up, Silent For Now)
@@ -158,11 +158,11 @@ the TI-89's buzzer, not a sample player.
 `TRAP #6` writes D0-D3 into those fields in one step and sets the trigger:
 
 ```
-MOVE.W  #440,D0            ; frequency (Hz)
-MOVE.W  #250,D1            ; duration (ms)
-MOVE.B  #200,D2            ; volume
-MOVE.B  #0,D3               ; waveform (0 = square)
-TRAP    #6
+        MOVE.W  #440,D0            ; frequency (Hz)
+        MOVE.W  #250,D1            ; duration (ms)
+        MOVE.B  #200,D2            ; volume
+        MOVE.B  #0,D3               ; waveform (0 = square)
+        TRAP    #6
 ```
 
 That part's real and tested — the registers land in memory exactly as
@@ -346,8 +346,8 @@ See [TRAP System Calls](#trap-system-calls) below for `TRAP`, and
 - **`Dn,<ea>`** — the mirror image: combine a data register's value into `<ea>` instead, writing the result back to `<ea>` rather than to `Dn`. `<ea>` here must be a *memory-alterable* address — not `Dn`, not `An`, no `#imm`, no PC-relative — the same restriction the [memory-operand shift/rotate form](#how-does-the-memory-operand-shift-and-rotate-form-work) uses.
 
 ```asm
-MOVE.B  #5,D0
-ADD.B   D0,(A1)          ; Memory[A1] += D0, not D0 += Memory[A1]
+        MOVE.B  #5,D0
+        ADD.B   D0,(A1)    ; Memory[A1] += D0, not D0 += Mem[A1]
 ```
 
 The memory-destination form costs more than the flat `4` cycles the `<ea>,Dn` direction uses: `8` for byte or word, `12` for long — writing the result back to memory is a real extra bus cycle the register-destination form doesn't pay.
@@ -378,9 +378,9 @@ This emulator has no concurrency (no threads, no interrupts preempting mid-instr
 Packed BCD stores two decimal digits, `0`-`9` each, one per nibble of a byte — a completely different interpretation of the bits than plain binary. `$09` means the decimal digit 9 either way, but `$99` is decimal 99 in packed BCD, not 153 like it would be read as plain binary. Adding `$09` and `$01` as ordinary binary gives `$0A` — not a valid pair of decimal digits — which is exactly the problem `ABCD` corrects for, producing `$10` instead: the same digits ("1", "0") you'd get adding 9 and 1 by hand and carrying.
 
 ```asm
-MOVE.B  #$09,D0
-MOVE.B  #$01,D1
-ABCD    D0,D1           ; D1 = 9 + 1 = $10, not the binary $0A
+        MOVE.B  #$09,D0
+        MOVE.B  #$01,D1
+        ABCD    D0,D1      ; D1 = 9+1 = $10, not binary $0A
 ```
 
 All three instructions are byte-only and thread `X` through as a carry/borrow, so a decimal number wider than one byte can be processed one byte at a time, low byte first — the same chaining idiom [`ADDX`/`SUBX`/`NEGX`](#arithmetic) use for plain binary. `ABCD`/`SBCD`'s `-(Ay),-(Ax)` form exists specifically for this: it walks two multi-byte BCD numbers backward through memory together, one digit-pair at a time.
@@ -516,11 +516,11 @@ Neither case comes up in the `LINK A6,#-8` / `UNLK A6` idiom above, since a subr
 `CHK <ea>,Dn` treats `<ea>` as an upper bound and checks whether `Dn`'s low 16 bits, read as a signed value, falls in the range `0` to `<ea>` inclusive — the classic use is validating an array index before using it:
 
 ```asm
-MOVE.W  D3,D0           ; candidate index, computed earlier
-CHK     #99,D0          ; valid range is 0-99 (a 100-entry array)
+        MOVE.W  D3,D0      ; candidate index, computed earlier
+        CHK     #99,D0     ; valid range 0-99 (100-entry array)
 ; only reached if D0 was in 0..99 - safe to use as an index below
-LEA     TABLE,A0
-MOVE.W  (A0,D0.W),D1    ; safe: D0 already passed the bounds check
+        LEA     TABLE,A0
+        MOVE.W  (A0,D0.W),D1  ; safe: D0 passed the bounds check
 ```
 
 Two ways to fail, and `N` tells you which one happened right before the exception fires:
@@ -536,7 +536,7 @@ The `10`/`40` cycle split isn't arbitrary: `10` is just the cost of fetching and
 
 ### How does MOVEM's register list work?
 
-`MOVEM` moves any subset of the 16 registers (`D0`-`D7`, `A0`-`A7`) to or from memory in one instruction. The register list — written as a range/list like `D0-D2/A0`, meaning `D0`, `D1`, `D2`, and `A0` — gets packed into a 16-bit bitmask, one bit per register, that follows the opcode word. (There's no assembler yet, so today that bitmask has to be hand-encoded, the same way `Bcc`'s target does.)
+`MOVEM` moves any subset of the 16 registers (`D0`-`D7`, `A0`-`A7`) to or from memory in one instruction. The register list — written as a range/list like `D0-D2/A0`, meaning `D0`, `D1`, `D2`, and `A0` — gets packed into a 16-bit bitmask, one bit per register, that follows the opcode word. (The assembler doesn't accept `MOVEM` yet — it's a "not assemblable yet" mnemonic — so today that bitmask has to be hand-encoded, the same way `Bcc`'s target does.)
 
 Which addressing modes are valid depends on which direction the data is moving:
 - **Register list → memory** (`MOVEM.size list,dst`): the [control addressing modes](#which-addressing-modes-can-jsr-target) `JSR`/`LEA`/`PEA` use, plus predecrement (`-(An)`).
@@ -557,7 +557,7 @@ Two quirks worth knowing before hand-encoding one:
 Starting at `(d16,Ay)`, it reads/writes one byte, steps the address by `2`, reads/writes the next byte, and so on — `2` (`.W`) or `4` (`.L`) bytes total, most-significant byte first:
 
 ```
-MOVEP.L D0,$0(A0)
+        MOVEP.L D0,$0(A0)
 ; byte 0 (D0 bits 31-24) -> Memory[A0+0]
 ; byte 1 (D0 bits 23-16) -> Memory[A0+2]
 ; byte 2 (D0 bits 15-8)  -> Memory[A0+4]
@@ -579,7 +579,7 @@ Valid `<ea>`: `(An)`, `(An)+`, `-(An)`, `d16(An)`, `d8(An,Xn)`, `xxx.W`, or `xxx
 **Example** — shift a value already sitting in memory, without loading it into a register first:
 
 ```
-ASL     (A0)                ; Memory[A0] <<= 1, in place
+        ASL     (A0)                ; Memory[A0] <<= 1, in place
 ```
 
 ### How does rotating through X differ from a plain rotate?
@@ -592,9 +592,9 @@ One consequence worth knowing: a rotate count of `0` (only possible with the `Dx
 
 ```
 ; D0 = %0000_0010, X = 1
-ROL     #1,D0        ; -> %0000_0100 (bit 7 wraps in)
+        ROL     #1,D0        ; -> %0000_0100 (bit 7 wraps in)
 ; ...reset D0 to %0000_0010...
-ROXL    #1,D0        ; -> %0000_0101 (old X wraps in)
+        ROXL    #1,D0        ; -> %0000_0101 (old X wraps in)
 ```
 
 ### Why doesn't this emulator implement RTE/STOP/RESET/MOVE SR?
@@ -660,67 +660,67 @@ throws a generic error instead of raising a catchable exception.
 **Example** — add two numbers and write a white pixel, using a direct absolute address:
 
 ```
-MOVE.L  #100,D0
-MOVE.L  #200,D1
-ADD.L   D1,D0                ; D0 = 300
-MOVE.L  #$FFFFFF,$40000.L    ; first pixel = white
-TRAP    #0                    ; exit
+        MOVE.L  #100,D0
+        MOVE.L  #200,D1
+        ADD.L   D1,D0                ; D0 = 300
+        MOVE.L  #$FFFFFF,$40000     ; first pixel = white
+        TRAP    #0                    ; exit
 ```
 
 **Example** — a countdown loop using `MOVEQ`, `SUB`, `CMP`, and `Bcc`:
 
 ```
-MOVEQ   #5,D0             ; D0 = 5 (loop counter)
+        MOVEQ   #5,D0             ; D0 = 5 (loop counter)
 LOOP:
-MOVEQ   #1,D1
-SUB.L   D1,D0             ; D0 -= 1
-CMP.L   #0,D0
-BNE     LOOP               ; keep looping while D0 != 0
-TRAP    #0                 ; exit
+        MOVEQ   #1,D1
+        SUB.L   D1,D0             ; D0 -= 1
+        CMP.L   #0,D0
+        BNE     LOOP               ; keep looping while D0 != 0
+        TRAP    #0                 ; exit
 ```
 
-*(Labels like `LOOP:` are an assembler feature — there's no assembler yet, so this example is illustrative; today `Bcc`'s target has to be hand-encoded as a byte offset.)*
+*(Labels like `LOOP:` are handled by the assembler, which turns each `Bcc` target into the right byte offset for you. The Editor isn't wired to run it yet, so for now these snippets are for reading, or for feeding to `assemble()` from code.)*
 
 **Example** — the same countdown, more idiomatically, using `DBRA`:
 
 ```
-MOVEQ   #4,D0             ; D0 = 4 (see gotcha below)
+        MOVEQ   #4,D0             ; D0 = 4 (see gotcha below)
 LOOP:
-ADD.W   #1,D1             ; (loop body — whatever the loop is for)
-DBRA    D0,LOOP           ; D0--, loop unless D0 hits -1
-TRAP    #0                 ; exit
+        ADD.W   #1,D1       ; (loop body - whatever it's for)
+        DBRA    D0,LOOP           ; D0--, loop unless D0 hits -1
+        TRAP    #0                 ; exit
 ```
 
 `DBRA` folds the decrement, the comparison, and the branch into one instruction — this is the loop `SUB.L`/`CMP.L`/`BNE` above builds by hand, in the form real 68000 code almost always uses instead. The classic gotcha, and the reason this loads `4` where the `Bcc` version above loaded `5`: the body always runs once *before* the first decrement, and the loop only stops once `Dn` has been decremented all the way to `-1`. So for the body to run exactly `N` times, `Dn` has to start at `N - 1`, not `N` — starting it at `5` here would run the body 6 times, not 5.
 
-**Example** — calling a subroutine with `JSR`/`RTS` (again, `DOUBLE:` is illustrative — hand-encode the actual address today):
+**Example** — calling a subroutine with `JSR`/`RTS` (again with a label, `DOUBLE:`):
 
 ```
-MOVEA.L #DOUBLE,A0        ; A0 = address of the subroutine
-MOVEQ   #21,D0
-JSR     (A0)               ; D0 *= 2, then returns here
-TRAP    #0                 ; exit
+        MOVEA.L #DOUBLE,A0        ; A0 = address of the subroutine
+        MOVEQ   #21,D0
+        JSR     (A0)               ; D0 *= 2, then returns here
+        TRAP    #0                 ; exit
 
 DOUBLE:
-ADD.L   D0,D0              ; D0 += D0
-RTS                        ; back to the caller
+        ADD.L   D0,D0              ; D0 += D0
+        RTS                        ; back to the caller
 ```
 
 **Example** — saving and restoring registers around a subroutine call with `MOVEM`, so `DOUBLE` is free to use `D1` and `A0` as scratch without disturbing the caller's:
 
 ```
-MOVEQ   #1,D1
-MOVEA.L #$1000,A0
-MOVEM.L D1/A0,-(A7)       ; push D1,A0 (see above)
-MOVEA.L #DOUBLE,A0
-MOVEQ   #21,D0
-JSR     (A0)               ; D0 *= 2; free to clobber D1/A0
-MOVEM.L (A7)+,D1/A0       ; restore, same order pushed
-TRAP    #0                 ; exit
+        MOVEQ   #1,D1
+        MOVEA.L #$1000,A0
+        MOVEM.L D1/A0,-(A7)       ; push D1,A0 (see above)
+        MOVEA.L #DOUBLE,A0
+        MOVEQ   #21,D0
+        JSR     (A0)       ; D0 *= 2; free to clobber D1/A0
+        MOVEM.L (A7)+,D1/A0       ; restore, same order pushed
+        TRAP    #0                 ; exit
 
 DOUBLE:
-ADD.L   D0,D0
-RTS
+        ADD.L   D0,D0
+        RTS
 ```
 
 The rest of the ~80-instruction set lands in upcoming sessions — each one gets its own entry here as it becomes real.
@@ -780,10 +780,10 @@ Your program installs a handler by writing its address into the vector
 *before* the fault can happen:
 
 ```
-MOVEA.L #$40,A0           ; the Zero Divide vector
-MOVE.L  #HANDLER,(A0)     ; install the handler
-...
-DIVU.W  D1,D0             ; if D1 is 0, jumps to HANDLER instead
+        MOVEA.L #$40,A0           ; the Zero Divide vector
+        MOVE.L  #HANDLER,(A0)     ; install the handler
+        ...
+        DIVU.W  D1,D0        ; D1 = 0 -> jumps to HANDLER
 ```
 
 Real 68000 hardware pushes the status register and PC onto a *supervisor*
@@ -866,9 +866,9 @@ On real 68000 assemblers, `DC.B`, `DC.W`, and `DC.L` ("Define Constant") reserve
 
 ```asm
 ARRAY:
-DC.L    10, 20, 30, 40, 50    ; five long words, back to back
+        DC.L    10, 20, 30, 40, 50   ; five longs, back to back
 MESSAGE:
-DC.B    'HI', 0                ; three bytes: 'H', 'I', 0
+        DC.B    "HI",0                 ; bytes: 'H', 'I', 0
 ```
 
 The assembler accepts `DC.x` (see [Writing Assembly Source](#writing-assembly-source)). Until the Editor is connected to it, the alternative is building the data at *runtime*: pick an address, then write each value into it with its own `MOVE`, stepping the address with [`(An)+`](#addressing-modes) the same way a program would read the data back out later. The memory ends up holding exactly the same bytes.
