@@ -17,6 +17,9 @@ describe('remapBreakpoints', () => {
   it('keeps it when editing inside the line', () => {
     expect(r([2], 'a\nb\nc', 'a\nbx\nc')).toEqual([2])
   })
+  it('drops it when several lines are replaced, even by as many', () => {
+    expect(r([2, 3], 'a\nb\nc\nd', 'a\nX\nY\nd')).toEqual([])
+  })
   it('drops it when its block gains or loses lines', () => {
     expect(r([2], 'a\nbc\nd', 'a\nb\nc\nd')).toEqual([])
     expect(r([2, 3], 'a\nb\nc\nd', 'a\nX\nd')).toEqual([])
