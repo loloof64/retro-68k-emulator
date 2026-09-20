@@ -67,15 +67,9 @@ The usual causes:
 - **Overflow** — check `V` (and `C` for unsigned) after the operation; both `ADD`/`SUB` and their `Q`-immediate forms set them.
 - **An off-by-one in a `DBcc`/`DBRA` loop count** — see [How does DBcc decide?](./REFERENCE.md#how-does-dbcc-decide).
 
-## Display Issues
-
-### "Nothing shows up on screen"
-
-The on-screen display isn't connected to the emulator yet (see [Project Status](./PRESENTATION.md#project-status)) — writing to the framebuffer at `$40000` (see [Memory Map](./REFERENCE.md#memory-map)) correctly updates memory today, but nothing draws it to a screen yet. If a program's own address math needs checking in the meantime: each pixel is 4 bytes, and at `320×200` pixels, the last one sits at `$40000 + (320×200×4) - 4`.
-
 ## Getting More Help
 
-- **Read `examples/simple.asm`** in the project repository for a complete, working instruction sequence (loop, framebuffer write, exit) to compare against.
+- **Compare with the [Example Programs](./EXAMPLES.md)**: twelve complete, working programs (loops, framebuffer writes, subroutines, gamepad...) to check your code against.
 - **Re-read the relevant [Reference](./REFERENCE.md) row** for the instruction in question — its Description and Flags columns call out the gotchas already known.
 - **Hand-trace the instructions**, the way every worked example on the Reference page does — writing out each register's value line by line is usually where a wrong assumption becomes visible.
 - **Simplify**: cut the program down to the smallest sequence that still shows the problem.
