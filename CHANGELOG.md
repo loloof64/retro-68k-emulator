@@ -6,6 +6,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.1.4] - 2026-09-20
+
+Functional assembler with subsets of op-codes.
+
+### Added
+- Assembler (`src/assembler/`, two-pass) wired into the UI: the Debugger assembles the editor source, loads it at `origin`, and offers Run / Step / Reset with registers, flags, PC, cycle count, source line of PC, and assembler/runtime errors. Assemblable subset: MOVE/MOVEA/MOVEQ, ADD/SUB/CMP (+A/I), ADDQ/SUBQ, LEA, CLR, TST, BRA/BSR/Bcc, DBcc, JMP/JSR/RTS, NOP, TRAP
+- Editor line-number gutter with clickable breakpoints and a highlight on the line about to execute
+- Screen panel paints the framebuffer; on-screen and physical gamepad with visual press feedback
+- `TRAP #1`-`#6` system calls (print string, pixels, clear screen, controller, tone)
+- Windows portable `.zip` in the release
+- The end-user documentation (`docs/user`) is generated as a PDF and attached to the release by the GitHub Action
+
+### Fixed
+- Layout of the stacked UI keeps a usable screen panel; the example program now draws an opaque line
+- Cross-file link regex in the PDF generator no longer produces broken links
+
 ## [0.1.3] - 2026-09-14
 
 ### Fixed
