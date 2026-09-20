@@ -99,16 +99,21 @@ npm run test:ui
 - Opcode table
 - Label and symbol handling
 
-### Phase 3: CPU Emulator (📅 Planned)
+### Phase 3: CPU Emulator (✅ Done)
 
 - Register simulator
 - Instruction execution
 - Memory management
 
-### Phase 4: UI Polish (📅 Planned)
+### Phase 4: Sound (📅 Planned, before editor finalization)
 
-- Real-time visualization
-- Breakpoints
+- Audio backend for the tone generator (registers and `TRAP #6` already exist, but nothing is played yet)
+
+### Phase 5: Editor finalization (🔄 In progress)
+
+- ✅ Real-time visualization (registers, flags, screen)
+- ✅ Breakpoints
+- Syntax highlighting
 - Memory inspection
 
 ## 🎓 Resources
