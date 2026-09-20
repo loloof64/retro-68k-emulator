@@ -61,7 +61,10 @@ docs:pdf:user`.
   directly followed by the input registers and wouldn't fault by itself).
   - Color format settled as `0xRRGGBBAA` (matches `docs/API.md`; red =
     `0xFF0000FF`) — `docs/MEMORY.md`'s diagram/examples fixed to match.
-- **Assembler: not started** (planned — turns `.asm` source into runnable
+- **Assembler: designed, not implemented** — spec in
+  `docs/superpowers/specs/2026-09-20-assembler-design.md` (start from it,
+  no re-derivation; next step is a `writing-plans` implementation plan).
+  Originally "not started" (planned — turns `.asm` source into runnable
   bytecode; right now opcodes are hand-assembled as raw words in tests).
 - **Debugger/Editor UI: shell only**, not wired to a real CPU execution
   loop (`src/components/Debugger.tsx`'s Step handler is a literal TODO;
