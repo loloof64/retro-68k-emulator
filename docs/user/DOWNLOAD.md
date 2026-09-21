@@ -17,7 +17,7 @@ Each release includes one installer per platform:
 | macOS | `.dmg` | Open it, drag the app to `Applications` |
 | Linux | `.deb`, `.AppImage`, or `.rpm` | `.deb`/`.rpm`: install via your package manager. `.AppImage`: make it executable and run it directly |
 
-You won't need to pick a specific architecture — pick the file matching your operating system, that's it.
+On Windows and Linux you don't need to pick an architecture: pick the file matching your operating system. On macOS there are two `.dmg` files: the `aarch64` one for Apple Silicon (M1 and later), the `x64` one for Intel Macs.
 
 The portable Windows zip contains the program and everything it needs to start; it relies only on Microsoft's WebView2 component, which comes with Windows 10 and 11.
 
