@@ -4,7 +4,9 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
-## [Unreleased]
+## [0.4.3] - 2026-09-21
+
+Linux gamepad fix.
 
 ### Fixed
 - Linux: pressing a trigger (LT/RT) could hold *up* and disable the D-pad — the controller read through the webview's Gamepad API took over from the native one, with a wrong mapping. The native reading is now preferred. This also fixes a face button (Y) lighting the wrong on-screen button in one mode of the Nacon GC-100

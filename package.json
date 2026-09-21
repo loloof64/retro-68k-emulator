@@ -1,6 +1,6 @@
 {
   "name": "retro-68k-emulator",
-  "version": "0.4.2",
+  "version": "0.4.3",
   "description": "Retro Motorola 68000 CPU emulator with web UI",
   "type": "module",
   "main": "dist/index.js",
