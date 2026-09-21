@@ -22,7 +22,7 @@ const readWindow = (memory: SystemMemory, base: number) => {
   return bytes
 }
 
-// Read-only hex dump of a 256-byte window. Bytes that changed since the previous
+// Read-only hex dump of a 128-byte window. Bytes that changed since the previous
 // refresh are highlighted; the byte at PC is marked.
 export default function MemoryView({ memory, pc, a7, tick }: MemoryViewProps) {
   const { t } = useI18n()
@@ -52,7 +52,7 @@ export default function MemoryView({ memory, pc, a7, tick }: MemoryViewProps) {
     const bytes = cur.slice(r * ROW_BYTES, (r + 1) * ROW_BYTES)
     rows.push(
       <div key={r} className="mem-row">
-        <span className="mem-addr">${hex(base + r * ROW_BYTES, 8)}</span>
+        <span className="mem-addr">${hex(base + r * ROW_BYTES, 6)}</span>
         {bytes.map((b, i) => {
           const at = r * ROW_BYTES + i
           const cls = ['mem-byte']

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { MEMORY_SIZE } from './memory'
-import { asciiChar, hex, parseAddress, windowBase, WINDOW_BYTES } from './memoryView'
+import { asciiChar, hex, parseAddress, windowBase, WINDOW_BYTES, ROW_BYTES } from './memoryView'
 
 describe('memoryView', () => {
   it('parses hex addresses with or without prefix', () => {
@@ -14,7 +14,7 @@ describe('memoryView', () => {
   it('aligns the window on a row and keeps it inside memory', () => {
     expect(windowBase(0x2005)).toBe(0x2000)
     expect(windowBase(0xffffffff)).toBeLessThanOrEqual(MEMORY_SIZE - WINDOW_BYTES)
-    expect(windowBase(0xffffffff) % 16).toBe(0)
+    expect(windowBase(0xffffffff) % ROW_BYTES).toBe(0)
   })
 
   it('formats hex and ASCII', () => {

@@ -1,6 +1,6 @@
 import { MEMORY_SIZE } from './memory'
 
-export const ROW_BYTES = 16
+export const ROW_BYTES = 8
 export const WINDOW_ROWS = 16
 export const WINDOW_BYTES = ROW_BYTES * WINDOW_ROWS
 
