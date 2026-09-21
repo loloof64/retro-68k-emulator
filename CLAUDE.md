@@ -149,7 +149,7 @@ docs:pdf:user`.
   SDL mapping and needed nothing). **Windows** has no native path: the browser Gamepad API only
   yields a usable pad when `mapping === 'standard'`, so a pad in a non-standard mode (GC-100 O
   mode: mapping "", hat on axis 9) is ignored — a per-device mapping was written then dropped
-  (doesn't scale), the guide just says to use the Xbox-style mode. gilrs-on-Windows was
+  (doesn't scale), the guide just says to use the Xbox-style mode. **Exception (untested on hardware)**: a non-standard pad with >9 axes is read as a "hat pad" (D-pad = hat on axis 9, Chromium encoding -1+2/7·i clockwise from up, ~3.29 = rest; face buttons in HID order Y=b0 B=b1 A=b2 X=b3, -/+ = b8/b9) — from the NSW wired controller 20d6:a713 report (`HAT_BUTTON_MAP` in `Controller.tsx`). gilrs-on-Windows was
   considered: its SDL DB has no Windows entry for the GC-100 either, and it can't be tested here.
   Manual `workflow_dispatch` runs create a *draft release named after the branch* (tauri-action
   gets `tagName`) — delete those; branch names with `/` broke the Windows zip name (now fixed).

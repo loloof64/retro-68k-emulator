@@ -36,14 +36,42 @@ export const GAMEPAD_BUTTON_MAP: Readonly<Record<number, number>> = {
   15: INPUT_BUTTON_RIGHT,
 }
 
-// Picks the first standard-mapped, connected gamepad out of a
+// Non-standard pads that expose their D-pad as a hat switch on axis 9 (the
+// Chromium/Windows layout of cheap "Switch" wired pads, e.g. Vendor 20d6
+// Product a713): face buttons come in HID order, not the standard one.
+export const HAT_AXIS = 9
+export const HAT_BUTTON_MAP: Readonly<Record<number, number>> = {
+  0: INPUT_BUTTON_Y,
+  1: INPUT_BUTTON_B,
+  2: INPUT_BUTTON_A,
+  3: INPUT_BUTTON_X,
+  8: INPUT_BUTTON_SELECT,
+  9: INPUT_BUTTON_START,
+}
+// Hat value = -1 + 2/7 * i for the 8 directions clockwise from up; ~3.29 = centered.
+const HAT_DIRECTIONS = [
+  INPUT_BUTTON_UP,
+  INPUT_BUTTON_UP | INPUT_BUTTON_RIGHT,
+  INPUT_BUTTON_RIGHT,
+  INPUT_BUTTON_RIGHT | INPUT_BUTTON_DOWN,
+  INPUT_BUTTON_DOWN,
+  INPUT_BUTTON_DOWN | INPUT_BUTTON_LEFT,
+  INPUT_BUTTON_LEFT,
+  INPUT_BUTTON_LEFT | INPUT_BUTTON_UP,
+]
+
+const isHatPad = (pad: Pick<Gamepad, 'mapping'> & { axes?: readonly number[] }) =>
+  pad.mapping !== 'standard' && (pad.axes?.length ?? 0) > HAT_AXIS
+
+// Picks the first connected gamepad that we know how to read (standard
+// mapping, or the hat-on-axis-9 layout above) out of a
 // navigator.getGamepads()-shaped list. Pure so it's testable without a
 // browser Gamepad API.
 export function findStandardGamepad(
-  gamepads: readonly (Pick<Gamepad, 'connected' | 'mapping'> | null)[]
+  gamepads: readonly (Pick<Gamepad, 'connected' | 'mapping'> & { axes?: readonly number[] } | null)[]
 ): Pick<Gamepad, 'connected' | 'mapping' | 'buttons' | 'axes'> | null {
   for (const pad of gamepads) {
-    if (pad && pad.connected && pad.mapping === 'standard') {
+    if (pad && pad.connected && (pad.mapping === 'standard' || isHatPad(pad))) {
       return pad as Pick<Gamepad, 'connected' | 'mapping' | 'buttons' | 'axes'>
     }
   }
@@ -65,9 +93,12 @@ const AXIS_THRESHOLD = 0.5
 
 // Reduces one gamepad's button states to our bitmask. Pure/testable: only
 // needs `.buttons[i].pressed`, not a real Gamepad object.
-export function gamepadToMask(gamepad: Pick<Gamepad, 'buttons'> & { axes?: readonly number[] }): number {
+export function gamepadToMask(
+  gamepad: Pick<Gamepad, 'buttons'> & { axes?: readonly number[]; mapping?: string }
+): number {
   let mask = 0
-  for (const [index, bit] of Object.entries(GAMEPAD_BUTTON_MAP)) {
+  const hat = isHatPad({ mapping: (gamepad.mapping ?? 'standard') as GamepadMappingType, axes: gamepad.axes })
+  for (const [index, bit] of Object.entries(hat ? HAT_BUTTON_MAP : GAMEPAD_BUTTON_MAP)) {
     if (gamepad.buttons[Number(index)]?.pressed) {
       mask |= bit
     }
@@ -75,6 +106,7 @@ export function gamepadToMask(gamepad: Pick<Gamepad, 'buttons'> & { axes?: reado
   // Many generic pads report the D-pad as axes (6/7) instead of buttons
   // 12-15; the left stick (0/1) doubles as a D-pad too.
   const ax = gamepad.axes ?? []
+  if (hat && ax[HAT_AXIS] <= 1.01) mask |= HAT_DIRECTIONS[Math.round((ax[HAT_AXIS] + 1) * 3.5)] ?? 0
   for (const [xi, yi] of [[0, 1], [6, 7]]) {
     if ((ax[xi] ?? 0) < -AXIS_THRESHOLD) mask |= INPUT_BUTTON_LEFT
     if ((ax[xi] ?? 0) > AXIS_THRESHOLD) mask |= INPUT_BUTTON_RIGHT

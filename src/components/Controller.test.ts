@@ -9,6 +9,11 @@ import {
   INPUT_BUTTON_A,
   INPUT_BUTTON_B,
   INPUT_BUTTON_START,
+  INPUT_BUTTON_SELECT,
+  INPUT_BUTTON_X,
+  INPUT_BUTTON_Y,
+  INPUT_BUTTON_DOWN,
+  INPUT_BUTTON_LEFT,
   INPUT_BUTTON_UP,
   INPUT_BUTTON_RIGHT,
 } from '../memory'
@@ -59,7 +64,7 @@ describe('findStandardGamepad', () => {
     expect(findStandardGamepad(pads)).toBeNull()
   })
 
-  it('skips non-standard mappings', () => {
+  it('skips non-standard mappings without a hat axis', () => {
     const pads = [{ connected: true, mapping: '' as const }]
     expect(findStandardGamepad(pads)).toBeNull()
   })
@@ -81,6 +86,33 @@ describe('gamepadToMask axes fallback', () => {
     const pad = { ...fakeGamepad([]), axes: [0, 0, 0, 0, 0, 0, 0, -1] }
     expect(gamepadToMask(pad)).toBe(INPUT_BUTTON_UP)
     expect(gamepadToMask({ ...pad, axes: [1, 0] })).toBe(INPUT_BUTTON_RIGHT)
+  })
+})
+
+describe('hat-on-axis-9 pad (NSW wired controller, Windows)', () => {
+  const pad = (pressed: number[], hat: number) => ({
+    ...fakeGamepad(pressed),
+    mapping: '' as const,
+    axes: [0.00392, 0.00392, 0.00392, 0, 0, 0.00392, 0, 0, 0, hat],
+  })
+
+  it('is accepted despite the empty mapping', () => {
+    const p = pad([], 3.28571)
+    expect(findStandardGamepad([p])).toBe(p)
+  })
+
+  it('maps its HID-order face buttons and -/+', () => {
+    expect(gamepadToMask(pad([2, 1, 3, 0, 8, 9], 3.28571))).toBe(
+      INPUT_BUTTON_A | INPUT_BUTTON_B | INPUT_BUTTON_X | INPUT_BUTTON_Y | INPUT_BUTTON_SELECT | INPUT_BUTTON_START
+    )
+  })
+
+  it('decodes the hat: rest, up, down, left, right', () => {
+    expect(gamepadToMask(pad([], 3.28571))).toBe(0)
+    expect(gamepadToMask(pad([], -1))).toBe(INPUT_BUTTON_UP)
+    expect(gamepadToMask(pad([], 0.14286))).toBe(INPUT_BUTTON_DOWN)
+    expect(gamepadToMask(pad([], 0.71429))).toBe(INPUT_BUTTON_LEFT)
+    expect(gamepadToMask(pad([], -0.42857))).toBe(INPUT_BUTTON_RIGHT)
   })
 })
 
