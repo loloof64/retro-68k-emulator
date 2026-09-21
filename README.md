@@ -115,15 +115,15 @@ npm run test:ui
 - Instruction execution
 - Memory management
 
-### Phase 4: Sound (📅 Planned, before editor finalization)
+### Phase 4: Sound (✅ Done)
 
-- Audio backend for the tone generator (registers and `TRAP #6` already exist, but nothing is played yet)
+- Audio backend for the tone generator: `TRAP #6` and the sound registers play through Web Audio
 
 ### Phase 5: Editor finalization (🔄 In progress)
 
 - ✅ Real-time visualization (registers, flags, screen)
 - ✅ Breakpoints
-- Syntax highlighting
+- Syntax highlighting (📅 planned)
 - Memory inspection
 
 ## 🎓 Resources

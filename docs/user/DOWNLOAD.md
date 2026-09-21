@@ -1,6 +1,6 @@
 # Downloads
 
-**At least one version is available.** The latest one is on the Releases page linked below. The project is still under active development — see the [status table](./PRESENTATION.md#project-status) for what's working today.
+**At least one version is available.** The latest one is on the Releases page linked below.
 
 ## How releases work
 

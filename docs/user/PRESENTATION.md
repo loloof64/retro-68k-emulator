@@ -4,25 +4,9 @@ The Retro 68K Emulator is a free desktop app for learning Motorola 68000 assembl
 
 It's aimed at students, hobbyists, and anyone curious about how a CPU actually executes instructions, one step at a time.
 
-## Project Status
-
-This project is under active development. The table below reflects what's genuinely working today, not the final goal — it will be updated after every development session.
-
-| Component | Status |
-|---|---|
-| Memory system (addressable space + framebuffer + controller input) | ✅ Done |
-| Sound (tone generator registers) | ✅ Registers + `TRAP #6`, played through Web Audio — see [Reference](./REFERENCE.md) |
-| CPU core (registers, flags, instruction execution) | ✅ Done |
-| Assembler (turns `.asm` source into runnable bytecode) | ✅ Every instruction and addressing mode assembles (see [Reference](./REFERENCE.md#writing-assembly-source)); connected to the Editor/Debugger |
-| 68000 instruction set | ✅ Done — every non-privileged real MC68000 mnemonic is implemented (`NOP`, `MOVE`, `MOVEA`, `MOVEQ`, `MOVEM`, `MOVEP`, `MOVE SR`, `MOVE to CCR`, `LEA`, `PEA`, `SWAP`, `EXG`, `ADD`, `ADDI`, `ADDX`, `ADDA`, `SUB`, `SUBI`, `SUBX`, `SUBA`, `ADDQ`, `SUBQ`, `CMP`, `CMPI`, `CMPM`, `CMPA`, `CHK`, `MULU`, `MULS`, `DIVU`, `DIVS`, `ABCD`, `SBCD`, `NBCD`, `Bcc`/`BRA`, `DBcc`, `Scc`, `BTST`, `BCHG`, `BCLR`, `BSET`, `AND`, `ANDI`, `ANDI to CCR`, `OR`, `ORI`, `ORI to CCR`, `XOR`, `EORI`, `EORI to CCR`, `NOT`, `CLR`, `NEG`, `NEGX`, `TST`, `TAS`, `EXT`, `JMP`, `JSR`, `BSR`, `RTS`, `RTR`, `LINK`, `UNLK`, `ASL`, `ASR`, `LSL`, `LSR`, `ROL`, `ROR`, `ROXL`, `ROXR`, `ILLEGAL`, `TRAPV`) — see [Reference](./REFERENCE.md). The privileged group (`MOVE to SR`, `MOVE USP`, `STOP`, `RESET`, `RTE`) is intentionally out of scope: this emulator has no supervisor-mode/status-register model to support them — see [Reference](./REFERENCE.md#why-doesnt-this-emulator-implement-rtestopresetmove-sr) |
-| TRAP system calls (print text, draw pixels, clear screen, read gamepad, play tone) | ✅ Done — all 7 (`TRAP #0` halt, `TRAP #1` print text, `TRAP #2` read pixel, `TRAP #3` write pixel, `TRAP #4` clear screen, `TRAP #5` read controller, `TRAP #6` set sound registers) — see [Reference](./REFERENCE.md) |
-| Gamepad UI (A/B/X/Y, D-pad, Start/Select) | ✅ On-screen buttons + real Gamepad API (takes over automatically when a controller is connected) |
-| Editor / Debugger / Screen interface | ✅ Connected: Run / Step / Pause / Reset, registers and flags, current-line highlight, breakpoints, screen output. Still a plain text editor (no syntax highlighting) |
-| Desktop installers (Windows / macOS / Linux) | ✅ Available — see [Downloads](./DOWNLOAD.md) |
-
 If you just want to try the app, grab the latest version from the [Downloads](./DOWNLOAD.md) page, then head to the [Example Programs](./EXAMPLES.md) for thirteen ready-to-run programs.
 
-## Planned Features
+## Features
 
 - Support for the ~80 68000 opcodes most relevant to learning assembly
 - Full register set: `D0`–`D7` (data), `A0`–`A7` (address, with `A7` as the stack pointer)
@@ -32,7 +16,7 @@ If you just want to try the app, grab the latest version from the [Downloads](./
 - An on-screen retro gamepad (A/B/X/Y, D-pad, Start/Select), superseded by a real gamepad when one is connected
 - Simple retro-style sound effects (a tone generator, not sampled audio), the way period 8/16-bit consoles did it
 - A step-by-step debugger: watch registers and memory change instruction by instruction
-- A syntax-highlighted assembly editor, built into the app — no external tools needed
+- *(Planned)* A syntax-highlighted assembly editor, built into the app — no external tools needed. The editor is a plain text editor for now
 - Native installers for Windows, macOS, and Linux, so it runs like any other desktop app
 
 ## Why This Project?
