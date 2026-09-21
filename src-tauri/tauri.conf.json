@@ -47,7 +47,7 @@
         "bundleMediaFramework": true
       },
       "deb": {
-        "depends": []
+        "depends": ["gstreamer1.0-plugins-base", "gstreamer1.0-plugins-good"]
       }
     },
     "macOS": {
