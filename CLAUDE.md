@@ -144,6 +144,15 @@ docs:pdf:user`.
   first input and its libmanette mapping is wrong for the Nacon GC-100 (a trigger
   lands on the left stick's Y axis and rests at -1 = "up" held, the D-pad vanishes;
   found via `RETRO68K_GAMEPAD_DEBUG=1`, 0.4.2 AppImage). Linux-only (cfg-gated). Dev port moved to 1420.
+  Also on Linux: with `mapping=Driver` (no SDL entry) gilrs calls BTN_X `North` and BTN_Y
+  `West`, so `button_order` swaps X/Y for that source (Nacon GC-100 X mode; its O mode uses an
+  SDL mapping and needed nothing). **Windows** has no native path: the browser Gamepad API only
+  yields a usable pad when `mapping === 'standard'`, so a pad in a non-standard mode (GC-100 O
+  mode: mapping "", hat on axis 9) is ignored — a per-device mapping was written then dropped
+  (doesn't scale), the guide just says to use the Xbox-style mode. gilrs-on-Windows was
+  considered: its SDL DB has no Windows entry for the GC-100 either, and it can't be tested here.
+  Manual `workflow_dispatch` runs create a *draft release named after the branch* (tauri-action
+  gets `tagName`) — delete those; branch names with `/` broke the Windows zip name (now fixed).
 - **Examples**: `examples/NN-*.asm` (13 programs, English; 13 is the sound demo) are
   assembled + run + asserted by `src/assembler/examples.test.ts` (add a
   test + bump its count when adding one). `docs/user/EXAMPLES.md` embeds
