@@ -153,7 +153,7 @@ export default function Debugger({
         <button className="btn" onClick={handleReset}>
           ⟲ {t('reset')}
         </button>
-        <label className="speed-label">
+        <label className="speed-label" title={t('speed.title')}>
           {t('speed')}
           <select value={speed} onChange={(e) => setSpeed(Number(e.target.value))} title={t('speed.title')}>
             {SPEEDS.map((n) => (
