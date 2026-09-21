@@ -38,13 +38,14 @@ export const GAMEPAD_BUTTON_MAP: Readonly<Record<number, number>> = {
 
 // Non-standard pads that expose their D-pad as a hat switch on axis 9 (the
 // Chromium/Windows layout of cheap "Switch" wired pads, e.g. Vendor 20d6
-// Product a713): face buttons come in HID order, not the standard one.
+// Product a713): face buttons come in HID order (Y B A X by label), mapped
+// here by *position* like an Xbox pad: bottom = A, right = B, left = X, top = Y.
 export const HAT_AXIS = 9
 export const HAT_BUTTON_MAP: Readonly<Record<number, number>> = {
-  0: INPUT_BUTTON_Y,
-  1: INPUT_BUTTON_B,
-  2: INPUT_BUTTON_A,
-  3: INPUT_BUTTON_X,
+  0: INPUT_BUTTON_X,
+  1: INPUT_BUTTON_A,
+  2: INPUT_BUTTON_B,
+  3: INPUT_BUTTON_Y,
   8: INPUT_BUTTON_SELECT,
   9: INPUT_BUTTON_START,
 }
