@@ -88,6 +88,7 @@ The usual causes:
 Only the D-pad, A/B/X/Y, Start and Select are used; the shoulder buttons, triggers, stick clicks and the center (Home) button are ignored. The left stick also works as a D-pad.
 
 - **Some controllers have a mode switch** (for example X / O, or Xbox / PlayStation). If the four face buttons don't light up the matching on-screen buttons, try the other position.
+- **Windows: the controller isn't detected at all.** The app only accepts controllers that Windows presents as a standard (Xbox-style) gamepad. Put the controller in the mode that presents it as an Xbox controller (on the Nacon GC-100, the **X** position) and it works; in the other mode Windows reports it as a generic device and the app ignores it.
 - **Stuck directions after pressing the triggers** (Linux, versions up to 0.4.2): the D-pad stopped responding and *up* stayed held, and on some controllers a face button lit the wrong on-screen button. Fixed in later versions; if you still see it, update the app.
 - **Linux only**: to see what the native controller layer receives, start the app from a terminal with `RETRO68K_GAMEPAD_DEBUG=1` set in front of the command; every controller event is printed there. Include that output when [reporting an issue](#reporting-issues).
 
