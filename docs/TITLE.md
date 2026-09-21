@@ -47,7 +47,7 @@ Then open `http://localhost:3000` in your browser.
 ✅ TRAP system for interrupts/syscalls  
 ✅ 320×200 color LCD display (32-bit RGBA)  
 ✅ Real-time debugger with register visualization  
-📅 Syntax-highlighted assembly editor (planned)  
+✅ Syntax-highlighted assembly editor  
 
 ---
 
