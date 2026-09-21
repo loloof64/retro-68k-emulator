@@ -119,7 +119,7 @@ npm run test:ui
 
 - Audio backend for the tone generator: `TRAP #6` and the sound registers play through Web Audio
 
-### Phase 5: Editor finalization (🔄 In progress)
+### Phase 5: Editor finalization (✅ Done)
 
 - ✅ Real-time visualization (registers, flags, screen)
 - ✅ Breakpoints
