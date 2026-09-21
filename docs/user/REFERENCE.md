@@ -1,6 +1,6 @@
 # References and Guidelines
 
-This page documents what you can actually *do* today. Everything is covered — the CPU, the assembler, the memory map, the TRAP system calls and the debugger — except sound: the tone registers exist, but nothing plays them yet (see [Sound](#sound-wired-up-silent-for-now)). See [Presentation](./PRESENTATION.md) for the full roadmap.
+This page documents what you can actually *do* today. Everything is covered — the CPU, the assembler, the memory map, the TRAP system calls and the debugger — except sound: the tone registers exist, but nothing plays them yet (see [Sound](#sound)). See [Presentation](./PRESENTATION.md) for the full roadmap.
 
 ## Registers
 
@@ -14,7 +14,7 @@ The CPU core (registers, status flags, and the fetch-decode-execute loop) is imp
 
 A freshly created CPU — internally, `createCPU()`/`reset()` in the emulator's core — starts with every register at `0` except `A7`, which starts at `$03FFF` (the top of the default stack, which grows downward). The Debugger panel's "⟲ Reset" button does exactly this, then reloads the assembled program and points the CPU at its entry address.
 
-### Status Flags
+## Status Flags
 
 | Flag | Name | Meaning |
 |---|---|---|
@@ -122,7 +122,7 @@ on-screen buttons stop doing anything while it's plugged in).
         BEQ     A_NOT_PRESSED      ; Z=1 -> button A isn't held
 ```
 
-### Sound (Wired Up, Silent For Now)
+### Sound
 
 `$7E804`–`$7E80B` is laid out for a single-voice tone generator —
 frequency, duration, volume, waveform — the same idea as a PC speaker or
@@ -727,7 +727,7 @@ All seven TRAP vectors are wired in:
 | `#3` | `TRAP #3` | 4 | Writes `D0` (32-bit RGBA) as the pixel at the framebuffer address in `A0`. |
 | `#4` | `TRAP #4` | 4 | Fills every one of the 64,000 framebuffer pixels with `D0` (32-bit RGBA) — clears the screen to any solid color, not just black. |
 | `#5` | `TRAP #5` | 4 | Loads the controller button bitmask into D0 — a shortcut for reading `$7E800` directly. |
-| `#6` | `TRAP #6` | 4 | Writes D0 (frequency), D1 (duration), D2 (volume), D3 (waveform) into the [sound registers](#sound-wired-up-silent-for-now) and sets the trigger byte. |
+| `#6` | `TRAP #6` | 4 | Writes D0 (frequency), D1 (duration), D2 (volume), D3 (waveform) into the [sound registers](#sound) and sets the trigger byte. |
 
 ### Addressing a Pixel for TRAP #2/#3
 
