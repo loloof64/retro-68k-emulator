@@ -27,6 +27,11 @@ const documentStructure = [
   { title: 'Troubleshooting', file: 'TROUBLESHOOTING.md', id: 'troubleshooting' },
 ]
 
+// Shown on the cover under "User Guide", next to the app version. Update it
+// per release (what changed in the guide); leave it empty for none.
+const COVER_NOTE = 'gamepad layout and Windows notes'
+const { version } = JSON.parse(fs.readFileSync(path.join(projectRoot, 'package.json'), 'utf8'))
+
 function main() {
   console.log('📄 Generating User Guide PDF with WeasyPrint...\n')
 
@@ -48,7 +53,7 @@ function main() {
     documentStructure,
     pageTitle: 'Retro 68K Emulator - User Guide',
     coverTitle: 'Retro 68K Emulator',
-    coverSubtitle: 'User Guide',
+    coverSubtitle: `User Guide<br><span style="font-size: 0.75em">Version ${version}${COVER_NOTE ? ` — ${COVER_NOTE}` : ''}</span>`,
     footerLine: 'Retro 68K Emulator — User Guide',
   })
 
