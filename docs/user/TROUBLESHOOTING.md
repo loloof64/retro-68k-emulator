@@ -2,7 +2,9 @@
 
 Answers for the things most likely to trip you up while working through the [Reference](./REFERENCE.md) today — like the rest of this guide, this page only covers what's real right now, not the final wish list (see [Presentation](./PRESENTATION.md) for what's still ahead).
 
-## Program Issues
+## The Program Won't Run Properly
+
+The editor, Run button or debugger doesn't behave as expected: a breakpoint is ignored, the program never stops, or it runs too slowly.
 
 ### "My breakpoint is ignored"
 
@@ -37,7 +39,9 @@ The emulator's cycle counter is currently a flat number per instruction, not the
 - Prefer `MOVEQ` over `MOVE.L #imm` for small constants, and shifts (`ASL`/`LSL`, etc.) over `MULU`/`DIVU` for power-of-two math — see [Tips](./REFERENCE.md#tips).
 - Minimize memory access inside a hot loop where a register would do just as well — each cycle interprets exactly one instruction, with no recompilation to optimize a hot path away (see [Performance Notes](./REFERENCE.md#performance-notes)).
 
-## Execution Issues
+## The Program Runs but Gives Wrong Results
+
+The program runs to the end, but registers or values end up different from what you expected.
 
 ### "Registers don't change the way I expect"
 
