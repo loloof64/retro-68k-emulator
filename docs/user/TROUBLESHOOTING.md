@@ -81,6 +81,16 @@ The usual causes:
 - **Overflow** — check `V` (and `C` for unsigned) after the operation; both `ADD`/`SUB` and their `Q`-immediate forms set them.
 - **An off-by-one in a `DBcc`/`DBRA` loop count** — see [How does DBcc decide?](./REFERENCE.md#how-does-dbcc-decide).
 
+## The Gamepad Doesn't Behave
+
+### "My physical controller's buttons are wrong or the D-pad gets stuck"
+
+Only the D-pad, A/B/X/Y, Start and Select are used; the shoulder buttons, triggers, stick clicks and the center (Home) button are ignored. The left stick also works as a D-pad.
+
+- **Some controllers have a mode switch** (for example X / O, or Xbox / PlayStation). Pick the position where the four face buttons light up the matching on-screen buttons. On the Nacon GC-100 the **X** position works correctly; in the **O** position the Y button can behave like A.
+- **Avoid pressing the triggers and shoulder buttons** while playing. On some controllers they can cause the direction inputs to stick, which comes from the controller itself, not from the emulator.
+- **Linux only**: to see exactly what the controller sends, start the app from a terminal with `RETRO68K_GAMEPAD_DEBUG=1` set in front of the command; every controller event is printed there. Include that output when [reporting an issue](#reporting-issues).
+
 ## Getting More Help
 
 - **Compare with the [Example Programs](./EXAMPLES.md)**: thirteen complete, working programs (loops, framebuffer writes, subroutines, gamepad...) to check your code against.
