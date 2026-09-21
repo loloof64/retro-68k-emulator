@@ -1,6 +1,6 @@
 # Example Programs
 
-Thirteen small, complete programs to read, paste into the editor and run. Each one lives as a file in the `examples/` folder of the repository, and each is assembled and executed by the project's automated tests, so they are known to work.
+Thirteen small, complete programs to read, paste into the editor and run. Each one lives as a file in the `examples/` folder of the repository (`en`, `fr`, `es` subfolders) and can be loaded from the "Load an example" list above the editor, and each is assembled and executed by the project's automated tests, so they are known to work.
 
 To try one, copy its code into the editor, then press **Run** (or **Step** to follow it instruction by instruction). New to assembly? Read them in order: each builds on the ones before. Instruction details are in the [Reference](./REFERENCE.md).
 
@@ -8,7 +8,7 @@ To try one, copy its code into the editor, then press **Run** (or **Step** to fo
 
 The smallest useful program: put two numbers in *data registers* (`D0`–`D7`, the CPU's eight general-purpose 32-bit variables), add them, and store the result in memory. `A0` is an *address register*: `(A0)` means "the memory at the address held in `A0`".
 
-File: `examples/01-addition.asm`
+File: `examples/en/01-addition.asm`
 
 ```asm
         ORG     $2000           ; program starts at $2000
@@ -33,7 +33,7 @@ START:
 
 The 68000 has no loop instruction: a loop is a *label* (a name for an address) plus a *branch* back to it. `SUBQ` sets the Zero flag when the counter reaches 0, and `BNE` ("branch if not equal to zero") keeps looping until then.
 
-File: `examples/02-factorial.asm`
+File: `examples/en/02-factorial.asm`
 
 ```asm
         ORG     $2000
@@ -60,7 +60,7 @@ LOOP:
 
 The screen is memory: the framebuffer starts at `$40000` and each pixel is one long word, `$RRGGBBAA`. `(A0)+` writes at `A0` and then moves `A0` on by 4 bytes (*post-increment*). `DBRA` decrements its register and branches until it reaches -1, so a counter of `N - 1` runs the body `N` times.
 
-File: `examples/03-draw-line.asm`
+File: `examples/en/03-draw-line.asm`
 
 ```asm
         ORG     $2000
@@ -86,7 +86,7 @@ LOOP:
 
 `CMP` subtracts without storing the result; it only sets the flags, which the following `Bcc` (conditional branch) instructions test. See [Which Bcc do I want?](#which-bcc-do-i-want) in the reference.
 
-File: `examples/04-compare-branch.asm`
+File: `examples/en/04-compare-branch.asm`
 
 ```asm
         ORG     $2000
@@ -122,7 +122,7 @@ DONE:
 
 `DC.L` reserves data in the program itself, and `LEA` (load effective address) puts the address of a label in an address register. With `(A0)+`, each `ADD` reads one element and steps to the next.
 
-File: `examples/05-array-sum.asm`
+File: `examples/en/05-array-sum.asm`
 
 ```asm
         ORG     $2000
@@ -151,7 +151,7 @@ ARRAY:
 
 `JSR` pushes the *return address* onto the stack (pointed to by `A7`) and jumps to the label; `RTS` pops it and resumes just after the `JSR`. Here the argument and the result both travel in `D0`, a common convention.
 
-File: `examples/06-subroutine.asm`
+File: `examples/en/06-subroutine.asm`
 
 ```asm
         ORG     $2000
@@ -175,7 +175,7 @@ SQUARE:
 
 `AND` keeps only the bits set in the mask, `OR` forces bits on, `EOR` (exclusive or) flips them, `NOT` inverts everything. Hex digits map to four bits each, so the results can be checked by hand.
 
-File: `examples/07-bitwise.asm`
+File: `examples/en/07-bitwise.asm`
 
 ```asm
         ORG     $2000
@@ -201,7 +201,7 @@ START:
 
 Shifting left by `n` multiplies by 2^n, shifting right divides. `ASR` (arithmetic) copies the sign bit in, so negative numbers stay negative; `LSR` (logical) shifts in zeros. `ROL` rotates: bits pushed out on the left come back in on the right.
 
-File: `examples/08-shifts.asm`
+File: `examples/en/08-shifts.asm`
 
 ```asm
         ORG     $2000
@@ -231,7 +231,7 @@ START:
 
 Two nested loops: 200 rows of 320 pixels. `NOT.L` flips the pixel color between opaque white and 0, which the screen shows as black. Because a row has an even number of pixels, one extra `NOT` per row is what makes it a checkerboard rather than stripes. It runs about 190,000 instructions, so pick a high speed in the debugger.
 
-File: `examples/09-checkerboard.asm`
+File: `examples/en/09-checkerboard.asm`
 
 ```asm
         ORG     $2000
@@ -264,7 +264,7 @@ PIXEL:
 
 `TRAP #1` draws a null-terminated string (bytes followed by a `0`): `A0` points to it, `D0`/`D1` are the x/y pixel, `D2` is the color. See [Printing Text with TRAP #1](#printing-text-with-trap-1).
 
-File: `examples/10-hello-text.asm`
+File: `examples/en/10-hello-text.asm`
 
 ```asm
         ORG     $2000
@@ -298,7 +298,7 @@ WORLD:
 
 `TRAP #5` loads the button bitmask into `D0`; `BTST #n,Dn` sets the Zero flag when bit `n` is 0, so `BEQ` skips the code when the button is *not* held. `TRAP #4` overwrites `D0`, so the buttons are first copied to `D1`. The screen is only cleared when the color changes, to keep the loop cheap. See [Reading the Gamepad](#reading-the-gamepad).
 
-File: `examples/11-gamepad.asm`
+File: `examples/en/11-gamepad.asm`
 
 ```asm
         ORG     $2000
@@ -340,7 +340,7 @@ SAME:
 
 `TRAP #4` fills the screen with `D0`. `TRAP #3` takes a byte address in `A0`, not x/y, so the program computes `$40000 + (y * 320 + x) * 4` first. See [Addressing a Pixel for TRAP #2/#3](#addressing-a-pixel-for-trap-23).
 
-File: `examples/12-plot-pixel.asm`
+File: `examples/en/12-plot-pixel.asm`
 
 ```asm
         ORG     $2000
@@ -369,7 +369,7 @@ START:
 
 `TRAP #6` plays one tone: `D0` = frequency (Hz), `D1` = duration (ms), `D2` = volume (0-255), `D3` = waveform (0 square, 1 sine, 2 triangle, 3 sawtooth, 4 noise). The CPU does not wait for a tone to end and a new tone cuts the previous one, so the program counts down in a loop between notes — a "loop" here is just a label and a backward `DBRA`. The delay depends on the debugger speed (about 250 ms at 2000 instr/(1/60 s)). See [Reference](./REFERENCE.md) for the sound registers.
 
-File: `examples/13-sound.asm`
+File: `examples/en/13-sound.asm`
 
 ```asm
         ORG     $2000

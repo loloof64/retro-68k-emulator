@@ -164,7 +164,9 @@ docs:pdf:user`.
   considered: its SDL DB has no Windows entry for the GC-100 either, and it can't be tested here.
   Manual `workflow_dispatch` runs create a *draft release named after the branch* (tauri-action
   gets `tagName`) — delete those; branch names with `/` broke the Windows zip name (now fixed).
-- **Examples**: `examples/NN-*.asm` (13 programs, English; 13 is the sound demo) are
+- **Examples**: `examples/{en,fr,es}/NN-*.asm` (13 programs; fr/es = same code, translated
+  comments, enforced by a test; the 2nd line is the title shown in the editor's "Load an example"
+  dropdown, `src/examples.ts` via `import.meta.glob`; picks the current locale) — the `en` ones are
   assembled + run + asserted by `src/assembler/examples.test.ts` (add a
   test + bump its count when adding one). `docs/user/EXAMPLES.md` embeds
   the same code (copied, comments kept <= 66 cols, long comments go on

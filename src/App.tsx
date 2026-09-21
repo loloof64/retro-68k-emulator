@@ -8,6 +8,7 @@ import { SystemMemory } from './memory'
 import LanguageSelect from './components/LanguageSelect'
 import { remapBreakpoints } from './breakpoints'
 import { translate, useI18n } from './i18n'
+import { examplesFor } from './examples'
 
 export default function App() {
   const { t, locale } = useI18n()
@@ -37,6 +38,25 @@ export default function App() {
       <div className="container">
         <div className="panel editor-panel">
           <h2>{t('panel.editor')}</h2>
+          <select
+            className="example-select"
+            value=""
+            disabled={isRunning}
+            onChange={(e) => {
+              const example = examplesFor(locale).find((x) => x.id === e.target.value)
+              if (!example) return
+              setAsmCode(example.code)
+              setBreakpoints(new Set())
+              setCurrentLine(undefined)
+            }}
+          >
+            <option value="">{t('examples.load')}</option>
+            {examplesFor(locale).map((x) => (
+              <option key={x.id} value={x.id}>
+                {x.title}
+              </option>
+            ))}
+          </select>
           <Editor
             code={asmCode}
             onChange={(code) => {

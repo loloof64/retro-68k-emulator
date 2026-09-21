@@ -6,7 +6,7 @@ import { createCPU, step } from '../cpu'
 import { opcodeTable } from '../cpu/opcodes'
 import { Register } from '../types/cpu'
 
-const DIR = 'examples'
+const DIR = 'examples/en'
 
 function load(name: string) {
   const p = assemble(readFileSync(`${DIR}/${name}`, 'utf8'))
@@ -25,7 +25,22 @@ function run(name: string, max = 500_000) {
 const d = (cpu: { registers: ArrayLike<number> }, n: number) => cpu.registers[Register.D0 + n] >>> 0
 const px = (m: SystemMemory, x: number, y: number) => m.read32(FRAMEBUFFER_START + (y * FRAMEBUFFER_WIDTH + x) * 4)
 
-describe('examples/*.asm', () => {
+describe('translated examples', () => {
+  const code = (s: string) => s.split('\n').map((l) => l.replace(/;.*$/, '').trimEnd())
+  for (const lang of ['fr', 'es'])
+    it(`${lang} only differs from en by its comments`, () => {
+      const files = readdirSync(DIR)
+      expect(readdirSync(`examples/${lang}`)).toEqual(files)
+      for (const f of files) {
+        const en = readFileSync(`${DIR}/${f}`, 'utf8')
+        const tr = readFileSync(`examples/${lang}/${f}`, 'utf8')
+        expect(code(tr), f).toEqual(code(en))
+        expect(tr, f).not.toBe(en)
+      }
+    })
+})
+
+describe('examples/en/*.asm', () => {
   it('every example is covered below', () => {
     expect(readdirSync(DIR).filter((f) => f.endsWith('.asm')).length).toBe(13)
   })
