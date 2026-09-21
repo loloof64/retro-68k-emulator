@@ -154,24 +154,29 @@ export default function Debugger({
         <button className="btn" onClick={handleReset}>
           ⟲ {t('reset')}
         </button>
-        <label className="speed-label" title={t('speed.title')}>
-          {t('speed')}
-          <select value={speed} onChange={(e) => setSpeed(Number(e.target.value))} title={t('speed.title')}>
+        <div className="speed-label">
+          <label htmlFor="speed-select">{t('speed')}</label>
+          <button
+            className="btn speed-help-btn"
+            onClick={() => setShowSpeedHelp((v) => !v)}
+            aria-label={t('speed.help')}
+            aria-expanded={showSpeedHelp}
+          >
+            ?
+          </button>
+          <select
+            id="speed-select"
+            value={speed}
+            onChange={(e) => setSpeed(Number(e.target.value))}
+            title={t('speed.title')}
+          >
             {SPEEDS.map((n) => (
               <option key={n} value={n}>
                 {n} {t('speed.unit')}
               </option>
             ))}
           </select>
-        </label>
-        <button
-          className="btn speed-help-btn"
-          onClick={() => setShowSpeedHelp((v) => !v)}
-          aria-label={t('speed.help')}
-          aria-expanded={showSpeedHelp}
-        >
-          ?
-        </button>
+        </div>
       </div>
       {showSpeedHelp && <p className="speed-help">{t('speed.title')}</p>}
 
