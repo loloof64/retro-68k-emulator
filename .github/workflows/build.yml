@@ -31,7 +31,7 @@ jobs:
           id=$(gh api "repos/${{ github.repository }}/releases" \
             -f tag_name='${{ github.ref_name }}' \
             -f name='68K Emulator ${{ github.ref_name }}' \
-            -f body='Memory inspector in the debugger (hex + ASCII dump, follow writes, click-to-edit bytes) and a fix for the first-sound latency. See CHANGELOG.md for details on this release.' \
+            -f body='First stable release: bookmarks in the editor (remembered per file along with breakpoints) and a fix for breakpoints skipped by Run. See CHANGELOG.md for details on this release.' \
             -F draft=true -F prerelease=false --jq .id)
           echo "release_id=$id" >> "$GITHUB_OUTPUT"
 
