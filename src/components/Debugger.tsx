@@ -24,6 +24,10 @@ interface DebuggerProps {
 }
 
 
+type DataFormat = 'hex' | 'dec' | 'bin'
+const formatData = (v: number, f: DataFormat) =>
+  f === 'dec' ? String(v | 0) : f === 'bin' ? (v >>> 0).toString(2).padStart(32, '0') : '$' + hex32(v)
+
 const hex32 = (v: number) => (v >>> 0).toString(16).toUpperCase().padStart(8, '0')
 
 export default function Debugger({
@@ -45,6 +49,7 @@ export default function Debugger({
   const [errors, setErrors] = useState<AssemblerError[]>([])
   const [runtimeError, setRuntimeError] = useState<string | null>(null)
   const [speed, setSpeed] = useState(2000)
+  const [dataFormat, setDataFormat] = useState<DataFormat>('hex')
   const [showSpeedHelp, setShowSpeedHelp] = useState(false)
   const speedRef = useRef(speed)
   speedRef.current = speed
@@ -214,6 +219,16 @@ export default function Debugger({
         <div className="info-row">
           <span>{t('cycles')}:</span>
           <code>{cycles}</code>
+          <select
+            value={dataFormat}
+            onChange={(e) => setDataFormat(e.target.value as DataFormat)}
+            aria-label={t('dfmt')}
+            title={t('dfmt')}
+          >
+            {(['hex', 'dec', 'bin'] as const).map((f) => (
+              <option key={f} value={f}>{t(`dfmt.${f}`)}</option>
+            ))}
+          </select>
         </div>
         {currentLine !== undefined && (
           <div className="info-row">
@@ -225,10 +240,17 @@ export default function Debugger({
       </div>
 
       <div className="registers-grid">
-        {[0, 1, 2, 3, 4, 5, 6, 7].flatMap((i) => [`D${i}`, `A${i}`]).map((reg) => (
-          <div key={reg} className="register" title={decimalTitle(registers[reg])}>
+        {(dataFormat === 'bin'
+          ? [0, 1, 2, 3, 4, 5, 6, 7].map((i) => `D${i}`).concat([0, 1, 2, 3, 4, 5, 6, 7].map((i) => `A${i}`))
+          : [0, 1, 2, 3, 4, 5, 6, 7].flatMap((i) => [`D${i}`, `A${i}`])
+        ).map((reg) => (
+          <div
+            key={reg}
+            className={`register${dataFormat === 'bin' && reg[0] === 'D' ? ' wide' : ''}`}
+            title={decimalTitle(registers[reg])}
+          >
             <span className="reg-name">{reg}</span>
-            <code>${hex32(registers[reg])}</code>
+            <code>{formatData(registers[reg], reg[0] === 'D' ? dataFormat : 'hex')}</code>
           </div>
         ))}
       </div>

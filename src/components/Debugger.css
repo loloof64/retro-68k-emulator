@@ -79,6 +79,10 @@
   font-size: 11px;
 }
 
+.register.wide {
+  grid-column: 1 / -1;
+}
+
 .reg-name {
   color: var(--text-secondary);
   font-weight: 500;
