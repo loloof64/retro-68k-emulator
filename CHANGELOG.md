@@ -4,6 +4,20 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.4.0] - 2026-09-21
+
+Sound implemented.
+
+### Added
+- Sound: `TRAP #6` tones (and direct writes to the sound registers) are played through Web Audio — square, sine, triangle, sawtooth and noise waveforms, single voice
+- Example 13: a C major scale
+
+### Fixed
+- Run speed no longer depends on the display's refresh rate: the instruction count per tick scales with elapsed time (speed = instructions per 1/60 s)
+
+### Changed
+- Docs state that the macOS builds are not tested yet
+
 ## [0.3.0] - 2026-09-21
 
 Gamepad support fixed.
