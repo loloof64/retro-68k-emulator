@@ -69,3 +69,9 @@
   margin: 6px 12px;
   font-size: 12px;
 }
+
+.file-button {
+  margin: 6px 0 6px 6px;
+  font-size: 12px;
+  cursor: pointer;
+}

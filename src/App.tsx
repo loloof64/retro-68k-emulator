@@ -23,6 +23,19 @@ export default function App() {
       if (!next.delete(line)) next.add(line)
       return next
     })
+  const loadSource = (code: string) => {
+    setAsmCode(code)
+    setBreakpoints(new Set())
+    setCurrentLine(undefined)
+  }
+  const openFile = async (file?: File) => file && loadSource(await file.text())
+  const saveFile = () => {
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(new Blob([asmCode], { type: 'text/plain' }))
+    a.download = 'program.asm'
+    a.click()
+    URL.revokeObjectURL(a.href)
+  }
   const [frame, setFrame] = useState(0) // bumped to make Screen repaint
 
   // Not React state on purpose: the controller reports button changes up to
@@ -45,9 +58,7 @@ export default function App() {
             onChange={(e) => {
               const example = examplesFor(locale).find((x) => x.id === e.target.value)
               if (!example) return
-              setAsmCode(example.code)
-              setBreakpoints(new Set())
-              setCurrentLine(undefined)
+              loadSource(example.code)
             }}
           >
             <option value="">{t('examples.load')}</option>
@@ -57,6 +68,22 @@ export default function App() {
               </option>
             ))}
           </select>
+          <label className="file-button">
+            {t('file.open')}
+            <input
+              type="file"
+              accept=".asm,.s,.txt,text/plain"
+              hidden
+              disabled={isRunning}
+              onChange={(e) => {
+                openFile(e.target.files?.[0])
+                e.target.value = '' // allow re-opening the same file
+              }}
+            />
+          </label>
+          <button className="file-button" onClick={saveFile}>
+            {t('file.save')}
+          </button>
           <Editor
             code={asmCode}
             onChange={(code) => {

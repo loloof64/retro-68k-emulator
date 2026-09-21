@@ -1,6 +1,8 @@
 export const en = {
   language: 'Language',
   'examples.load': 'Load an example…',
+  'file.open': 'Open…',
+  'file.save': 'Save',
   'panel.editor': 'Assembler',
   'panel.debugger': 'Debugger',
   'panel.screen': 'LCD screen',
@@ -69,6 +71,8 @@ export type MessageKey = keyof typeof en
 export const fr: Record<MessageKey, string> = {
   language: 'Langue',
   'examples.load': 'Charger un exemple…',
+  'file.open': 'Ouvrir…',
+  'file.save': 'Enregistrer',
   'panel.editor': 'Assembleur',
   'panel.debugger': 'Débogueur',
   'panel.screen': 'Écran LCD',
@@ -135,6 +139,8 @@ LINE:
 export const es: Record<MessageKey, string> = {
   language: 'Idioma',
   'examples.load': 'Cargar un ejemplo…',
+  'file.open': 'Abrir…',
+  'file.save': 'Guardar',
   'panel.editor': 'Ensamblador',
   'panel.debugger': 'Depurador',
   'panel.screen': 'Pantalla LCD',
