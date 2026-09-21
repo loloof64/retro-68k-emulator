@@ -102,6 +102,51 @@ The emulator's memory system is implemented and working. Every address below is 
 
 To find the address of a given pixel, see [Addressing a Pixel for TRAP #2/#3](#addressing-a-pixel-for-trap-23).
 
+### Colors
+
+A color is one 32-bit value, written `$RRGGBBAA` in hexadecimal: two hex digits (one byte, `$00`–`$FF`) each for red, green, blue and alpha. The same format is used everywhere a color appears: pixels in the framebuffer, the `D2` color of `TRAP #1`, and the `D0` value of `TRAP #2`, `#3` and `#4`.
+
+```
+     31      24 23      16 15       8 7        0
+    +----------+----------+----------+----------+
+    |   RED    |  GREEN   |   BLUE   |  ALPHA   |
+    | $00-$FF  | $00-$FF  | $00-$FF  | $00-$FF  |
+    +----------+----------+----------+----------+
+```
+
+Each component runs from `$00` (none) to `$FF` (full). The 68000 stores the most significant byte first, so in memory a pixel's four bytes are red, green, blue, alpha, in that order, at increasing addresses.
+
+**Alpha is ignored:** the screen has no transparency, so `$FF0000FF` and `$FF000000` both show pure red. By convention programs write `$FF` there (*opaque*). This is also why a pixel of `$00000000` shows as black.
+
+| Color | Value |
+|---|---|
+| Black | `$000000FF` |
+| White | `$FFFFFFFF` |
+| Red | `$FF0000FF` |
+| Green | `$00FF00FF` |
+| Blue | `$0000FFFF` |
+| Yellow | `$FFFF00FF` |
+| Cyan | `$00FFFFFF` |
+| Magenta | `$FF00FFFF` |
+| Orange | `$FF8000FF` |
+
+To read one component back out of a color, *shift* it down to the lowest byte, then *mask* off what is above it. A shift moves every bit of a register by a given number of places (`LSR`, "logical shift right", moves bits toward the low end and fills with zeros); a mask is an `AND` with `$FF`, which keeps only the low 8 bits and clears the rest. The red byte is already the top one, so shifting by 24 leaves only it:
+
+```
+        MOVE.L  #$FF8040FF,D0   ; a color: R=$FF G=$80 B=$40 A=$FF
+        MOVE.L  D0,D1
+        MOVEQ   #16,D2          ; shift count: 16 bits
+        LSR.L   D2,D1           ; D1 = $0000FF80
+        ANDI.L  #$FF,D1         ; D1 = $00000080: the green byte
+        MOVE.L  D0,D3
+        MOVEQ   #24,D2
+        LSR.L   D2,D3           ; D3 = $000000FF: the red byte
+        MOVE.L  D0,D4
+        ANDI.L  #$FF,D4         ; D4 = $000000FF: the alpha byte
+```
+
+The blue byte needs a shift by 8 and the same mask. To go the other way and *build* a color from components, shift left (`LSL`) and `OR` the pieces together, or simply write the whole `$RRGGBBAA` value as one immediate, which is what the [example programs](./EXAMPLES.md) do.
+
 ### Reading the Gamepad
 
 `$7E800` is a live 32-bit bitmask of the current button state — bit `1`
