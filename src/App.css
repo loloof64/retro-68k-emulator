@@ -9,7 +9,7 @@
 .container {
   display: grid;
   /* Editor takes what the fixed-width debugger and screen columns leave. */
-  grid-template-columns: minmax(0, 1fr) 320px 380px;
+  grid-template-columns: minmax(0, 1fr) 400px 380px;
   gap: 8px;
   padding: 12px;
   height: 100%;
