@@ -31,7 +31,7 @@ jobs:
           id=$(gh api "repos/${{ github.repository }}/releases" \
             -f tag_name='${{ github.ref_name }}' \
             -f name='68K Emulator ${{ github.ref_name }}' \
-            -f body='Linux gamepad fix: pressing a trigger no longer holds a direction or disables the D-pad, and face buttons map correctly on the Nacon GC-100. See CHANGELOG.md for details on this release.' \
+            -f body='Linux gamepad fix: X and Y are no longer swapped on controllers without an SDL mapping (Nacon GC-100 in its X mode). User guide: gamepad layout and Windows notes. See CHANGELOG.md for details on this release.' \
             -F draft=true -F prerelease=false --jq .id)
           echo "release_id=$id" >> "$GITHUB_OUTPUT"
 
