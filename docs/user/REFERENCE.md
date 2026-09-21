@@ -936,11 +936,11 @@ The interface is available in English, French and Spanish. It starts in your bro
 - **Run / Pause** (*Exécuter* / *Ejecutar* in French / Spanish) starts or stops continuous execution. Run also stops by itself on a breakpoint (see [My breakpoint is ignored](./TROUBLESHOOTING.md#my-breakpoint-is-ignored)), a runtime error, or the program's exit.
 - **Step** (*Pas à pas* / *Paso*) executes exactly one instruction, ignores breakpoints, and is only available while the program is paused.
 - **Reset** (*Réinitialiser* / *Reiniciar*) puts the CPU back to its initial state.
-- **Speed** (*Vitesse* in French, *Velocidad* in Spanish) is the drop-down list (`10`, `200`, `2000` or `20000` instr./frame). It sets how many instructions Run executes per *frame* — one refresh of the screen, roughly 60 times per second on a typical display.
+- **Speed** (*Vitesse* in French, *Velocidad* in Spanish) is the drop-down list (`10`, `200`, `2000` or `20000` instructions per refresh). It sets how many instructions Run executes per *refresh* — one repaint of the screen, roughly 60 times per second on a typical display.
 
-At the default `2000 instr./frame`, that is about 120,000 instructions per second. `10` gives about 600 per second, slow enough to follow a program by eye, and `20000` about 1.2 million per second, for long computations. Speed only changes how fast the program runs on screen, never what it computes, and it has no effect on Step.
+At the default `2000 instructions per refresh`, that is about 120,000 instructions per second. `10` gives about 600 per second, slow enough to follow a program by eye, and `20000` about 1.2 million per second, for long computations. Speed only changes how fast the program runs on screen, never what it computes, and it has no effect on Step.
 
-The screen is repainted once per frame, so a low Speed also makes a drawing program appear pixel by pixel. Speed does not change the cycle counter, which counts the emulated CPU's instructions, not real time (see [Performance Notes](#performance-notes)).
+The screen is repainted once per refresh, so a low Speed also makes a drawing program appear pixel by pixel. Speed does not change the cycle counter, which counts the emulated CPU's instructions, not real time (see [Performance Notes](#performance-notes)).
 
 ## Performance Notes
 
