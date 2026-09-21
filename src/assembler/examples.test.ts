@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { readdirSync, readFileSync } from 'fs'
 import { assemble } from './index'
-import { SystemMemory, FRAMEBUFFER_START, FRAMEBUFFER_WIDTH, INPUT_BUTTON_A, INPUT_BUTTON_START } from '../memory'
+import { SystemMemory, FRAMEBUFFER_START, FRAMEBUFFER_WIDTH, INPUT_BUTTON_A, INPUT_BUTTON_START, SOUND_TRIGGER, SOUND_FREQUENCY } from '../memory'
 import { createCPU, step } from '../cpu'
 import { opcodeTable } from '../cpu/opcodes'
 import { Register } from '../types/cpu'
@@ -27,7 +27,7 @@ const px = (m: SystemMemory, x: number, y: number) => m.read32(FRAMEBUFFER_START
 
 describe('examples/*.asm', () => {
   it('every example is covered below', () => {
-    expect(readdirSync(DIR).filter((f) => f.endsWith('.asm')).length).toBe(12)
+    expect(readdirSync(DIR).filter((f) => f.endsWith('.asm')).length).toBe(13)
   })
 
   it('01 addition', () => {
@@ -85,5 +85,18 @@ describe('examples/*.asm', () => {
     const { memory } = run('12-plot-pixel.asm')
     expect(px(memory, 0, 0)).toBe(0x0000ffff)
     expect(px(memory, 50, 10)).toBe(0xffffffff)
+  })
+  it('13 sound: plays 8 notes then exits', () => {
+    const { cpu, memory } = load('13-sound.asm')
+    const freqs: number[] = []
+    for (let i = 0; i < 500000 && !cpu.halted; i++) {
+      step(cpu, memory, opcodeTable)
+      if (memory.read8(SOUND_TRIGGER)) {
+        freqs.push(memory.read16(SOUND_FREQUENCY))
+        memory.write8(SOUND_TRIGGER, 0)
+      }
+    }
+    expect(cpu.halted).toBe(true)
+    expect(freqs).toEqual([262, 294, 330, 349, 392, 440, 494, 523])
   })
 })

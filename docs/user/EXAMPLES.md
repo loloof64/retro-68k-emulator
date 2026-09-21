@@ -1,10 +1,8 @@
 # Example Programs
 
-Twelve small, complete programs to read, paste into the editor and run. Each one lives as a file in the `examples/` folder of the repository, and each is assembled and executed by the project's automated tests, so they are known to work.
+Thirteen small, complete programs to read, paste into the editor and run. Each one lives as a file in the `examples/` folder of the repository, and each is assembled and executed by the project's automated tests, so they are known to work.
 
 To try one, copy its code into the editor, then press **Run** (or **Step** to follow it instruction by instruction). New to assembly? Read them in order: each builds on the ones before. Instruction details are in the [Reference](./REFERENCE.md).
-
-Sound (`TRAP #6`) is played through the browser's Web Audio, but no example uses it yet.
 
 ## Example 1: Adding two numbers
 
@@ -366,3 +364,37 @@ START:
 ```
 
 **Result:** A blue screen with one white pixel at (50, 10).
+
+## Example 13: Playing a scale
+
+`TRAP #6` plays one tone: `D0` = frequency (Hz), `D1` = duration (ms), `D2` = volume (0-255), `D3` = waveform (0 square, 1 sine, 2 triangle, 3 sawtooth, 4 noise). The CPU does not wait for a tone to end and a new tone cuts the previous one, so the program counts down in a loop between notes — a "loop" here is just a label and a backward `DBRA`. The delay depends on the debugger speed (about 250 ms at 2000 instr/frame). See [Reference](./REFERENCE.md) for the sound registers.
+
+File: `examples/13-sound.asm`
+
+```asm
+        ORG     $2000
+
+START:
+        LEA     NOTES,A0        ; A0 -> first frequency
+        MOVE.W  #7,D5           ; 8 notes, DBRA counts down to -1
+
+NEXT:
+        MOVE.W  (A0)+,D0        ; frequency, then A0 moves on
+        MOVE.W  #250,D1         ; 250 ms
+        MOVE.B  #200,D2         ; volume
+        MOVE.B  #1,D3           ; sine wave
+        TRAP    #6              ; play it
+
+        MOVE.W  #30000,D4       ; wait: one DBRA per pass
+WAIT:
+        DBRA    D4,WAIT
+        DBRA    D5,NEXT         ; next note
+
+        TRAP    #0              ; exit
+
+NOTES:  DC.W    262,294,330,349,392,440,494,523
+
+        END     START
+```
+
+**Result:** The eight notes of a C major scale, then the program exits. Sound only starts after you press **Run** or **Step**.

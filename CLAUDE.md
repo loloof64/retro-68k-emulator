@@ -137,7 +137,7 @@ docs:pdf:user`.
   stick read in `gamepadToMask`; under Tauri on Linux WebKitGTK has no
   `navigator.getGamepads`, so `src-tauri/src/lib.rs` polls `gilrs` and emits
   `gamepad-state` events that `Controller.tsx` consumes. Dev port moved to 1420.
-- **Examples**: `examples/NN-*.asm` (12 programs, English, no sound) are
+- **Examples**: `examples/NN-*.asm` (13 programs, English; 13 is the sound demo) are
   assembled + run + asserted by `src/assembler/examples.test.ts` (add a
   test + bump its count when adding one). `docs/user/EXAMPLES.md` embeds
   the same code (copied, comments kept <= 66 cols, long comments go on
