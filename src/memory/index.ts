@@ -117,6 +117,12 @@ export class SystemMemory implements Memory {
     for (let i = 0; i < length && this.written.size < 64; i++) this.written.add(address + i)
   }
 
+  // Debugger edit: stores a byte without counting as a program write.
+  patch8(address: number, value: number): void {
+    this.checkBounds(address, 1)
+    this.bytes[address] = value & 0xff
+  }
+
   // Bytes written (and the last address written) since the previous call.
   takeWrites(): { last: number | undefined; bytes: Set<number> } {
     const taken = { last: this.lastWrite, bytes: this.written }

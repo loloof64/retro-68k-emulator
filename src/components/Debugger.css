@@ -249,3 +249,22 @@ p.errors {
 .mem-follow {
   line-height: 1;
 }
+
+.mem-byte {
+  cursor: pointer;
+}
+
+.mem-edit {
+  width: 2ch;
+  padding: 0;
+  border: 0;
+  outline: 1px solid var(--accent);
+  background: var(--bg-secondary);
+  color: inherit;
+  font: inherit;
+  text-transform: uppercase;
+}
+
+.mem-edit.invalid {
+  outline-color: #f48771;
+}

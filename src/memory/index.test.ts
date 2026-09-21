@@ -137,6 +137,13 @@ describe('SystemMemory', () => {
       expect(mem.takeWrites().last).toBeUndefined()
     })
 
+    it('patch8 stores a byte without counting as a program write', () => {
+      const mem = new SystemMemory()
+      mem.patch8(0x2000, 0xab)
+      expect(mem.read8(0x2000)).toBe(0xab)
+      expect(mem.takeWrites().last).toBeUndefined()
+    })
+
     it('ignores the gamepad button mask', () => {
       const mem = new SystemMemory()
       mem.write8(0x2000, 1)

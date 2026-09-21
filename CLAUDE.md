@@ -90,6 +90,15 @@ docs:pdf:user`.
   the overlay math holds); Run stops on a breakpoint line; a select
   sets instructions per frame. Still a plain `<textarea>`, no syntax
   highlighting.
+- **Debugger memory inspector: done** (`src/components/MemoryView.tsx`, pure helpers in
+  `src/memoryView.ts`). Read-only hex+ASCII dump, 8 bytes x 16 rows (a 16-byte row + ASCII
+  overflows the 400px column), go-to / pages / shortcuts. Highlights bytes the *program* wrote
+  (`SystemMemory.takeWrites()`, capped at 64 bytes per refresh; `setButtonState` and
+  `patch8` deliberately don't count), and "Follow writes" (default on) jumps to the last
+  written address on Step/Pause, never during Run. Click-to-edit a byte (2 hex digits, Enter =
+  store + next byte) via `patch8`, disabled while running; edits are wiped when the program is
+  reloaded (Reset, or the first Step/Run). Also: registers are shown D|A side by side to save
+  height (panel must fit ~768px without scrolling, check after touching the layout).
 - **Gamepad UI: implemented** (on-screen + real Gamepad API, auto-switches),
   **including physical-controller visual feedback** (`src/components/
   Controller.tsx`): the polled bitmask is mirrored into a `buttonMask`

@@ -9,6 +9,7 @@ interface MemoryViewProps {
   a7: number
   tick: number // bumped by the Debugger whenever the CPU/memory may have changed
   isRunning: boolean
+  onEdit: () => void // a byte was edited by hand: the screen may need a repaint
 }
 
 const readWindow = (memory: SystemMemory, base: number) => {
@@ -26,11 +27,14 @@ const readWindow = (memory: SystemMemory, base: number) => {
 // Read-only hex dump of a 128-byte window. Bytes the program wrote since the previous
 // refresh are highlighted; the byte at PC is marked. With "follow" on, the window
 // jumps to the last address written on Step and Pause (never while running).
-export default function MemoryView({ memory, pc, a7, tick, isRunning }: MemoryViewProps) {
+export default function MemoryView({ memory, pc, a7, tick, isRunning, onEdit }: MemoryViewProps) {
   const { t } = useI18n()
   const [base, setBase] = useState(USER_RAM_START)
   const [goto, setGoto] = useState('')
   const [follow, setFollow] = useState(true)
+  const [editAt, setEditAt] = useState<number | null>(null) // address of the byte being edited
+  const [draft, setDraft] = useState('')
+  const editing = isRunning ? null : editAt // no editing while the program runs
   const followRef = useRef({ follow, isRunning })
   followRef.current = { follow, isRunning }
 
@@ -59,6 +63,21 @@ export default function MemoryView({ memory, pc, a7, tick, isRunning }: MemoryVi
     if (address !== null) jump(address)
   }
 
+  const startEdit = (address: number, value: number) => {
+    if (isRunning) return
+    setEditAt(address)
+    setDraft(hex(value, 2))
+  }
+  // Enter: store the byte and move on to the next one (handy to type a run of values).
+  const commit = () => {
+    if (editAt === null || !/^[0-9a-f]{1,2}$/i.test(draft)) return
+    memory.patch8(editAt, parseInt(draft, 16))
+    onEdit()
+    const next = editAt + 1
+    if (next < base + cur.length) startEdit(next, memory.read8(next))
+    else setEditAt(null)
+  }
+
   const rows = []
   for (let r = 0; r < WINDOW_ROWS && r * ROW_BYTES < cur.length; r++) {
     const bytes = cur.slice(r * ROW_BYTES, (r + 1) * ROW_BYTES)
@@ -70,8 +89,34 @@ export default function MemoryView({ memory, pc, a7, tick, isRunning }: MemoryVi
           const cls = ['mem-byte']
           if (written.has(base + at)) cls.push('changed')
           if (base + at === pc) cls.push('pc')
+          const address = base + at
+          if (address === editing) {
+            const valid = /^[0-9a-f]{1,2}$/i.test(draft)
+            return (
+              <input
+                key={i}
+                className={`mem-edit${valid ? '' : ' invalid'}`}
+                value={draft}
+                maxLength={2}
+                autoFocus
+                onFocus={(e) => e.target.select()}
+                onChange={(e) => setDraft(e.target.value)}
+                onBlur={() => setEditAt(null)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') commit()
+                  else if (e.key === 'Escape') setEditAt(null)
+                }}
+                aria-label={t('memory.edit')}
+              />
+            )
+          }
           return (
-            <span key={i} className={cls.join(' ')}>
+            <span
+              key={i}
+              className={cls.join(' ')}
+              title={isRunning ? undefined : t('memory.edit')}
+              onClick={() => startEdit(address, b)}
+            >
               {hex(b, 2)}
             </span>
           )

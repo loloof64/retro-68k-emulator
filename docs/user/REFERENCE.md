@@ -822,7 +822,16 @@ The Debugger panel ends with a **Memory** section: a read-only hex dump of 128 b
 - Bytes your program just wrote are highlighted in red, and the byte at PC has a yellow outline.
 - "Follow writes" (on by default) moves the window to the last address written each time you Step or Pause, so you don't have to hunt for it. It stays still while the program runs, and turns itself off when you navigate by hand; tick it again to resume.
 
-Editing bytes is not supported yet.
+### Editing a byte
+
+Click a byte to edit it: it turns into a two-digit hexadecimal field, already selected. Type the new value and press Enter to store it; you then land on the next byte, which is handy to type a run of values. Escape (or clicking elsewhere) cancels, and a field that is not valid hexadecimal (shown with a red outline) is refused.
+
+- Editing works while the program is paused or stepping, and is switched off while it runs: the program would be overwriting memory thousands of times per frame, and your value would be lost or would corrupt whatever the program was using.
+- A byte you edit by hand is not highlighted as a write by the program, and "Follow writes" does not jump to it.
+- Editing a byte of the screen area repaints the screen immediately.
+- Nothing is protected: you can edit the bytes of the program itself, which patches it on the fly. The source shown in the editor then no longer matches what executes.
+- Edits are lost when the program is loaded again: with Reset, or with the first Step or Run after a change to the source. An edit made before that first Step or Run is therefore wiped as soon as the program loads. Edit once the program has started (after one Step, for instance).
+- Bytes only: to change a 16-bit or 32-bit value, edit each of its bytes. The 68000 stores the most significant byte first (big-endian), so `$1234` is the bytes `12` then `34`.
 
 ## Writing Assembly Source
 

@@ -244,7 +244,7 @@ export default function Debugger({
         </div>
       </div>
 
-      <MemoryView memory={memory} pc={pc} a7={cpu.registers[15]} tick={tick} isRunning={isRunning} />
+      <MemoryView memory={memory} pc={pc} a7={cpu.registers[15]} tick={tick} isRunning={isRunning} onEdit={onFrame} />
     </div>
   )
 }
