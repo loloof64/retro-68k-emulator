@@ -4,7 +4,7 @@ Answers for the things most likely to trip you up while working through the [Ref
 
 ## The Program Won't Run Properly
 
-The editor, Run button or debugger doesn't behave as expected: a breakpoint is ignored, the program never stops, or it runs too slowly.
+The editor, Run button or debugger doesn't behave as expected: a breakpoint is ignored, the highlighted line seems stuck, the program never stops, or it runs too slowly.
 
 ### "My breakpoint is ignored"
 
@@ -29,6 +29,16 @@ LOOP:
 A `DBcc`/`DBRA` loop can do the same thing if its counter never reaches its stop condition — see [How does DBcc decide?](./REFERENCE.md#how-does-dbcc-decide).
 
 **What to check today**: **Pause** stops a running program, and a breakpoint inside the loop (see [My breakpoint is ignored](#my-breakpoint-is-ignored)) lets you watch its registers change. Hand-tracing the loop's exit condition — the way every worked example on the Reference page does — is the reliable way to catch this before it becomes a real problem.
+
+### "The highlighted line doesn't follow my program while it runs"
+
+While **Run** is going, the yellow line is refreshed only once per screen refresh, after that many instructions (see **Speed**). A program that spends most of its time in a waiting loop — like the `WAIT: DBRA D4,WAIT` loop of [Example 13](./EXAMPLES.md#example-13-playing-a-scale) — is nearly always caught inside that loop, so a line executed once per note, like `TRAP #6`, is never the one shown. The CPU does run every line; the display just doesn't sample it.
+
+To watch the flow:
+
+- Use **Step**, which advances exactly one instruction.
+- Put a breakpoint on the line you want to see (see [My breakpoint is ignored](#my-breakpoint-is-ignored)): **Run** stops there.
+- Lower the **Speed** setting, at the price of a slower program (a waiting loop lasts longer too).
 
 ### "Program runs too slowly"
 
