@@ -26,6 +26,14 @@ A freshly created CPU — internally, `createCPU()`/`reset()` in the emulator's 
 
 Which flags a given instruction touches is listed per-instruction below, in the "Flags affected" column, using three notations: a flag on its own (e.g. `N, Z`) is set or cleared to reflect what the instruction actually produced; a flag followed by `(0)` (e.g. `V (0)`) is unconditionally cleared to `0`, regardless of the result — real hardware does this where the flag has no meaningful value for that instruction (multiply/divide can't overflow the way add/sub can, so `MULU`/`MULS` always clear `V`); and a flag missing from the list entirely is left untouched, keeping whatever value it had before the instruction ran. So "none" (or a missing flag) does **not** mean the flags are reset to `0`: they simply keep their previous values (for example, `DBRA` never touches them, so a flag set by the previous instruction stays lit through the whole loop).
 
+### What are SR and CCR?
+
+The five flags live together in one register, the **Status Register**, written `SR`. It is 16 bits wide: the flags occupy its low 5 bits (`X` is bit 4, `N` bit 3, `Z` bit 2, `V` bit 1, `C` bit 0), and the high byte holds things this emulator doesn't model (supervisor mode, interrupt mask, trace). The **Condition Code Register**, written `CCR`, is simply the low byte of `SR`: the flags and nothing else. That is why some instructions target `CCR` (`MOVE src,CCR`, `ANDI #data,CCR`) to set or clear flags directly, while `MOVE SR,dst` reads them back out into a register or memory. You never need either to write ordinary programs: arithmetic and comparisons set the flags for you, and branches read them.
+
+### What does cc mean?
+
+In `Bcc`, `DBcc` and `Scc`, `cc` is a placeholder for a *condition*: a two-letter test on the flags, such as `EQ` (equal, `Z=1`), `NE` (not equal), `GT` (greater than, signed) or `CS` (carry set). Replace `cc` with one to get an actual instruction: `BEQ`, `DBNE`, `SGT`. The full list, and which ones to use after a `CMP`, is in [Which Bcc do I want?](#which-bcc-do-i-want). (Motorola's manuals also call the flags themselves "condition codes", hence the name `CCR`; here, `cc` only ever means one of these tests.)
+
 ## Instruction Format
 
 Every instruction in the tables below is written using the same template:
@@ -179,7 +187,7 @@ A first handful of real instructions is wired in, grouped below the way Motorola
 | `MOVEM` | `MOVEM.size list,dst` / `MOVEM.size src,list` | word, long | see below | none | Moves any subset of the 16 registers to or from memory at once, picked by a bitmask. See [below](#how-does-movems-register-list-work) for the addressing modes, the bitmask order, and the cycle formula. |
 | `MOVEP` | `MOVEP.size Dx,(d16,Ay)` / `MOVEP.size (d16,Ay),Dx` | word, long | 16 (word), 24 (long) | none | Transfers a data register to/from alternating bytes of memory, for talking to an 8-bit peripheral over the 16-bit bus. See [below](#how-does-movep-transfer-alternating-bytes) for exactly which bytes and in what order. |
 | `MOVE SR` | `MOVE SR,dst` | word | 6 (`Dn`), 8 (mem) | none | Writes the 5 flags packed as a word (`X` at bit 4 down to `C` at bit 0) into `dst`. The high byte real hardware would report (supervisor bit, interrupt mask, trace bit) is always `0` here — see [below](#why-doesnt-this-emulator-implement-rtestopresetmove-sr). Not privileged on the real MC68000 this emulator targets, unlike `MOVE to SR`. |
-| `MOVE to CCR` | `MOVE src,CCR` | word | 12 | X, N, Z, V, C | Reads a word from `src` and sets the 5 flags from its low 5 bits, ignoring the rest. Never privileged on any 68000-family part. |
+| `MOVE to CCR` | `MOVE src,CCR` | word | 12 | X, N, Z, V, C | Reads a word from `src` and sets the 5 flags from its low 5 bits, ignoring the rest (see [What are SR and CCR?](#what-are-sr-and-ccr)). Never privileged on any 68000-family part. |
 
 ### Arithmetic
 

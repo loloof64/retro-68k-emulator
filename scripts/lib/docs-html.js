@@ -213,6 +213,9 @@ function markdownToHtml(markdown, filenameToId = {}) {
 
   html = html.replace(/\n\n/g, '</p><p>')
   html = `<p>${html}</p>`
+  // A heading alone between blank lines was wrapped in <p>: invalid HTML, which leaves an
+  // empty <p> between the heading and its text and defeats break-after: avoid.
+  html = html.replace(/<p>(<h[1-6][^>]*>.*?<\/h[1-6]>)<\/p>/g, '$1')
 
   html = html.replace(/@@CODE(\d+)@@/g, (_, i) => codeSnippets[Number(i)])
 
@@ -269,6 +272,7 @@ export function generateHtmlDocument({
       font-size: 1.8em;
       margin: 0.8em 0 0.4em 0;
       color: #0080ff;
+      break-after: avoid; /* never leave a heading alone at the bottom of a page */
       bookmark-level: 3;
       bookmark-label: content();
     }
@@ -277,6 +281,7 @@ export function generateHtmlDocument({
       font-size: 1.3em;
       margin: 0.6em 0 0.3em 0;
       color: #0099ff;
+      break-after: avoid;
       bookmark-level: 4;
       bookmark-label: content();
     }
