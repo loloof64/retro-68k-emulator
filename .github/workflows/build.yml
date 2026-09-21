@@ -113,7 +113,9 @@ jobs:
           Copy-Item "$release/retro-68k-emulator.exe" "$stage/Retro68K-Emulator.exe"
           Copy-Item "$release/*.dll" $stage -ErrorAction SilentlyContinue
           Get-ChildItem $stage
-          Compress-Archive -Path 'portable/Retro68K-Emulator' -DestinationPath 'Retro68K-Emulator-${{ github.ref_name }}-windows-portable.zip'
+          # A branch name may contain "/" (manual runs), which is not valid in a file name.
+          $ref = '${{ github.ref_name }}'.Replace('/', '-')
+          Compress-Archive -Path 'portable/Retro68K-Emulator' -DestinationPath "Retro68K-Emulator-$ref-windows-portable.zip"
 
       - name: Attach portable zip to the draft release (on tag)
         if: matrix.platform == 'windows-latest' && startsWith(github.ref, 'refs/tags/')
@@ -121,7 +123,7 @@ jobs:
         with:
           tag_name: ${{ github.ref_name }}
           draft: true
-          files: Retro68K-Emulator-${{ github.ref_name }}-windows-portable.zip
+          files: Retro68K-Emulator-*-windows-portable.zip
 
       - name: Upload portable zip (manual runs)
         if: matrix.platform == 'windows-latest' && github.event_name == 'workflow_dispatch'
