@@ -1,6 +1,6 @@
 # References and Guidelines
 
-This page documents what you can actually *do* today. Everything is covered — the CPU, the assembler, the memory map, the TRAP system calls and the debugger — except sound: the tone registers exist, but nothing plays them yet (see [Sound](#sound)). See [Presentation](./PRESENTATION.md) for the full roadmap.
+This page documents what you can actually *do* today. Everything is covered — the CPU, the assembler, the memory map, the TRAP system calls (including [sound](#sound)) and the debugger. See [Presentation](./PRESENTATION.md) for the full roadmap.
 
 ## Registers
 
