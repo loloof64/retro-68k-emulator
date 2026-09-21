@@ -41,6 +41,7 @@ export default function Debugger({
   const [errors, setErrors] = useState<AssemblerError[]>([])
   const [runtimeError, setRuntimeError] = useState<string | null>(null)
   const [speed, setSpeed] = useState(2000)
+  const [showSpeedHelp, setShowSpeedHelp] = useState(false)
   const speedRef = useRef(speed)
   speedRef.current = speed
   const breakpointsRef = useRef(breakpoints)
@@ -163,7 +164,16 @@ export default function Debugger({
             ))}
           </select>
         </label>
+        <button
+          className="btn speed-help-btn"
+          onClick={() => setShowSpeedHelp((v) => !v)}
+          aria-label={t('speed.help')}
+          aria-expanded={showSpeedHelp}
+        >
+          ?
+        </button>
       </div>
+      {showSpeedHelp && <p className="speed-help">{t('speed.title')}</p>}
 
       {errors.length > 0 && (
         <ul className="errors">

@@ -163,3 +163,14 @@ p.errors {
   min-width: 0;
   max-width: 100%;
 }
+
+.speed-help-btn {
+  padding: 2px 8px;
+  border-radius: 50%;
+}
+
+.speed-help {
+  margin: 4px 0;
+  font-size: 12px;
+  opacity: 0.85;
+}
