@@ -62,7 +62,7 @@
       "digestAlgorithm": "sha256",
       "timestampUrl": "",
       "wix": {
-        "language": ["en-US", "fr-FR"]
+        "language": ["en-US", "fr-FR", "es-ES"]
       },
       "nsis": {
         "installMode": "currentUser",
