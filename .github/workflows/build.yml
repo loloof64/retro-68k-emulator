@@ -31,7 +31,7 @@ jobs:
           id=$(gh api "repos/${{ github.repository }}/releases" \
             -f tag_name='${{ github.ref_name }}' \
             -f name='68K Emulator ${{ github.ref_name }}' \
-            -f body='Fixes sound in the Linux AppImage (GStreamer is now bundled). See CHANGELOG.md for details on this release.' \
+            -f body='Lighter Linux AppImage (only the GStreamer plugins Web Audio needs) and a Spanish .msi installer for Windows. See CHANGELOG.md for details on this release.' \
             -F draft=true -F prerelease=false --jq .id)
           echo "release_id=$id" >> "$GITHUB_OUTPUT"
 
@@ -72,7 +72,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget \
             file libssl-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev libudev-dev \
-            gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-libav patchelf
+            gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-pulseaudio gstreamer1.0-alsa patchelf
 
       - name: Cache Rust build artifacts
         uses: swatinem/rust-cache@v2
