@@ -367,7 +367,7 @@ START:
 
 ## Example 13: Playing a scale
 
-`TRAP #6` plays one tone: `D0` = frequency (Hz), `D1` = duration (ms), `D2` = volume (0-255), `D3` = waveform (0 square, 1 sine, 2 triangle, 3 sawtooth, 4 noise). The CPU does not wait for a tone to end and a new tone cuts the previous one, so the program counts down in a loop between notes — a "loop" here is just a label and a backward `DBRA`. The delay depends on the debugger speed (about 250 ms at 2000 instr/frame). See [Reference](./REFERENCE.md) for the sound registers.
+`TRAP #6` plays one tone: `D0` = frequency (Hz), `D1` = duration (ms), `D2` = volume (0-255), `D3` = waveform (0 square, 1 sine, 2 triangle, 3 sawtooth, 4 noise). The CPU does not wait for a tone to end and a new tone cuts the previous one, so the program counts down in a loop between notes — a "loop" here is just a label and a backward `DBRA`. The delay depends on the debugger speed (about 250 ms at 2000 instr/(1/60 s)). See [Reference](./REFERENCE.md) for the sound registers.
 
 File: `examples/13-sound.asm`
 

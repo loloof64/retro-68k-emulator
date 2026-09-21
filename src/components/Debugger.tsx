@@ -8,7 +8,7 @@ import type { SystemMemory } from '../memory'
 import { useI18n } from '../i18n'
 import { pollSound, stopSound, unlockAudio } from '../audio'
 
-// Instructions executed per animation frame while running (~60 fps).
+// Instructions executed per 1/60 s while running (scaled by real elapsed time).
 const SPEEDS = [10, 200, 2000, 20000]
 
 interface DebuggerProps {
@@ -109,8 +109,13 @@ export default function Debugger({
 
   useEffect(() => {
     if (!isRunning) return
-    let raf = requestAnimationFrame(function loop() {
-      if (stepCpu(speedRef.current)) raf = requestAnimationFrame(loop)
+    // Speeds are per 1/60 s, whatever the display's refresh rate: scale by elapsed time.
+    let last = performance.now()
+    let raf = requestAnimationFrame(function loop(now) {
+      const dt = Math.min(now - last, 100) // cap after a stall (hidden tab)
+      last = now
+      const count = Math.max(1, Math.round((speedRef.current * dt) / (1000 / 60)))
+      if (stepCpu(count)) raf = requestAnimationFrame(loop)
     })
     return () => cancelAnimationFrame(raf)
     // stepCpu closes over props that don't change while running.

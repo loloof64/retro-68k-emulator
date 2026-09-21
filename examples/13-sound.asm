@@ -5,7 +5,7 @@
 ; 1 = sine, 2 = triangle, 3 = sawtooth, 4 = noise).
 ; The CPU does not wait for a tone to finish, and a new tone
 ; cuts the previous one, so a countdown loop waits between
-; notes (about 250 ms at the default 2000 instr/frame; slower
+; notes (about 250 ms at the default 2000 instr/(1/60 s); slower
 ; or faster speeds stretch or shrink it).
 ; Result: C major scale, then exit.
 ; ============================================================
