@@ -8,14 +8,14 @@ If you just want to try the app, grab the latest version from the [Downloads](./
 
 ## Features
 
-- Support for the ~80 68000 opcodes most relevant to learning assembly
+- Every non-privileged 68000 instruction, plus a built-in assembler
 - Full register set: `D0`–`D7` (data), `A0`–`A7` (address, with `A7` as the stack pointer)
 - Status flags: Negative, Zero, Overflow, Carry, Extend
 - A TRAP-based system-call layer, for things like printing text or drawing to the screen from your own assembly code
 - A simulated 320×200 color LCD (32-bit RGBA), mapped directly into memory
 - An on-screen retro gamepad (A/B/X/Y, D-pad, Start/Select), superseded by a real gamepad when one is connected
 - Simple retro-style sound effects (a tone generator, not sampled audio), the way period 8/16-bit consoles did it
-- A step-by-step debugger: watch registers and memory change instruction by instruction
+- A step-by-step debugger: watch registers, flags and the screen change instruction by instruction, with breakpoints
 - *(Planned)* A syntax-highlighted assembly editor, built into the app — no external tools needed. The editor is a plain text editor for now
 - Native installers for Windows, macOS, and Linux, so it runs like any other desktop app
 
