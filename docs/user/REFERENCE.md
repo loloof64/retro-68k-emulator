@@ -828,7 +828,7 @@ Click a byte to edit it: it turns into a two-digit hexadecimal field, already se
 
 - Editing works while the program is paused or stepping, and is switched off while it runs: the program would be overwriting memory thousands of times per frame, and your value would be lost or would corrupt whatever the program was using.
 - A byte you edit by hand is not highlighted as a write by the program, and "Follow writes" does not jump to it.
-- Editing a byte of the screen area repaints the screen immediately.
+- Editing a byte of the screen area repaints the screen immediately, but a single byte is hard to see: a pixel is 4 bytes (red, green, blue, alpha, in that order, starting at `$40000`) and the screen has 64,000 of them, so one byte changes one colour component of one pixel. The alpha byte has no visible effect (the screen has no transparency). To see something, type the whole pixel: `FF FF FF 00` is one white pixel, and Enter moves you to the next byte.
 - Nothing is protected: you can edit the bytes of the program itself, which patches it on the fly. The source shown in the editor then no longer matches what executes.
 - Edits are lost when the program is loaded again: with Reset, or with the first Step or Run after a change to the source. An edit made before that first Step or Run is therefore wiped as soon as the program loads. Edit once the program has started (after one Step, for instance).
 - Bytes only: to change a 16-bit or 32-bit value, edit each of its bytes. The 68000 stores the most significant byte first (big-endian), so `$1234` is the bytes `12` then `34`.
