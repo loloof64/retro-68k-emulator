@@ -26,10 +26,10 @@ The portable Windows zip contains the program and everything it needs to start; 
 | System | Supported versions | Notes |
 |---|---|---|
 | Windows | Windows 11 (Windows 10 should also work) | Needs Microsoft's WebView2, already included in Windows 10/11 |
-| macOS | macOS 10.15 (Catalina) or later | Intel and Apple Silicon builds |
+| macOS | macOS 10.15 (Catalina) or later | Intel and Apple Silicon builds — **not tested yet** |
 | Linux | Ubuntu 22.04 or later, or any distribution with a comparable system (glibc 2.35 or later, WebKitGTK 4.1) | Linux builds are made on Ubuntu 22.04 |
 
-On Linux, the `.AppImage` and `.deb` need at least glibc 2.35 and WebKitGTK 4.1 (the versions shipped with Ubuntu 22.04 and Debian 12); older distributions will refuse to start the app or to install it. Only Windows 11 is confirmed by the author; the other systems follow what the build tools support and have not all been tried.
+On Linux, the `.AppImage` and `.deb` need at least glibc 2.35 and WebKitGTK 4.1 (the versions shipped with Ubuntu 22.04 and Debian 12); older distributions will refuse to start the app or to install it. Only Windows 11 and Linux are confirmed by the author. The macOS builds have not been tested at all: they are produced by the same automated build, but nobody has run them yet.
 
 ## Staying up to date
 
