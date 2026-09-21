@@ -103,6 +103,13 @@ control pad by default, or a real controller's buttons the moment one is
 connected (a standard-mapped gamepad takes over automatically — the
 on-screen buttons stop doing anything while it's plugged in).
 
+The four face buttons follow their **position**, like on an Xbox
+controller: A is the bottom button, B the right one, X the left one and Y
+the top one. On a Nintendo-style controller, whose A/B and X/Y are laid out
+the other way round, the button printed "A" (on the right) therefore
+lights B, and the button printed "X" (at the top) lights Y — the physical
+position is what stays the same from one controller to another.
+
 | Bit | Button |
 |---|---|
 | 0 | A |
