@@ -20,8 +20,19 @@ fn poll_gamepad(app: tauri::AppHandle) {
         Button::DPadUp, Button::DPadDown, Button::DPadLeft, Button::DPadRight,
     ];
     let mut last = serde_json::Value::Null;
+    // RETRO68K_GAMEPAD_DEBUG=1 prints what gilrs sees, to diagnose odd pads.
+    let debug = std::env::var_os("RETRO68K_GAMEPAD_DEBUG").is_some();
+    if debug {
+        for (id, pad) in gilrs.gamepads() {
+            eprintln!("[gamepad] {id}: {} mapping={:?}", pad.name(), pad.mapping_source());
+        }
+    }
     loop {
-        while gilrs.next_event().is_some() {} // refreshes cached state
+        while let Some(ev) = gilrs.next_event() { // refreshes cached state
+            if debug {
+                eprintln!("[gamepad] {:?}", ev.event);
+            }
+        }
         let state = match gilrs.gamepads().next() {
             None => serde_json::Value::Null,
             Some((_, pad)) => json!({
