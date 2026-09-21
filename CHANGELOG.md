@@ -4,7 +4,9 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
-## [Unreleased]
+## [0.5.0] - 2026-09-22
+
+Memory inspector and sound latency fix.
 
 ### Added
 - Debugger: read-only memory inspector (hex + ASCII dump, go-to address, page buttons, shortcuts to PC/stack/program/screen/input/sound, highlights written bytes, "follow writes" on Step/Pause, click-to-edit bytes while paused)

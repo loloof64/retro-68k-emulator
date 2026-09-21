@@ -146,6 +146,9 @@ docs:pdf:user`.
   pipeline as 0.1.4; release body in `build.yml` updated. Bump = `package.json`,
   `package-lock.json` (2 spots), `src-tauri/Cargo.toml`, `src-tauri/tauri.conf.json`
   + `CHANGELOG.md`.
+- **Release 0.5.0 (2026-09-22)**: debugger memory inspector + first-sound latency fix (audio
+  context now created on the first click/key anywhere, `src/audio.ts`, instead of on Run). Same
+  bump list as 0.2.0; release body in `build.yml` updated.
 - **Release 0.3.0 (2026-09-21)**: gamepad fix. D-pad-as-axes (6/7) + left
   stick read in `gamepadToMask`; under Tauri on Linux `src-tauri/src/lib.rs` polls `gilrs` and
   emits `gamepad-state` events that `Controller.tsx` consumes — and *prefers* them
