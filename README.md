@@ -1,5 +1,7 @@
 # A simple m68k simulation for games in assembly language
 
+![Retro 68K Emulator: editor, debugger and LCD screen](docs/images/screenshot.png)
+
 ## 💻 Supported systems
 
 | System | Supported versions | Notes |
