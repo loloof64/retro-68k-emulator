@@ -1,6 +1,6 @@
 [package]
 name = "retro-68k-emulator"
-version = "0.4.0"
+version = "0.4.1"
 description = "Retro Motorola 68000 CPU emulator with web UI"
 authors = ["you"]
 license = "MIT"

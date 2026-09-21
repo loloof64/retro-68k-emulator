@@ -67,7 +67,7 @@ jobs:
         with:
           tagName: ${{ github.ref_name }}
           releaseName: '68K Emulator ${{ github.ref_name }}'
-          releaseBody: 'Sound: TRAP #6 tones are now played through Web Audio, with a sound example. Run speed no longer depends on the display refresh rate. See CHANGELOG.md for details on this release.'
+          releaseBody: 'Fixes sound in the Linux AppImage (GStreamer is now bundled). See CHANGELOG.md for details on this release.'
           # Only actually create/publish a GitHub Release when triggered by a tag push.
           # Manual "workflow_dispatch" runs just build and upload the artifacts below.
           releaseDraft: true

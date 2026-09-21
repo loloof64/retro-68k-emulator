@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.4.1] - 2026-09-21
+
+Sound fixed for the Linux AppImage.
+
+### Fixed
+- Linux AppImage: no sound, because the GStreamer plugins used by WebKitGTK's Web Audio were not bundled. They are now (`bundleMediaFramework`)
+- Linux `.deb` now depends on the GStreamer base and good plugins
+
+### Changed
+- Docs: clearer TROUBLESHOOTING sections and a note on the highlighted line while running; Status Flags is now a sibling of Registers in the Reference; the Project Status table is gone; syntax highlighting is marked as planned
+
 ## [0.4.0] - 2026-09-21
 
 Sound implemented.
