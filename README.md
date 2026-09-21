@@ -70,16 +70,16 @@ START:
 
 ### Supported Opcodes
 
-To be added progressively:
+Every non-privileged MC68000 instruction is implemented, grouped as in Motorola's manual:
 
-- MOVE, MOVEA, MOVEQ
-- ADD, SUB, MUL, DIV, CMP
-- AND, OR, XOR, NOT
-- BTST
-- LSL, LSR, ASL, ASR, ROL, ROR
-- BRA, BEQ, BNE, BLT, BLE, BGT, BGE
-- JSR, RTS, TRAP
-- DBRA, BCC, BCS, BVC, BVS
+- Data movement: MOVE, MOVEA, MOVEQ, MOVEM, MOVEP, LEA, PEA, SWAP, EXG
+- Arithmetic: ADD, SUB (and their I/Q/A/X forms), CMP, MULU, MULS, DIVU, DIVS, NEG, CLR, EXT, BCD instructions
+- Logic: AND, OR, EOR, NOT (and immediate forms)
+- Bit manipulation: BTST, BCHG, BCLR, BSET
+- Shifts and rotates: ASL, ASR, LSL, LSR, ROL, ROR, ROXL, ROXR
+- Branches and subroutines: Bcc, BRA, DBcc, Scc, JMP, JSR, BSR, RTS, RTR, LINK, UNLK, TRAP, TRAPV
+
+The privileged group (`STOP`, `RESET`, `RTE`, `MOVE to SR`, `MOVE USP`) is intentionally left out: the emulator has no supervisor mode. Full list with cycles: [docs/user/REFERENCE.md](./docs/user/REFERENCE.md) and [docs/OPCODES.md](./docs/OPCODES.md).
 
 ## 🐛 Tests
 
