@@ -21,6 +21,16 @@ You won't need to pick a specific architecture — pick the file matching your o
 
 The portable Windows zip contains the program and everything it needs to start; it relies only on Microsoft's WebView2 component, which comes with Windows 10 and 11.
 
+## Supported systems
+
+| System | Supported versions | Notes |
+|---|---|---|
+| Windows | Windows 11 (Windows 10 should also work) | Needs Microsoft's WebView2, already included in Windows 10/11 |
+| macOS | macOS 10.15 (Catalina) or later | Intel and Apple Silicon builds |
+| Linux | Ubuntu 22.04 or later, or any distribution with a comparable system (glibc 2.35 or later, WebKitGTK 4.1) | Linux builds are made on Ubuntu 22.04 |
+
+On Linux, the `.AppImage` and `.deb` need at least the glibc and WebKitGTK versions of Ubuntu 22.04; older distributions will refuse to start the app or to install it. Only Windows 11 is confirmed by the author; the other systems follow what the build tools support and have not all been tried.
+
 ## Staying up to date
 
 Watch the GitHub repository (or check the Releases page directly) to know when a new version becomes available.

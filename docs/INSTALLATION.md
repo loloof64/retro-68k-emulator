@@ -2,6 +2,10 @@
 
 How to build a real installable executable of the Retro 68K Emulator, and how to install it on another machine.
 
+## Supported systems
+
+Windows 11 (10 should work), macOS 10.15+, and Linux from Ubuntu 22.04 or comparable (see docs/user/DOWNLOAD.md for the table). Linux builds come from Ubuntu 22.04 (glibc 2.35, WebKitGTK 4.1), so they need that or newer.
+
 ## Overview
 
 The emulator is a web frontend (React + Vite) wrapped by [Tauri](https://tauri.app), which packages it into a small native desktop app with a real installer for Windows, macOS, and Linux.

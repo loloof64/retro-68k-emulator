@@ -1,5 +1,15 @@
 # A simple m68k simulation for games in assembly language
 
+## 💻 Supported systems
+
+| System | Supported versions | Notes |
+|---|---|---|
+| Windows | Windows 11 (Windows 10 should also work) | Needs Microsoft's WebView2, already included in Windows 10/11 |
+| macOS | macOS 10.15 (Catalina) or later | Intel and Apple Silicon builds |
+| Linux | Ubuntu 22.04 or later, or any distribution with a comparable system (glibc 2.35 or later, WebKitGTK 4.1) | Linux builds are made on Ubuntu 22.04 |
+
+See [docs/user/DOWNLOAD.md](docs/user/DOWNLOAD.md) for the installers.
+
 ## 🛠️ Available Scripts
 
 ```bash
