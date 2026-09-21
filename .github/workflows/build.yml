@@ -3,7 +3,7 @@ name: Build & Release (Tauri)
 # Triggers:
 # - Push a tag like "v0.1.0" -> builds all 3 platforms and publishes a GitHub Release with installers attached
 #   (plus a portable .zip for Windows and the user guide PDF)
-# - Manual run from the Actions tab -> builds all 3 platforms but does NOT publish (good for testing)
+# - Manual run from the Actions tab -> builds all 3 platforms but does NOT publish
 on:
   push:
     tags:
@@ -68,7 +68,7 @@ jobs:
           releaseName: '68K Emulator ${{ github.ref_name }}'
           releaseBody: 'Gamepad support fixed: D-pad reported as axes, and native gamepad reading in the desktop app. See CHANGELOG.md for details on this release.'
           # Only actually create/publish a GitHub Release when triggered by a tag push.
-          # Manual "workflow_dispatch" runs just build and upload artifacts below, for testing.
+          # Manual "workflow_dispatch" runs just build and upload the artifacts below.
           releaseDraft: true
           prerelease: false
           args: ${{ matrix.args }}
@@ -99,14 +99,14 @@ jobs:
           draft: true
           files: Retro68K-Emulator-${{ github.ref_name }}-windows-portable.zip
 
-      - name: Upload portable zip (for manual/testing runs)
+      - name: Upload portable zip (manual runs)
         if: matrix.platform == 'windows-latest' && github.event_name == 'workflow_dispatch'
         uses: actions/upload-artifact@v4
         with:
           name: portable-windows
           path: Retro68K-Emulator-*-windows-portable.zip
 
-      - name: Upload build artifacts (for manual/testing runs)
+      - name: Upload build artifacts (manual runs)
         if: github.event_name == 'workflow_dispatch'
         uses: actions/upload-artifact@v4
         with:
@@ -170,7 +170,7 @@ jobs:
           draft: true
           files: dist-docs/Retro68K-User-Guide.pdf
 
-      - name: Upload user guide PDF (for manual/testing runs)
+      - name: Upload user guide PDF (manual runs)
         if: github.event_name == 'workflow_dispatch'
         uses: actions/upload-artifact@v4
         with:
