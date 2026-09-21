@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.4.5] - 2026-09-21
+
+Windows Switch-style controller fix.
+
+### Fixed
+- Windows: wired Switch-style controllers that report a non-standard mapping (hat D-pad on axis 9, e.g. NSW wired controller 20d6:a713) are now read; face buttons follow the on-screen layout (bottom = A, right = B, left = X, top = Y)
+
 ## [0.4.4] - 2026-09-21
 
 Linux X/Y fix.
