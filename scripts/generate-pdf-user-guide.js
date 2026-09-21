@@ -29,7 +29,7 @@ const documentStructure = [
 
 // Shown on the cover under "User Guide", next to the app version. Update it
 // per release (what changed in the guide); leave it empty for none.
-const COVER_NOTE = 'gamepad layout and Windows notes'
+const COVER_NOTE = ''
 const { version } = JSON.parse(fs.readFileSync(path.join(projectRoot, 'package.json'), 'utf8'))
 
 function main() {
