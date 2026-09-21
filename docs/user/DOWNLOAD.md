@@ -29,7 +29,7 @@ The portable Windows zip contains the program and everything it needs to start; 
 | macOS | macOS 10.15 (Catalina) or later | Intel and Apple Silicon builds |
 | Linux | Ubuntu 22.04 or later, or any distribution with a comparable system (glibc 2.35 or later, WebKitGTK 4.1) | Linux builds are made on Ubuntu 22.04 |
 
-On Linux, the `.AppImage` and `.deb` need at least the glibc and WebKitGTK versions of Ubuntu 22.04; older distributions will refuse to start the app or to install it. Only Windows 11 is confirmed by the author; the other systems follow what the build tools support and have not all been tried.
+On Linux, the `.AppImage` and `.deb` need at least glibc 2.35 and WebKitGTK 4.1 (the versions shipped with Ubuntu 22.04 and Debian 12); older distributions will refuse to start the app or to install it. Only Windows 11 is confirmed by the author; the other systems follow what the build tools support and have not all been tried.
 
 ## Staying up to date
 
