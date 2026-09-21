@@ -43,6 +43,9 @@
     "shortDescription": "68000 assembly learning emulator",
     "longDescription": "A simplified retro Motorola 68000 CPU emulator, built for learning 68000 assembly language with an interactive debugger and simulated LCD screen.",
     "linux": {
+      "appimage": {
+        "bundleMediaFramework": true
+      },
       "deb": {
         "depends": []
       }
