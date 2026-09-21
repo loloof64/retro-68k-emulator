@@ -7,6 +7,7 @@ import type { AssembledProgram, CPUState } from '../types/cpu'
 import type { SystemMemory } from '../memory'
 import { useI18n } from '../i18n'
 import MemoryView from './MemoryView'
+import { runSteps } from '../breakpoints'
 import { pollSound, stopSound, unlockAudio } from '../audio'
 
 // Instructions executed per 1/60 s while running (scaled by real elapsed time).
@@ -94,16 +95,21 @@ export default function Debugger({
     return true
   }
 
-  const stepCpu = (count: number) => {
+  // Breakpoints only apply to Run; Step always executes exactly one instruction.
+  const stepCpu = (count: number, useBreakpoints: boolean) => {
     const cpu = cpuRef.current
     let hitBreakpoint = false
     try {
-      for (let i = 0; i < count && !cpu.halted && !hitBreakpoint; i++) {
-        step(cpu, memory, opcodeTable)
-        pollSound(memory)
-        const line = lineAtPc()
-        hitBreakpoint = count > 1 && line !== undefined && breakpointsRef.current.has(line)
-      }
+      hitBreakpoint = runSteps(
+        count,
+        () => {
+          step(cpu, memory, opcodeTable)
+          pollSound(memory)
+        },
+        () => cpu.halted,
+        lineAtPc,
+        useBreakpoints ? breakpointsRef.current : undefined
+      )
     } catch (e) {
       setRuntimeError(e instanceof Error ? e.message : String(e))
       cpu.halted = true
@@ -124,7 +130,7 @@ export default function Debugger({
       const dt = Math.min(now - last, 100) // cap after a stall (hidden tab)
       last = now
       const count = Math.max(1, Math.round((speedRef.current * dt) / (1000 / 60)))
-      if (stepCpu(count)) raf = requestAnimationFrame(loop)
+      if (stepCpu(count, true)) raf = requestAnimationFrame(loop)
     })
     return () => cancelAnimationFrame(raf)
     // stepCpu closes over props that don't change while running.
@@ -138,7 +144,7 @@ export default function Debugger({
 
   const handleStep = () => {
     unlockAudio()
-    if (ensureProgram()) stepCpu(1)
+    if (ensureProgram()) stepCpu(1, false)
   }
 
   const handleReset = () => {

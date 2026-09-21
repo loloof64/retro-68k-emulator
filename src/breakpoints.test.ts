@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { remapBreakpoints } from './breakpoints'
+import { remapBreakpoints, runSteps } from './breakpoints'
 
 const r = (bps: number[], a: string, b: string) => [...remapBreakpoints(new Set(bps), a, b)].sort()
 
@@ -26,5 +26,38 @@ describe('remapBreakpoints', () => {
   })
   it('leaves breakpoints above the edit alone', () => {
     expect(r([1], 'a\nb', 'a\nb\nc')).toEqual([1])
+  })
+})
+
+describe('runSteps', () => {
+  // A fake CPU whose PC line advances by one per instruction.
+  const fake = (haltAt = Infinity) => {
+    let line = 1
+    return {
+      execute: () => void line++,
+      halted: () => line >= haltAt,
+      lineAtPc: () => line,
+      pos: () => line,
+    }
+  }
+  it('stops on a breakpoint even when only one instruction is left in the batch', () => {
+    const f = fake()
+    expect(runSteps(1, f.execute, f.halted, f.lineAtPc, new Set([2]))).toBe(true)
+    expect(f.pos()).toBe(2)
+  })
+  it('stops right after reaching the breakpoint line', () => {
+    const f = fake()
+    expect(runSteps(100, f.execute, f.halted, f.lineAtPc, new Set([5]))).toBe(true)
+    expect(f.pos()).toBe(5)
+  })
+  it('ignores breakpoints when none are passed (single step)', () => {
+    const f = fake()
+    expect(runSteps(1, f.execute, f.halted, f.lineAtPc)).toBe(false)
+    expect(f.pos()).toBe(2)
+  })
+  it('stops when the CPU halts, without reporting a breakpoint', () => {
+    const f = fake(4)
+    expect(runSteps(100, f.execute, f.halted, f.lineAtPc, new Set([99]))).toBe(false)
+    expect(f.pos()).toBe(4)
   })
 })

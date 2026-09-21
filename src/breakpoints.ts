@@ -22,3 +22,22 @@ export function remapBreakpoints(bps: Set<number>, oldText: string, newText: str
   }
   return out
 }
+
+// Executes up to `count` instructions, stopping early when the CPU halts or,
+// if `breakpoints` is given, right after reaching one of its lines. Returns
+// true on a breakpoint. Single-stepping passes no breakpoints: whether they
+// apply is the caller's call, not something to infer from `count`.
+export function runSteps(
+  count: number,
+  execute: () => void,
+  halted: () => boolean,
+  lineAtPc: () => number | undefined,
+  breakpoints?: Set<number>
+): boolean {
+  for (let i = 0; i < count && !halted(); i++) {
+    execute()
+    const line = lineAtPc()
+    if (breakpoints && line !== undefined && breakpoints.has(line)) return true
+  }
+  return false
+}
