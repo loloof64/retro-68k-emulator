@@ -1,6 +1,6 @@
 # References and Guidelines
 
-This page is filled in progressively, as each part of the emulator becomes real — it documents what you can actually *do* today, not the final wish list (see [Presentation](./PRESENTATION.md) for the full roadmap).
+This page documents what you can actually *do* today. Everything is covered — the CPU, the assembler, the memory map, the TRAP system calls and the debugger — except sound: the tone registers exist, but nothing plays them yet (see [Sound](#sound-wired-up-silent-for-now)). See [Presentation](./PRESENTATION.md) for the full roadmap.
 
 ## Registers
 
@@ -670,7 +670,7 @@ LOOP:
         TRAP    #0                 ; exit
 ```
 
-*(Labels like `LOOP:` are handled by the assembler, which turns each `Bcc` target into the right byte offset for you. The Editor isn't wired to run it yet, so for now these snippets are for reading, or for feeding to `assemble()` from code.)*
+*(Labels like `LOOP:` are handled by the assembler, which turns each `Bcc` target into the right byte offset for you. You can paste these snippets into the Editor and run them.)*
 
 **Example** — the same countdown, more idiomatically, using `DBRA`:
 
@@ -713,8 +713,6 @@ DOUBLE:
         ADD.L   D0,D0
         RTS
 ```
-
-The rest of the ~80-instruction set lands in upcoming sessions — each one gets its own entry here as it becomes real.
 
 ## TRAP System Calls
 
@@ -809,7 +807,7 @@ happens, the emulator throws a clear error instead of jumping to address
 
 ## Writing Assembly Source
 
-The assembler turns a text file of instructions into the machine code the CPU runs. It is a library for now: it is not yet connected to the Editor, so the Editor's Run button does not use it.
+The assembler turns a text file of instructions into the machine code the CPU runs. The Debugger runs it for you: when you press Run or Step, your source is assembled (again only if it changed) and loaded into memory.
 
 A tiny program:
 
@@ -915,7 +913,7 @@ MESSAGE:
         DC.B    "HI",0                 ; bytes: 'H', 'I', 0
 ```
 
-The assembler accepts `DC.x` (see [Writing Assembly Source](#writing-assembly-source)). Until the Editor is connected to it, the alternative is building the data at *runtime*: pick an address, then write each value into it with its own `MOVE`, stepping the address with [`(An)+`](#addressing-modes) the same way a program would read the data back out later. The memory ends up holding exactly the same bytes.
+The assembler accepts `DC.x` (see [Writing Assembly Source](#writing-assembly-source)). An alternative is building the data at *runtime*: pick an address, then write each value into it with its own `MOVE`, stepping the address with [`(An)+`](#addressing-modes) the same way a program would read the data back out later. The memory ends up holding exactly the same bytes.
 
 ### Tips
 
