@@ -6,14 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [0.4.4] - 2026-09-21
 
-Linux X/Y fix and gamepad documentation.
+Linux X/Y fix.
+User guide: gamepad layout (position-based face buttons) and Windows notes.
 
 ### Fixed
 - Linux: X and Y were swapped for controllers without an SDL mapping (Nacon GC-100 in its X mode)
-
-### Added
-- User guide: the face buttons follow their position (so A/B and X/Y are swapped on Nintendo-style controllers)
-- User guide: on Windows, a controller with a mode switch must be in the mode that presents it as an Xbox (standard) gamepad
 
 ## [0.4.3] - 2026-09-21
 
