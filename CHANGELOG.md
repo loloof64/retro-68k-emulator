@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Added
+- Debugger: read-only memory inspector (hex + ASCII dump, go-to address, page buttons, shortcuts to PC/stack/program/screen/input/sound, highlights changed bytes)
+
 ### Fixed
 - Sound: the first tone of the first run was delayed while the audio device opened; the audio context is now warmed up on the first click or key press anywhere in the app
 

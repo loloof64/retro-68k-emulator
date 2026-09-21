@@ -6,6 +6,7 @@ import { opcodeTable } from '../cpu/opcodes'
 import type { AssembledProgram, CPUState } from '../types/cpu'
 import type { SystemMemory } from '../memory'
 import { useI18n } from '../i18n'
+import MemoryView from './MemoryView'
 import { pollSound, stopSound, unlockAudio } from '../audio'
 
 // Instructions executed per 1/60 s while running (scaled by real elapsed time).
@@ -38,7 +39,7 @@ export default function Debugger({
   const decimalTitle = (v: number) => t('decimal.title', { unsigned: v >>> 0, signed: v | 0 })
   const cpuRef = useRef<CPUState>(createCPU())
   const programRef = useRef<{ source: string; program: AssembledProgram } | null>(null)
-  const [, setTick] = useState(0) // bumped to re-render from the mutable CPU
+  const [tick, setTick] = useState(0) // bumped to re-render from the mutable CPU
   const [errors, setErrors] = useState<AssemblerError[]>([])
   const [runtimeError, setRuntimeError] = useState<string | null>(null)
   const [speed, setSpeed] = useState(2000)
@@ -264,6 +265,8 @@ export default function Debugger({
           ))}
         </div>
       </div>
+
+      <MemoryView memory={memory} pc={pc} a7={cpu.registers[15]} tick={tick} />
     </div>
   )
 }

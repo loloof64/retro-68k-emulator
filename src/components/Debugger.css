@@ -176,3 +176,57 @@ p.errors {
   font-size: 12px;
   opacity: 0.85;
 }
+
+.memory-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.mem-controls,
+.mem-shortcuts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.mem-controls input {
+  flex: 1;
+  min-width: 0;
+  font-family: monospace;
+  font-size: 12px;
+}
+
+.mem-dump {
+  font-family: monospace;
+  font-size: 11px;
+  overflow-x: auto;
+  padding: 6px;
+  background-color: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+}
+
+.mem-row {
+  display: flex;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.mem-addr {
+  opacity: 0.6;
+}
+
+.mem-byte.changed {
+  background-color: #f4877133;
+  color: #f48771;
+}
+
+.mem-byte.pc {
+  outline: 1px solid #e5c07b;
+}
+
+.mem-ascii {
+  opacity: 0.7;
+  margin-left: 4px;
+}

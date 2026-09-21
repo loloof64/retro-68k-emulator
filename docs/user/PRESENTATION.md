@@ -15,7 +15,7 @@ If you just want to try the app, grab the latest version from the [Downloads](./
 - A simulated 320×200 color LCD (32-bit RGBA), mapped directly into memory
 - An on-screen retro gamepad (A/B/X/Y, D-pad, Start/Select), superseded by a real gamepad when one is connected
 - Simple retro-style sound effects (a tone generator, not sampled audio), the way period 8/16-bit consoles did it
-- A step-by-step debugger: watch registers, flags and the screen change instruction by instruction, with breakpoints
+- A step-by-step debugger: watch registers, flags, memory (hex dump) and the screen change instruction by instruction, with breakpoints
 - *(Planned)* A syntax-highlighted assembly editor, built into the app — no external tools needed. The editor is a plain text editor for now
 - Native installers for Windows, macOS, and Linux, so it runs like any other desktop app
 

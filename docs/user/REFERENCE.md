@@ -813,6 +813,16 @@ aren't implemented here. If no handler was installed when the fault
 happens, the emulator throws a clear error instead of jumping to address
 `$0` the way real (misconfigured) hardware would.
 
+## Inspecting Memory
+
+The Debugger panel ends with a **Memory** section: a read-only hex dump of 256 bytes, 16 per row. Each row shows its address, the 16 bytes in hexadecimal, then the same bytes as ASCII text (a dot for anything unprintable). It opens on `$2000`, where programs are loaded.
+
+- Type an address (`2000`, `$2000` or `0x2000`) and press Enter to jump there, or use the ◀ / ▶ buttons to move one page.
+- The shortcut buttons jump to PC (the next instruction), Stack (where `A7` points), Program, Screen (the framebuffer), Input and Sound (the memory-mapped registers).
+- Bytes that changed since the last refresh are highlighted in red, and the byte at PC has a yellow outline.
+
+Editing bytes is not supported yet.
+
 ## Writing Assembly Source
 
 The assembler turns a text file of instructions into the machine code the CPU runs. The Debugger runs it for you: when you press Run or Step, your source is assembled (again only if it changed) and loaded into memory.
