@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { highlightLine } from '../highlight'
 import './Editor.css'
 
 interface EditorProps {
@@ -19,6 +20,7 @@ export default function Editor({
   onToggleBreakpoint,
 }: EditorProps) {
   const [scrollTop, setScrollTop] = useState(0)
+  const [scrollLeft, setScrollLeft] = useState(0)
   const lineCount = code.split('\n').length
 
   return (
@@ -43,10 +45,29 @@ export default function Editor({
             style={{ transform: `translateY(${12 + (currentLine - 1) * 18 - scrollTop}px)` }}
           />
         )}
+        <pre
+          className="editor-highlight"
+          aria-hidden="true"
+          style={{ transform: `translate(${-scrollLeft}px, ${-scrollTop}px)` }}
+        >
+          {code.split('\n').map((line, i) => (
+            <div key={i}>
+              {highlightLine(line).map((t, j) => (
+                <span key={j} className={t.type && `tok-${t.type}`}>
+                  {t.text}
+                </span>
+              ))}
+              {'\n'}
+            </div>
+          ))}
+        </pre>
         <textarea
           value={code}
           onChange={(e) => onChange(e.target.value)}
-          onScroll={(e) => setScrollTop(e.currentTarget.scrollTop)}
+          onScroll={(e) => {
+            setScrollTop(e.currentTarget.scrollTop)
+            setScrollLeft(e.currentTarget.scrollLeft)
+          }}
           spellCheck="false"
           wrap="off"
           className="editor-textarea"

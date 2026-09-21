@@ -32,7 +32,39 @@
   position: relative;
   display: flex;
   min-width: 0;
+  overflow: hidden;
+  background-color: var(--bg-primary);
 }
+
+.editor-body:focus-within {
+  background-color: var(--bg-secondary);
+}
+
+/* Sits under the transparent textarea; must match its font/padding exactly. */
+.editor-highlight {
+  position: absolute;
+  top: 0;
+  left: 0;
+  margin: 0;
+  padding: 12px;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Courier New', monospace;
+  font-size: 12px;
+  line-height: 18px;
+  tab-size: 4;
+  pointer-events: none;
+}
+
+.editor-highlight div {
+  height: 18px;
+}
+
+.tok-comment { color: var(--success); font-style: italic; }
+.tok-label { color: #dcdcaa; }
+.tok-mnemonic { color: #569cd6; }
+.tok-size { color: #4ec9b0; }
+.tok-register { color: #9cdcfe; }
+.tok-number { color: #b5cea8; }
+.tok-string { color: #ce9178; }
 
 .current-line {
   position: absolute;
@@ -48,8 +80,10 @@
   flex: 1;
   min-width: 0;
   padding: 12px;
-  background-color: var(--bg-primary);
-  color: var(--text-primary);
+  background-color: transparent;
+  color: transparent;
+  caret-color: var(--text-primary);
+  position: relative;
   border: none;
   font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Courier New', monospace;
   font-size: 12px;
@@ -60,6 +94,3 @@
   tab-size: 4;
 }
 
-.editor-textarea:focus {
-  background-color: var(--bg-secondary);
-}

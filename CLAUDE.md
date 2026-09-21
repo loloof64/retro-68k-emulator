@@ -88,8 +88,7 @@ docs:pdf:user`.
   bump. Editor: line-number gutter (click = breakpoint), yellow bar on
   the line about to execute (breakpoints follow edits via `src/breakpoints.ts`; fixed 18px line height, no wrapping, so
   the overlay math holds); Run stops on a breakpoint line; a select
-  sets instructions per frame. Still a plain `<textarea>`, no syntax
-  highlighting.
+  sets instructions per frame. Syntax highlighting: a `<pre>` overlay (`src/highlight.ts`) under a transparent `<textarea>`, scroll-synced; font/padding/line-height must stay identical in both.
 - **Debugger memory inspector: done** (`src/components/MemoryView.tsx`, pure helpers in
   `src/memoryView.ts`). Read-only hex+ASCII dump, 8 bytes x 16 rows (a 16-byte row + ASCII
   overflows the 400px column), go-to / pages / shortcuts. Highlights bytes the *program* wrote
