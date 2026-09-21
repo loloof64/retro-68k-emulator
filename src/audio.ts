@@ -27,6 +27,13 @@ export function unlockAudio() {
   if (ctx.state === 'suspended') void ctx.resume()
 }
 
+// Opening the audio device takes a while: warm it up on the first gesture anywhere,
+// not on Run, or the program's first tone is delayed while the device starts.
+if (typeof window !== 'undefined' && typeof AudioContext !== 'undefined') {
+  for (const type of ['pointerdown', 'keydown'])
+    window.addEventListener(type, unlockAudio, { once: true, capture: true })
+}
+
 // Plays the tone described by the sound registers if the trigger byte is set,
 // then clears the trigger. Call after each CPU step.
 export function pollSound(memory: SystemMemory) {

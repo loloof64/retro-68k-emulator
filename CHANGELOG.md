@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [Unreleased]
+
+### Fixed
+- Sound: the first tone of the first run was delayed while the audio device opened; the audio context is now warmed up on the first click or key press anywhere in the app
+
 ## [0.4.5] - 2026-09-21
 
 Windows Switch-style controller fix.
