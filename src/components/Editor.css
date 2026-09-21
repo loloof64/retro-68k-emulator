@@ -22,6 +22,10 @@
   color: var(--text-secondary, #888);
 }
 
+.gutter-line.bookmark {
+  box-shadow: inset 4px 0 0 #2980b9;
+}
+
 .gutter-line.breakpoint {
   color: white;
   background-color: #c0392b;

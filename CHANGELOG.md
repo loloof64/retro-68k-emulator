@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [Unreleased]
+
+### Added
+- Editor: bookmarks (right-click a line number or Ctrl+B to toggle, F2 / Shift+F2 to jump), which follow edits like breakpoints
+- Bookmarks and breakpoints are saved per source file (exact full path) and restored when the file is reopened (desktop app only)
+
 ## [0.5.0] - 2026-09-22
 
 Memory inspector and sound latency fix.

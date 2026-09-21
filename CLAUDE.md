@@ -98,6 +98,7 @@ docs:pdf:user`.
   store + next byte) via `patch8`, disabled while running; edits are wiped when the program is
   reloaded (Reset, or the first Step/Run). Also: registers are shown D|A side by side to save
   height (panel must fit ~768px without scrolling, check after touching the layout).
+- **Bookmarks: done** (`src/marks.ts`, tests in `marks.test.ts`). Ctrl+B / right-click on the gutter toggles, F2 / Shift+F2 jumps (wraps). Bookmarks *and* breakpoints persist in `localStorage` (`retro68k.marks`) keyed by the exact full path — only known under Tauri (`openSource`/`saveSource` return the path); examples, new buffers and the browser build don't persist. Stored lines past EOF are dropped on load; no content check if the file changed externally. Save-as writes the marks under the new path (old entry left).
 - **Gamepad UI: implemented** (on-screen + real Gamepad API, auto-switches),
   **including physical-controller visual feedback** (`src/components/
   Controller.tsx`): the polled bitmask is mirrored into a `buttonMask`

@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import './App.css';
 import Editor from './components/Editor';
 import Debugger from './components/Debugger';
@@ -7,6 +7,7 @@ import Controller from './components/Controller';
 import { SystemMemory } from './memory';
 import LanguageSelect from './components/LanguageSelect';
 import { remapBreakpoints } from './breakpoints';
+import { readMarks, writeMarks } from './marks';
 import { translate, useI18n } from './i18n';
 import { examplesFor } from './examples';
 import { inTauri, openSource, saveSource } from './sourceFile';
@@ -24,14 +25,30 @@ export default function App() {
       if (!next.delete(line)) next.add(line);
       return next;
     });
-  const loadSource = (code: string) => {
+  const [bookmarks, setBookmarks] = useState<Set<number>>(new Set());
+  const toggleBookmark = (line: number) =>
+    setBookmarks((prev) => {
+      const next = new Set(prev);
+      if (!next.delete(line)) next.add(line);
+      return next;
+    });
+  // Full path of the file being edited; only known for files opened/saved
+  // through the native dialogs (Tauri), and only those keep their marks.
+  const [filePath, setFilePath] = useState<string>();
+  useEffect(() => {
+    if (filePath) writeMarks(filePath, { bookmarks, breakpoints });
+  }, [filePath, bookmarks, breakpoints]);
+  const loadSource = (code: string, path?: string) => {
+    const marks = path ? readMarks(path, code.split('\n').length) : undefined;
     setAsmCode(code);
-    setBreakpoints(new Set());
+    setFilePath(path);
+    setBreakpoints(marks?.breakpoints ?? new Set());
+    setBookmarks(marks?.bookmarks ?? new Set());
     setCurrentLine(undefined);
   };
   const openFile = async (file?: File) => file && loadSource(await file.text());
   const saveFile = () => {
-    if (inTauri) return void saveSource(asmCode).catch((e) => alert(String(e)));
+    if (inTauri) return void saveSource(asmCode).then((p) => p && setFilePath(p)).catch((e) => alert(String(e)));
     const a = document.createElement('a');
     a.href = URL.createObjectURL(new Blob([asmCode], { type: 'text/plain' }));
     a.download = 'program.asm';
@@ -78,7 +95,7 @@ export default function App() {
                     e.preventDefault();
                     if (!isRunning)
                       openSource()
-                        .then((c) => c !== undefined && loadSource(c))
+                        .then((f) => f && loadSource(f.code, f.path))
                         .catch((e) => alert(String(e)));
                   }
                 : undefined
@@ -103,6 +120,7 @@ export default function App() {
             code={asmCode}
             onChange={(code) => {
               setBreakpoints((prev) => remapBreakpoints(prev, asmCode, code));
+              setBookmarks((prev) => remapBreakpoints(prev, asmCode, code));
               // The yellow bar follows its instruction too (until re-assembly).
               setCurrentLine((line) =>
                 line === undefined ? line : [...remapBreakpoints(new Set([line]), asmCode, code)][0]
@@ -112,6 +130,8 @@ export default function App() {
             currentLine={currentLine}
             breakpoints={breakpoints}
             onToggleBreakpoint={toggleBreakpoint}
+            bookmarks={bookmarks}
+            onToggleBookmark={toggleBookmark}
           />
         </div>
 

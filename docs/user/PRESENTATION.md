@@ -17,6 +17,7 @@ If you just want to try the app, grab the latest version from the [Downloads](./
 - Simple retro-style sound effects (a tone generator, not sampled audio), the way period 8/16-bit consoles did it
 - A step-by-step debugger: watch registers, flags, memory (hex dump) and the screen change instruction by instruction, with breakpoints
 - A syntax-highlighted assembly editor, built into the app — no external tools needed
+- Bookmarks: mark lines (right-click a line number, or Ctrl+B), jump between them with F2 / Shift+F2; bookmarks and breakpoints are remembered for each file opened from disk
 - Native installers for Windows, macOS, and Linux, so it runs like any other desktop app
 
 ## Why This Project?
