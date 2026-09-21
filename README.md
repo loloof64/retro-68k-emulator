@@ -124,7 +124,7 @@ npm run test:ui
 - ✅ Real-time visualization (registers, flags, screen)
 - ✅ Breakpoints
 - Syntax highlighting (📅 planned)
-- Memory inspection
+- ✅ Memory inspection (hex + ASCII dump, follow writes, click-to-edit bytes)
 
 ## 🎓 Resources
 
