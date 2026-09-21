@@ -4,7 +4,7 @@ Twelve small, complete programs to read, paste into the editor and run. Each one
 
 To try one, copy its code into the editor, then press **Run** (or **Step** to follow it instruction by instruction). New to assembly? Read them in order: each builds on the ones before. Instruction details are in the [Reference](./REFERENCE.md).
 
-Sound (`TRAP #6`) has no audio backend yet, so there is no sound example.
+Sound (`TRAP #6`) is played through the browser's Web Audio, but no example uses it yet.
 
 ## Example 1: Adding two numbers
 

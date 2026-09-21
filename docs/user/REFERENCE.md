@@ -90,7 +90,7 @@ The emulator's memory system is implemented and working. Every address below is 
 | User RAM | `$02000`–`$3FFFF` | ~248 KB | Your program's code, data, and stack |
 | Framebuffer | `$40000`–`$7E7FF` | 250 KB | The 320×200 screen, 4 bytes per pixel, as a 32-bit `$RRGGBBAA` value (red `$FF0000FF`) |
 | Controller Input | `$7E800`–`$7E803` | 4 B | Gamepad button state, as a bitmask (see below) |
-| Sound | `$7E804`–`$7E80B` | 8 B | Tone generator registers, written by `TRAP #6` — no audio backend consumes them yet (see below) |
+| Sound | `$7E804`–`$7E80B` | 8 B | Tone generator registers, written by `TRAP #6` — played through Web Audio (see below) |
 
 To find the address of a given pixel, see [Addressing a Pixel for TRAP #2/#3](#addressing-a-pixel-for-trap-23).
 
@@ -146,10 +146,11 @@ the TI-89's buzzer, not a sample player.
         TRAP    #6
 ```
 
-That part's real and tested — the registers land in memory exactly as
-written. What's still missing is a host audio backend that reads the
-trigger and actually plays a sound through the Web Audio API; until that
-lands, running this is silent.
+The debugger watches the trigger after every instruction: it plays the
+tone through the Web Audio API and clears the trigger back to 0. Only one
+tone plays at a time — a new one cuts the previous. A frequency or
+duration of 0 is silence. Sound starts after you press **Run** or
+**Step** (browsers refuse audio before a click).
 
 ## Instruction Set (Opcodes)
 

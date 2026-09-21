@@ -3323,8 +3323,8 @@ export const trapHandlers: Record<number, TrapHandler> = {
   // TRAP #6: play tone. D0=frequency (Hz, word), D1=duration (ms, word),
   // D2=volume (0-255, byte), D3=waveform (byte, see SOUND_WAVEFORM_* in
   // src/memory/index.ts). Writes those into the sound registers and sets
-  // the trigger byte — see docs/MEMORY.md. This only updates memory: no
-  // audio backend consumes the trigger yet, so nothing is heard today.
+  // the trigger byte — see docs/MEMORY.md. This only updates memory;
+  // src/audio.ts (Web Audio) plays it, polling the trigger after each step.
   6: (cpu, memory) => {
     memory.write16(SOUND_FREQUENCY, readRegister(cpu, Register.D0, 'word'))
     memory.write16(SOUND_DURATION, readRegister(cpu, Register.D1, 'word'))

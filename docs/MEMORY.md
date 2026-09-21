@@ -11,7 +11,7 @@ $00000-$01FFF         8 KB      System Area (vectors, TRAP handlers)
 $02000-$3FFFF        248 KB     User RAM (program code & data)
 $40000-$7E7FF       ~244 KB     Framebuffer (320×200 pixels, 32bpp)
 $7E800-$7E803          4 B      Controller Input (button state)
-$7E804-$7E80B          8 B      Sound (tone generator — layout only, not wired to audio yet)
+$7E804-$7E80B          8 B      Sound (tone generator — played through Web Audio)
 ```
 
 320×200 pixels at 32 bits per pixel needs 250,000 bytes, not the 128KB a
@@ -349,8 +349,8 @@ MOVE.B  #0,D3              ; waveform (0 = square)
 TRAP    #6
 ```
 
-Both leave the registers set and the trigger byte `1` — nothing audible
-happens yet, since no audio backend is wired to read them (see above).
+Both leave the registers set and the trigger byte `1`; the host then
+plays the tone through Web Audio and clears the trigger to `0`.
 
 ## Memory Access Instructions
 

@@ -22,7 +22,7 @@ This document describes the internal architecture of the Retro 68K Emulator.
 │   - RAM (256KB)                     │
 │   - Framebuffer (320x200)           │
 │   - Controller Input                │
-│   - Sound (no audio backend yet)    │
+│   - Sound (Web Audio)    │
 │   - TRAP handlers                   │
 └─────────────────────────────────────┘
 ```
@@ -43,7 +43,7 @@ $7E800 ├─────────────────┤
        │  Controller     │  4 B      (Button state bitmask)
        │  Input          │
 $7E804 ├─────────────────┤
-       │  Sound          │  8 B      (Tone generator — layout only, not wired yet)
+       │  Sound          │  8 B      (Tone generator, played via Web Audio)
 $7E80C └─────────────────┘
 ```
 
@@ -146,7 +146,7 @@ Maps to a handler table:
 - **TRAP #3**: Write pixel to framebuffer
 - **TRAP #4**: Clear screen
 - **TRAP #5**: Read controller state into D0
-- **TRAP #6**: Play tone — writes D0-D3 into the sound registers and triggers playback (no audio backend consumes it yet)
+- **TRAP #6**: Play tone — writes D0-D3 into the sound registers and triggers playback (src/audio.ts polls the trigger after each step)
 
 ## Component Structure
 

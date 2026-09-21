@@ -6,6 +6,7 @@ import { opcodeTable } from '../cpu/opcodes'
 import type { AssembledProgram, CPUState } from '../types/cpu'
 import type { SystemMemory } from '../memory'
 import { useI18n } from '../i18n'
+import { pollSound, stopSound, unlockAudio } from '../audio'
 
 // Instructions executed per animation frame while running (~60 fps).
 const SPEEDS = [10, 200, 2000, 20000]
@@ -90,6 +91,7 @@ export default function Debugger({
     try {
       for (let i = 0; i < count && !cpu.halted && !hitBreakpoint; i++) {
         step(cpu, memory, opcodeTable)
+        pollSound(memory)
         const line = lineAtPc()
         hitBreakpoint = count > 1 && line !== undefined && breakpointsRef.current.has(line)
       }
@@ -99,6 +101,7 @@ export default function Debugger({
     }
     const stop = cpu.halted || hitBreakpoint
     if (stop) onRunningChange(false)
+    if (cpu.halted) stopSound()
     onFrame()
     refresh()
     return !stop
@@ -114,16 +117,19 @@ export default function Debugger({
   }, [isRunning])
 
   const handleRun = () => {
+    unlockAudio()
     if (isRunning) return onRunningChange(false)
     if (ensureProgram() && !cpuRef.current.halted) onRunningChange(true)
   }
 
   const handleStep = () => {
+    unlockAudio()
     if (ensureProgram()) stepCpu(1)
   }
 
   const handleReset = () => {
     onRunningChange(false)
+    stopSound()
     setErrors([])
     if (programRef.current) load(programRef.current)
   }
