@@ -4,11 +4,30 @@
 // should mobile support ever be added later.
 
 #[cfg(target_os = "linux")]
-use gilrs::{Axis, Button, Gilrs};
+use gilrs::{Axis, Button, Gilrs, MappingSource};
 #[cfg(target_os = "linux")]
 use serde_json::json;
 #[cfg(target_os = "linux")]
 use tauri::Emitter;
+
+// W3C standard order (0 = A ... 15 = D-pad right). With no SDL mapping
+// (`Driver`), gilrs names the face buttons like the kernel does: BTN_X
+// (0x133) is `North` and BTN_Y (0x134) is `West` — the reverse of the
+// compass position they have on an Xbox-style pad — so X and Y swap places.
+// SDL mappings (`SdlMappings`) already follow the printed labels.
+#[cfg(target_os = "linux")]
+fn button_order(source: MappingSource) -> [Button; 16] {
+    let (x, y) = match source {
+        MappingSource::Driver => (Button::North, Button::West),
+        _ => (Button::West, Button::North),
+    };
+    [
+        Button::South, Button::East, x, y,
+        Button::LeftTrigger, Button::RightTrigger, Button::LeftTrigger2, Button::RightTrigger2,
+        Button::Select, Button::Start, Button::LeftThumb, Button::RightThumb,
+        Button::DPadUp, Button::DPadDown, Button::DPadLeft, Button::DPadRight,
+    ]
+}
 
 // On Linux the WebKitGTK Gamepad API is unreliable (missing, or a wrong
 // mapping for some pads), so the frontend prefers the first connected pad
@@ -18,12 +37,6 @@ use tauri::Emitter;
 #[cfg(target_os = "linux")]
 fn poll_gamepad(app: tauri::AppHandle) {
     let Ok(mut gilrs) = Gilrs::new() else { return };
-    const BUTTONS: [Button; 16] = [
-        Button::South, Button::East, Button::West, Button::North,
-        Button::LeftTrigger, Button::RightTrigger, Button::LeftTrigger2, Button::RightTrigger2,
-        Button::Select, Button::Start, Button::LeftThumb, Button::RightThumb,
-        Button::DPadUp, Button::DPadDown, Button::DPadLeft, Button::DPadRight,
-    ];
     let mut last = serde_json::Value::Null;
     // RETRO68K_GAMEPAD_DEBUG=1 prints what gilrs sees, to diagnose odd pads.
     let debug = std::env::var_os("RETRO68K_GAMEPAD_DEBUG").is_some();
@@ -41,7 +54,7 @@ fn poll_gamepad(app: tauri::AppHandle) {
         let state = match gilrs.gamepads().next() {
             None => serde_json::Value::Null,
             Some((_, pad)) => json!({
-                "buttons": BUTTONS.map(|b| pad.is_pressed(b)),
+                "buttons": button_order(pad.mapping_source()).map(|b| pad.is_pressed(b)),
                 "axes": [
                     pad.value(Axis::LeftStickX), -pad.value(Axis::LeftStickY), 0, 0, 0, 0,
                     pad.value(Axis::DPadX), -pad.value(Axis::DPadY),
@@ -71,4 +84,17 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+#[cfg(all(test, target_os = "linux"))]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn driver_mapping_swaps_x_and_y() {
+        assert_eq!(button_order(MappingSource::Driver)[2], Button::North);
+        assert_eq!(button_order(MappingSource::Driver)[3], Button::West);
+        assert_eq!(button_order(MappingSource::SdlMappings)[2], Button::West);
+        assert_eq!(button_order(MappingSource::SdlMappings)[3], Button::North);
+    }
 }

@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [Unreleased]
+
+### Fixed
+- Linux: X and Y were swapped for controllers without an SDL mapping (Nacon GC-100 in its X mode)
+
 ## [0.4.3] - 2026-09-21
 
 Linux gamepad fix.
