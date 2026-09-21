@@ -257,7 +257,7 @@ export function generateHtmlDocument({
       color: #0066cc;
       border-bottom: 3px solid #0066cc;
       padding-bottom: 0.3em;
-      bookmark-level: 1;
+      bookmark-level: 2;
       bookmark-label: content();
     }
 
@@ -269,7 +269,7 @@ export function generateHtmlDocument({
       font-size: 1.8em;
       margin: 0.8em 0 0.4em 0;
       color: #0080ff;
-      bookmark-level: 2;
+      bookmark-level: 3;
       bookmark-label: content();
     }
 
@@ -277,7 +277,7 @@ export function generateHtmlDocument({
       font-size: 1.3em;
       margin: 0.6em 0 0.3em 0;
       color: #0099ff;
-      bookmark-level: 3;
+      bookmark-level: 4;
       bookmark-label: content();
     }
 
@@ -459,10 +459,10 @@ export function generateHtmlDocument({
 
   <!-- Cover Page -->
   <div style="text-align: center; padding: 4em 0;">
-    <h1 style="font-size: 3em; margin: 1em 0; border: none; padding: 0;">
+    <h1 style="font-size: 3em; margin: 1em 0; border: none; padding: 0; bookmark-level: 1;">
       ${coverTitle}
     </h1>
-    <h2 style="font-size: 1.5em; color: #666; margin: 0.5em 0;">
+    <h2 style="font-size: 1.5em; color: #666; margin: 0.5em 0; bookmark-level: none;">
       ${coverSubtitle}
     </h2>
     <p style="margin-top: 3em; color: #999;">
@@ -472,7 +472,7 @@ export function generateHtmlDocument({
 
   <!-- Table of Contents -->
   <div class="toc">
-    <h2>Table of Contents</h2>
+    <h2 style="bookmark-level: 2;">Table of Contents</h2>
     <ul>`
 
   documentStructure.forEach((section) => {
