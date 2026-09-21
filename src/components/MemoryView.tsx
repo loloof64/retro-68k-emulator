@@ -22,7 +22,7 @@ const readWindow = (memory: SystemMemory, base: number) => {
   return bytes
 }
 
-// Read-only hex dump of a 128-byte window. Bytes that changed since the previous
+// Read-only hex dump of a 256-byte window. Bytes that changed since the previous
 // refresh are highlighted; the byte at PC is marked.
 export default function MemoryView({ memory, pc, a7, tick }: MemoryViewProps) {
   const { t } = useI18n()
