@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useI18n } from '../i18n'
 import { FRAMEBUFFER_START, INPUT_START, SOUND_START, USER_RAM_START, type SystemMemory } from '../memory'
 import { asciiChar, hex, parseAddress, ROW_BYTES, windowBase, WINDOW_BYTES, WINDOW_ROWS } from '../memoryView'
@@ -8,6 +8,7 @@ interface MemoryViewProps {
   pc: number
   a7: number
   tick: number // bumped by the Debugger whenever the CPU/memory may have changed
+  isRunning: boolean
 }
 
 const readWindow = (memory: SystemMemory, base: number) => {
@@ -22,25 +23,36 @@ const readWindow = (memory: SystemMemory, base: number) => {
   return bytes
 }
 
-// Read-only hex dump of a 128-byte window. Bytes that changed since the previous
-// refresh are highlighted; the byte at PC is marked.
-export default function MemoryView({ memory, pc, a7, tick }: MemoryViewProps) {
+// Read-only hex dump of a 128-byte window. Bytes the program wrote since the previous
+// refresh are highlighted; the byte at PC is marked. With "follow" on, the window
+// jumps to the last address written on Step and Pause (never while running).
+export default function MemoryView({ memory, pc, a7, tick, isRunning }: MemoryViewProps) {
   const { t } = useI18n()
   const [base, setBase] = useState(USER_RAM_START)
   const [goto, setGoto] = useState('')
-  const snap = useRef({ tick, base, prev: [] as number[], cur: [] as number[] })
+  const [follow, setFollow] = useState(true)
+  const followRef = useRef({ follow, isRunning })
+  followRef.current = { follow, isRunning }
 
-  // Snapshot once per refresh (keyed, so re-renders from typing don't clear the highlight).
-  const s = snap.current
-  if (s.tick !== tick || s.base !== base || s.cur.length === 0) {
-    s.prev = s.base === base && s.cur.length ? s.cur : []
-    s.cur = readWindow(memory, base)
-    s.tick = tick
-    s.base = base
+  // Taken once per refresh (keyed by tick, so re-renders from typing keep the highlight).
+  const writes = useRef({ tick: -1, last: undefined as number | undefined, bytes: new Set<number>() })
+  if (writes.current.tick !== tick) {
+    const w = memory.takeWrites()
+    writes.current = { tick, last: w.last, bytes: w.bytes }
   }
-  const { cur, prev } = s
+  const { last, bytes: written } = writes.current
 
-  const jump = (address: number) => setBase(windowBase(address))
+  useEffect(() => {
+    if (followRef.current.follow && !followRef.current.isRunning && last !== undefined) {
+      setBase(windowBase(last))
+    }
+  }, [tick, last])
+
+  const cur = readWindow(memory, base)
+  const jump = (address: number) => {
+    setFollow(false) // navigating by hand: stay where the user put the window
+    setBase(windowBase(address))
+  }
   const submit = (e: React.FormEvent) => {
     e.preventDefault()
     const address = parseAddress(goto)
@@ -56,7 +68,7 @@ export default function MemoryView({ memory, pc, a7, tick }: MemoryViewProps) {
         {bytes.map((b, i) => {
           const at = r * ROW_BYTES + i
           const cls = ['mem-byte']
-          if (prev.length && prev[at] !== b) cls.push('changed')
+          if (written.has(base + at)) cls.push('changed')
           if (base + at === pc) cls.push('pc')
           return (
             <span key={i} className={cls.join(' ')}>
@@ -80,7 +92,18 @@ export default function MemoryView({ memory, pc, a7, tick }: MemoryViewProps) {
 
   return (
     <div className="memory-section">
-      <h3>{t('memory')}</h3>
+      <div className="mem-header">
+        <h3>{t('memory')}</h3>
+        <label className="mem-follow">
+          <input
+            type="checkbox"
+            checked={follow}
+            disabled={isRunning}
+            onChange={(e) => setFollow(e.target.checked)}
+          />
+          {t('memory.follow')}
+        </label>
+      </div>
       <form className="mem-controls" onSubmit={submit}>
         <button type="button" className="btn" onClick={() => jump(base - WINDOW_BYTES)} aria-label={t('memory.prev')}>
           ◀

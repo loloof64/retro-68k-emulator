@@ -819,7 +819,8 @@ The Debugger panel ends with a **Memory** section: a read-only hex dump of 128 b
 
 - Type an address (`2000`, `$2000` or `0x2000`) and press Enter to jump there, or use the ◀ / ▶ buttons to move one page.
 - The shortcut buttons jump to PC (the next instruction), Stack (where `A7` points), Program, Screen (the framebuffer), Input and Sound (the memory-mapped registers).
-- Bytes that changed since the last refresh are highlighted in red, and the byte at PC has a yellow outline.
+- Bytes your program just wrote are highlighted in red, and the byte at PC has a yellow outline.
+- "Follow writes" (on by default) moves the window to the last address written each time you Step or Pause, so you don't have to hunt for it. It stays still while the program runs, and turns itself off when you navigate by hand; tick it again to resume.
 
 Editing bytes is not supported yet.
 

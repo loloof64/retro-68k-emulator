@@ -68,6 +68,7 @@ export default function Debugger({
     memory.reset()
     memory.setButtonState(buttons)
     program.bytecode.forEach((b, i) => memory.write8(program.origin + i, b))
+    memory.takeWrites() // loading isn't the program writing: don't highlight/follow it
     reset(cpuRef.current, program.entry)
     setRuntimeError(null)
     onFrame()
@@ -243,7 +244,7 @@ export default function Debugger({
         </div>
       </div>
 
-      <MemoryView memory={memory} pc={pc} a7={cpu.registers[15]} tick={tick} />
+      <MemoryView memory={memory} pc={pc} a7={cpu.registers[15]} tick={tick} isRunning={isRunning} />
     </div>
   )
 }

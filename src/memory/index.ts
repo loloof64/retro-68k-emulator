@@ -75,6 +75,8 @@ export const MEMORY_SIZE = SOUND_END + 1
 
 export class SystemMemory implements Memory {
   private bytes: Uint8Array
+  private lastWrite: number | undefined
+  private written = new Set<number>()
 
   constructor(size: number = MEMORY_SIZE) {
     this.bytes = new Uint8Array(size)
@@ -108,19 +110,41 @@ export class SystemMemory implements Memory {
     )
   }
 
+  // Remembers what the program wrote, for the debugger's memory view. The set is
+  // capped so a run filling the framebuffer stays cheap.
+  private note(address: number, length: number): void {
+    this.lastWrite = address
+    for (let i = 0; i < length && this.written.size < 64; i++) this.written.add(address + i)
+  }
+
+  // Bytes written (and the last address written) since the previous call.
+  takeWrites(): { last: number | undefined; bytes: Set<number> } {
+    const taken = { last: this.lastWrite, bytes: this.written }
+    this.lastWrite = undefined
+    this.written = new Set()
+    return taken
+  }
+
   write8(address: number, value: number): void {
     this.checkBounds(address, 1)
+    this.note(address, 1)
     this.bytes[address] = value & 0xff
   }
 
   write16(address: number, value: number): void {
     this.checkBounds(address, 2)
+    this.note(address, 2)
     this.bytes[address] = (value >>> 8) & 0xff
     this.bytes[address + 1] = value & 0xff
   }
 
   write32(address: number, value: number): void {
     this.checkBounds(address, 4)
+    this.note(address, 4)
+    this.put32(address, value)
+  }
+
+  private put32(address: number, value: number): void {
     this.bytes[address] = (value >>> 24) & 0xff
     this.bytes[address + 1] = (value >>> 16) & 0xff
     this.bytes[address + 2] = (value >>> 8) & 0xff
@@ -129,6 +153,7 @@ export class SystemMemory implements Memory {
 
   reset(): void {
     this.bytes.fill(0)
+    this.takeWrites()
   }
 
   getPixel(x: number, y: number): number {
@@ -152,7 +177,7 @@ export class SystemMemory implements Memory {
   // For the UI (on-screen gamepad and/or a real controller) to publish the
   // current button state; running programs read it back via MOVE or TRAP #5.
   setButtonState(mask: number): void {
-    this.write32(INPUT_START, mask >>> 0)
+    this.put32(INPUT_START, mask >>> 0) // not a program write: not noted
   }
 
   getButtonState(): number {

@@ -125,4 +125,23 @@ describe('SystemMemory', () => {
       expect(SOUND_END).toBeLessThan(MEMORY_SIZE)
     })
   })
+
+  describe('takeWrites', () => {
+    it('reports the last address and bytes written, then clears', () => {
+      const mem = new SystemMemory()
+      mem.write8(0x2000, 1)
+      mem.write16(0x2010, 2)
+      const w = mem.takeWrites()
+      expect(w.last).toBe(0x2010)
+      expect([...w.bytes].sort()).toEqual([0x2000, 0x2010, 0x2011])
+      expect(mem.takeWrites().last).toBeUndefined()
+    })
+
+    it('ignores the gamepad button mask', () => {
+      const mem = new SystemMemory()
+      mem.write8(0x2000, 1)
+      mem.setButtonState(0xff)
+      expect(mem.takeWrites().last).toBe(0x2000)
+    })
+  })
 })

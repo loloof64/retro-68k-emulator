@@ -224,3 +224,28 @@ p.errors {
   opacity: 0.7;
   margin-left: 4px;
 }
+
+.mem-follow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.mem-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.mem-header h3 {
+  margin: 0;
+}
+
+.mem-follow input {
+  margin: 0;
+}
+
+.mem-follow {
+  line-height: 1;
+}
