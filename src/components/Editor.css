@@ -61,6 +61,7 @@
 .tok-comment { color: var(--success); font-style: italic; }
 .tok-label { color: #dcdcaa; }
 .tok-mnemonic { color: #569cd6; }
+.tok-directive { color: #c586c0; }
 .tok-size { color: #4ec9b0; }
 .tok-register { color: #9cdcfe; }
 .tok-number { color: #b5cea8; }

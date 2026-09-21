@@ -14,8 +14,11 @@ describe('highlightLine', () => {
     expect(kinds('  RTS')).toEqual(['mnemonic:RTS'])
   })
   it('keeps ; inside strings and handles * comments', () => {
-    expect(kinds(' DC.B "a;b",0')).toEqual(['mnemonic:DC', 'size:.B', 'string:"a;b"', 'number:0'])
+    expect(kinds(' DC.B "a;b",0')).toEqual(['directive:DC', 'size:.B', 'string:"a;b"', 'number:0'])
     expect(kinds('* note')).toEqual(['comment:* note'])
+  })
+  it('gives directives their own kind', () => {
+    expect(kinds(' org $1000')).toEqual(['directive:org', 'number:$1000'])
   })
   it('round-trips the text', () => {
     const l = 'x: LEA 4(A0,D1.W),A7 ; hi'
