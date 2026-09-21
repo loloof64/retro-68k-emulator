@@ -138,9 +138,12 @@ docs:pdf:user`.
   `package-lock.json` (2 spots), `src-tauri/Cargo.toml`, `src-tauri/tauri.conf.json`
   + `CHANGELOG.md`.
 - **Release 0.3.0 (2026-09-21)**: gamepad fix. D-pad-as-axes (6/7) + left
-  stick read in `gamepadToMask`; under Tauri on Linux WebKitGTK has no
-  `navigator.getGamepads`, so `src-tauri/src/lib.rs` polls `gilrs` and emits
-  `gamepad-state` events that `Controller.tsx` consumes. Dev port moved to 1420.
+  stick read in `gamepadToMask`; under Tauri on Linux `src-tauri/src/lib.rs` polls `gilrs` and
+  emits `gamepad-state` events that `Controller.tsx` consumes — and *prefers* them
+  over WebKit's Gamepad API (`pickGamepad`): WebKit only exposes a pad after its
+  first input and its libmanette mapping is wrong for the Nacon GC-100 (a trigger
+  lands on the left stick's Y axis and rests at -1 = "up" held, the D-pad vanishes;
+  found via `RETRO68K_GAMEPAD_DEBUG=1`, 0.4.2 AppImage). Linux-only (cfg-gated). Dev port moved to 1420.
 - **Examples**: `examples/NN-*.asm` (13 programs, English; 13 is the sound demo) are
   assembled + run + asserted by `src/assembler/examples.test.ts` (add a
   test + bump its count when adding one). `docs/user/EXAMPLES.md` embeds

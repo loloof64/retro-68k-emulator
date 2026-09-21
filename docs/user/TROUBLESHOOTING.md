@@ -88,7 +88,7 @@ The usual causes:
 Only the D-pad, A/B/X/Y, Start and Select are used; the shoulder buttons, triggers, stick clicks and the center (Home) button are ignored. The left stick also works as a D-pad.
 
 - **Some controllers have a mode switch** (for example X / O, or Xbox / PlayStation). Pick the position where the four face buttons light up the matching on-screen buttons. On the Nacon GC-100 the **X** position works correctly; in the **O** position the Y button can behave like A.
-- **If directions stay stuck after pressing the triggers or shoulder buttons**, release them and press the D-pad or move the left stick again. This was seen once on a Nacon GC-100 and could not be reproduced afterwards, so its cause is unknown.
+- **Stuck directions after pressing the triggers** (Linux, versions up to 0.4.2): the D-pad stopped responding and *up* stayed held. Fixed in later versions; if you still see it, update the app.
 - **Linux only**: to see what the native controller layer receives, start the app from a terminal with `RETRO68K_GAMEPAD_DEBUG=1` set in front of the command; every controller event is printed there. Include that output when [reporting an issue](#reporting-issues).
 
 ## Getting More Help

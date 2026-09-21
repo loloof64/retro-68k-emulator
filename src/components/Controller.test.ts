@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   gamepadToMask,
   findStandardGamepad,
+  pickGamepad,
   GAMEPAD_BUTTON_MAP,
 } from './Controller'
 import {
@@ -80,5 +81,18 @@ describe('gamepadToMask axes fallback', () => {
     const pad = { ...fakeGamepad([]), axes: [0, 0, 0, 0, 0, 0, 0, -1] }
     expect(gamepadToMask(pad)).toBe(INPUT_BUTTON_UP)
     expect(gamepadToMask({ ...pad, axes: [1, 0] })).toBe(INPUT_BUTTON_RIGHT)
+  })
+})
+
+describe('pickGamepad', () => {
+  const browser = { connected: true, mapping: 'standard', buttons: [], axes: [0, -1, 0, 0] } as unknown as Gamepad
+  const native = { connected: true, mapping: 'standard', buttons: [], axes: [] } as unknown as Gamepad
+
+  it('prefers the native pad over a browser one', () => {
+    expect(pickGamepad([browser], native)).toBe(native)
+  })
+
+  it('falls back to the browser pad when there is no native one', () => {
+    expect(pickGamepad([browser], null)).toBe(browser)
   })
 })

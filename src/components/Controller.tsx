@@ -50,6 +50,17 @@ export function findStandardGamepad(
   return null
 }
 
+// The native (Rust/gilrs) pad wins when there is one: on Linux, WebKit only
+// exposes a pad to the Gamepad API after its first input, and its mapping is
+// wrong for some controllers (a trigger lands on the left stick's Y axis and
+// rests at -1 = "up" held, the D-pad disappears). Elsewhere native is null.
+export function pickGamepad(
+  browserPads: Parameters<typeof findStandardGamepad>[0],
+  native: ReturnType<typeof findStandardGamepad>
+): ReturnType<typeof findStandardGamepad> {
+  return native ?? findStandardGamepad(browserPads)
+}
+
 const AXIS_THRESHOLD = 0.5
 
 // Reduces one gamepad's button states to our bitmask. Pure/testable: only
@@ -96,8 +107,8 @@ export default function Controller({ onButtonStateChange }: ControllerProps) {
     virtualMaskRef.current = pressed ? virtualMaskRef.current | bit : virtualMaskRef.current & ~bit
   }, [])
 
-  // State pushed by the Rust side (src-tauri/src/lib.rs) when the webview
-  // has no Gamepad API (WebKitGTK on Linux); null when no pad is connected.
+  // State pushed by the Rust side (src-tauri/src/lib.rs, Linux only); null
+  // when no pad is connected or on other platforms.
   const nativePadRef = useRef<ReturnType<typeof findStandardGamepad>>(null)
 
   useEffect(() => {
@@ -128,7 +139,7 @@ export default function Controller({ onButtonStateChange }: ControllerProps) {
 
     const tick = () => {
       const pads = typeof navigator.getGamepads === 'function' ? navigator.getGamepads() : []
-      const gamepad = findStandardGamepad(pads) ?? nativePadRef.current
+      const gamepad = pickGamepad(pads, nativePadRef.current)
 
       if (!!gamepad !== lastConnectedRef.current) {
         lastConnectedRef.current = !!gamepad

@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Fixed
+- Linux: pressing a trigger (LT/RT) could hold *up* and disable the D-pad — the controller read through the webview's Gamepad API took over from the native one, with a wrong mapping. The native reading is now preferred
+
 ### Added
 - Linux: `RETRO68K_GAMEPAD_DEBUG=1` prints the controller events the app receives, to diagnose odd controllers
 - User guide: troubleshooting entry for controller mode switches and stuck directions

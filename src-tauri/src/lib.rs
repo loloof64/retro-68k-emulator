@@ -3,14 +3,19 @@
 // entry point be reused for both desktop (main.rs) and mobile builds,
 // should mobile support ever be added later.
 
+#[cfg(target_os = "linux")]
 use gilrs::{Axis, Button, Gilrs};
+#[cfg(target_os = "linux")]
 use serde_json::json;
+#[cfg(target_os = "linux")]
 use tauri::Emitter;
 
-// WebKitGTK (Tauri's Linux webview) often has no Gamepad API, so the
-// first connected pad is read natively and pushed to the frontend as a
+// On Linux the WebKitGTK Gamepad API is unreliable (missing, or a wrong
+// mapping for some pads), so the frontend prefers the first connected pad
+// read natively here and pushed to it as a
 // standard-mapping-shaped state (`buttons` = W3C indices 0-15, `axes`
 // with Y up = negative), only when it changes. `null` = no pad.
+#[cfg(target_os = "linux")]
 fn poll_gamepad(app: tauri::AppHandle) {
     let Ok(mut gilrs) = Gilrs::new() else { return };
     const BUTTONS: [Button; 16] = [
@@ -55,8 +60,12 @@ fn poll_gamepad(app: tauri::AppHandle) {
 pub fn run() {
     tauri::Builder::default()
         .setup(|app| {
-            let handle = app.handle().clone();
-            std::thread::spawn(move || poll_gamepad(handle));
+            #[cfg(target_os = "linux")]
+            {
+                let handle = app.handle().clone();
+                std::thread::spawn(move || poll_gamepad(handle));
+            }
+            let _ = app;
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![])
