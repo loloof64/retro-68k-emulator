@@ -127,10 +127,14 @@ docs:pdf:user`.
   read by `docs-html.js`) or Mermaid diagrams silently fall back to code
   blocks. A tag build uses the workflow as of the tagged commit, so fix
   the workflow *then* move the tag (force-push). The release body text is
-  hardcoded in `build.yml` (`releaseBody`) — update it per release.
+  hardcoded in `build.yml` (the `create-release` job's `body`) — update it per
+  release. That job creates the draft once, before the parallel platform
+  builds; without it each `tauri-action` job raced to create its own draft
+  and assets were split across several drafts (0.4.1: 9 assets instead of 14,
+  no error).
 - **Release 0.2.0 (2026-09-21)**: "The assembler is complete" (full
   mnemonic coverage, i18n en/fr/es, debugger speed selector). Same tag-driven
-  pipeline as 0.1.4; `releaseBody` in `build.yml` updated. Bump = `package.json`,
+  pipeline as 0.1.4; release body in `build.yml` updated. Bump = `package.json`,
   `package-lock.json` (2 spots), `src-tauri/Cargo.toml`, `src-tauri/tauri.conf.json`
   + `CHANGELOG.md`.
 - **Release 0.3.0 (2026-09-21)**: gamepad fix. D-pad-as-axes (6/7) + left

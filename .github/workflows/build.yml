@@ -14,7 +14,29 @@ permissions:
   contents: write
 
 jobs:
+  # Creates the draft release once, before the parallel platform builds.
+  # Without this, each build-tauri job creates its own draft for the same tag
+  # (race), and the assets end up split across several drafts.
+  create-release:
+    runs-on: ubuntu-latest
+    outputs:
+      release_id: ${{ steps.create.outputs.release_id }}
+    steps:
+      - name: Create the draft release (on tag)
+        id: create
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          id=$(gh api "repos/${{ github.repository }}/releases" \
+            -f tag_name='${{ github.ref_name }}' \
+            -f name='68K Emulator ${{ github.ref_name }}' \
+            -f body='Fixes sound in the Linux AppImage (GStreamer is now bundled). See CHANGELOG.md for details on this release.' \
+            -F draft=true -F prerelease=false --jq .id)
+          echo "release_id=$id" >> "$GITHUB_OUTPUT"
+
   build-tauri:
+    needs: create-release
     strategy:
       fail-fast: false
       matrix:
@@ -65,9 +87,10 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
+          # Set on tag pushes: attach to the draft made by create-release.
+          releaseId: ${{ needs.create-release.outputs.release_id }}
           tagName: ${{ github.ref_name }}
           releaseName: '68K Emulator ${{ github.ref_name }}'
-          releaseBody: 'Fixes sound in the Linux AppImage (GStreamer is now bundled). See CHANGELOG.md for details on this release.'
           # Only actually create/publish a GitHub Release when triggered by a tag push.
           # Manual "workflow_dispatch" runs just build and upload the artifacts below.
           releaseDraft: true
