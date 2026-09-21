@@ -24,6 +24,8 @@ interface DebuggerProps {
 }
 
 
+const hex32 = (v: number) => (v >>> 0).toString(16).toUpperCase().padStart(8, '0')
+
 export default function Debugger({
   code,
   memory,
@@ -221,38 +223,13 @@ export default function Debugger({
         {cpu.halted && <div className="info-row">{t('halted')}</div>}
       </div>
 
-      <div className="registers-section">
-        <h3>{t('registers.data')}</h3>
-        <div className="registers-grid">
-          {['D0', 'D1', 'D2', 'D3', 'D4', 'D5', 'D6', 'D7'].map((reg) => (
-            <div key={reg} className="register" title={decimalTitle(registers[reg])}>
-              <span className="reg-name">{reg}:</span>
-              <code>
-                ${(registers[reg] >>> 0)
-                  .toString(16)
-                  .toUpperCase()
-                  .padStart(8, '0')}
-              </code>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <div className="registers-section">
-        <h3>{t('registers.address')}</h3>
-        <div className="registers-grid">
-          {['A0', 'A1', 'A2', 'A3', 'A4', 'A5', 'A6', 'A7'].map((reg) => (
-            <div key={reg} className="register" title={decimalTitle(registers[reg])}>
-              <span className="reg-name">{reg}:</span>
-              <code>
-                ${(registers[reg] >>> 0)
-                  .toString(16)
-                  .toUpperCase()
-                  .padStart(8, '0')}
-              </code>
-            </div>
-          ))}
-        </div>
+      <div className="registers-grid">
+        {[0, 1, 2, 3, 4, 5, 6, 7].flatMap((i) => [`D${i}`, `A${i}`]).map((reg) => (
+          <div key={reg} className="register" title={decimalTitle(registers[reg])}>
+            <span className="reg-name">{reg}</span>
+            <code>${hex32(registers[reg])}</code>
+          </div>
+        ))}
       </div>
 
       <div className="flags-section">
