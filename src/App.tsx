@@ -10,7 +10,7 @@ import { remapBreakpoints } from './breakpoints';
 import { readMarks, writeMarks } from './marks';
 import { translate, useI18n } from './i18n';
 import { examplesFor } from './examples';
-import { inTauri, openSource, saveSourceAs, writeSource } from './sourceFile';
+import { inTauri, openSource, saveSourceAs, writeSource, confirmDiscard } from './sourceFile';
 import { initHistory, pushHistory, undo as undoHistory, redo as redoHistory, currentValue } from './history';
 
 export default function App() {
@@ -102,22 +102,22 @@ export default function App() {
   // an example, opening a different file): true means it's fine to proceed,
   // either because nothing would be lost or because the user said to
   // discard it anyway.
-  const confirmDiscardIfDirty = () => !isDirty || window.confirm(t('file.discardConfirm'));
-  const loadExample = (id: string) => {
+  const confirmDiscardIfDirty = () => !isDirty || confirmDiscard(t('file.discardConfirm'));
+  const loadExample = async (id: string) => {
     const example = examplesFor(locale).find((x) => x.id === id);
-    if (example && confirmDiscardIfDirty()) loadSource(example.code);
+    if (example && (await confirmDiscardIfDirty())) loadSource(example.code);
   };
   const fileInputRef = useRef<HTMLInputElement>(null);
   const openFileTauri = () => {
     if (isRunning) return;
     openSource()
-      .then((f) => {
-        if (f && confirmDiscardIfDirty()) loadSource(f.code, f.path);
+      .then(async (f) => {
+        if (f && (await confirmDiscardIfDirty())) loadSource(f.code, f.path);
       })
       .catch((e) => alert(String(e)));
   };
   const openFileBrowser = async (file?: File) => {
-    if (file && confirmDiscardIfDirty()) loadSource(await file.text());
+    if (file && (await confirmDiscardIfDirty())) loadSource(await file.text());
   };
   // Direct write to the already-known path; disabled (button + shortcut)
   // whenever there isn't one, e.g. an example or the built-in default.

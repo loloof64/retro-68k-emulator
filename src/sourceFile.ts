@@ -1,4 +1,4 @@
-import { open, save } from '@tauri-apps/plugin-dialog'
+import { open, save, confirm as confirmDialog } from '@tauri-apps/plugin-dialog'
 import { readTextFile, writeTextFile } from '@tauri-apps/plugin-fs'
 
 const filters = [{ name: 'Assembly', extensions: ['asm', 's', 'txt'] }]
@@ -21,4 +21,14 @@ export async function saveSourceAs(code: string): Promise<string | undefined> {
 // Writes straight to an already-known path, no dialog ("Save").
 export async function writeSource(path: string, code: string): Promise<void> {
   await writeTextFile(path, code)
+}
+
+// window.confirm() isn't reliably delivered by the Tauri desktop build's
+// WebView (same class of issue as document.execCommand's undo stack not
+// getting Ctrl+Z there — see src/history.ts): it can resolve immediately
+// without ever showing a dialog. Tauri's own dialog plugin is the reliable
+// one there; window.confirm is kept only for the browser build.
+export async function confirmDiscard(message: string): Promise<boolean> {
+  if (inTauri) return confirmDialog(message, { kind: 'warning' })
+  return window.confirm(message)
 }
