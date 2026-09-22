@@ -1,0 +1,64 @@
+name: Update User Guide PDF
+
+# Manual trigger: regenerates docs/user/Retro68K-User-Guide.pdf from the
+# current docs/user/*.md sources and commits it to main if it changed.
+# Useful to refresh the repo copy (linked from the README) without cutting
+# a full release. The release workflow (build.yml) does the same thing
+# automatically on every tag push.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update-user-guide:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 'lts/*'
+
+      - name: Install Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      # pip rather than apt: apt's WeasyPrint is an old 53.x that hung on the
+      # user guide in CI; 67.x is what the docs are developed against.
+      - name: Install WeasyPrint
+        run: pip install 'weasyprint==67.0'
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      # Chrome for mermaid-cli (diagram -> PNG); without it the diagram falls
+      # back to a plain code block. --no-sandbox: Ubuntu 24.04 runners restrict
+      # unprivileged user namespaces, which Chrome's sandbox needs.
+      - name: Install Chrome for Mermaid diagrams
+        run: |
+          npx puppeteer browsers install chrome-headless-shell
+          echo '{"args":["--no-sandbox"]}' > "$RUNNER_TEMP/puppeteer.json"
+
+      - name: Generate user guide PDF
+        run: npm run docs:pdf:user
+        env:
+          MERMAID_PUPPETEER_CONFIG: ${{ runner.temp }}/puppeteer.json
+
+      - name: Commit regenerated PDF to main
+        run: |
+          cp dist-docs/Retro68K-User-Guide.pdf docs/user/Retro68K-User-Guide.pdf
+          git config user.name 'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          git add docs/user/Retro68K-User-Guide.pdf
+          if git diff --cached --quiet; then
+            echo "No change in the generated PDF, nothing to commit."
+          else
+            git commit -m 'docs(user): regenerate user guide PDF'
+            git push origin HEAD:main
+          fi

@@ -12,6 +12,8 @@
 
 See [docs/user/DOWNLOAD.md](docs/user/DOWNLOAD.md) for the installers.
 
+📖 [User guide (PDF)](docs/user/Retro68K-User-Guide.pdf) — always up to date with the latest release.
+
 ## 🛠️ Available Scripts
 
 ```bash
