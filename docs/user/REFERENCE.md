@@ -12,9 +12,44 @@ The CPU core (registers, status flags, and the fetch-decode-execute loop) is imp
 | `A0`–`A7` | 32-bit | Address registers — hold memory addresses. `A7` doubles as the Stack Pointer (SP) |
 | `PC` | 32-bit | Program Counter — address of the next instruction to fetch |
 
+`D0`–`D7` and `A0`–`A7` are ordinary registers: any instruction that takes a register operand can freely read or write them (`MOVE D1,D0`, `ADD.L D1,A2`, and so on). `PC` cannot be read or written directly — there's no instruction that `MOVE`s a value into or out of it — it only changes as a side effect of control-flow instructions (`JMP`, `JSR`, `Bcc`, `RTS`, ...).
+
 A freshly created CPU — internally, `createCPU()`/`reset()` in the emulator's core — starts with every register at `0` except `A7`, which starts at `$03FFF` (the top of the default stack, which grows downward). The Debugger panel's "⟲ Reset" button does exactly this, then reloads the assembled program and points the CPU at its entry address.
 
+## The Stack
+
+The stack is a region of memory used as a last-in-first-out (LIFO) buffer: the last value pushed onto it is the first one popped back off, like a stack of plates you can only add to or take from at the top. The CPU uses it for return addresses (`JSR`/`RTS`), for saving registers around a subroutine call, and for anything a program wants to stash temporarily.
+
+There's no dedicated push/pop instruction — "push" and "pop" are just `MOVE` (or `MOVEM`, `PEA`, `JSR`) targeting `A7` through two addressing modes (see [Addressing Modes](#addressing-modes)):
+
+- **Push** = `-(A7)`: decrement `A7` by the operand's size, *then* write the value there (`MOVE.L D0,-(A7)`).
+- **Pop** = `(A7)+`: read the value at `A7`, *then* increment `A7` by the operand's size (`MOVE.L (A7)+,D0`).
+
+Because a push decrements first, **the stack grows downward**, from high addresses toward low ones — the opposite of how User RAM is normally read top-to-bottom. That's why a freshly reset CPU starts `A7` at `$03FFF`, the *top* of the default stack (see [Registers](#registers) above): nothing has been pushed yet, and each push eats into User RAM from that high end down.
+
+```
+ $03FFF  +----------------+  <- A7 starts here, stack empty
+         |                |
+         |   free RAM     |
+         |                |
+ $02000  +----------------+
+```
+
+After `MOVE.L D0,-(A7)` pushes a 4-byte value:
+
+```
+ $03FFF  +----------------+
+         |   free RAM     |
+         +----------------+  <- A7 now points here
+         |  D0's 4 bytes  |
+ $02000  +----------------+
+```
+
+`A7` — the Stack Pointer — is what makes this "the" stack rather than just memory: every pushing/popping instruction always targets it specifically, never another address register. `JSR`/`BSR` push a return address and `RTS` pops it back off (see [What is a return address?](#what-is-a-return-address)); `PEA` pushes a computed address; `MOVEM list,-(A7)` / `MOVEM (A7)+,list` push or pop several registers in one instruction (see [How does MOVEM's register list work?](#how-does-movems-register-list-work)); `LINK`/`UNLK` build and tear down a whole stack frame (see [below](#how-do-link-and-unlk-handle-a7)).
+
 ## Status Flags
+
+The status flags aren't something a program sets directly — they're a side effect: each instruction that "affects flags" updates them to reflect the result it just produced (a subtraction that hit zero sets `Z`, one that went negative sets `N`, and so on), and they simply hold that value until the next instruction that touches them runs.
 
 | Flag | Name | Meaning |
 |---|---|---|
@@ -32,7 +67,7 @@ The five flags live together in one register, the **Status Register**, written `
 
 ### What does cc mean?
 
-In `Bcc`, `DBcc` and `Scc`, `cc` is a placeholder for a *condition*: a two-letter test on the flags, such as `EQ` (equal, `Z=1`), `NE` (not equal), `GT` (greater than, signed) or `CS` (carry set). Replace `cc` with one to get an actual instruction: `BEQ`, `DBNE`, `SGT`. The full list, and which ones to use after a `CMP`, is in [Which Bcc do I want?](#which-bcc-do-i-want). (Motorola's manuals also call the flags themselves "condition codes", hence the name `CCR`; here, `cc` only ever means one of these tests.)
+In `Bcc`, `DBcc` and `Scc` op-codes, `cc` is a placeholder for a *condition*: a two-letter test on the flags, such as `EQ` (equal, `Z=1`), `NE` (not equal), `GT` (greater than, signed) or `CS` (carry set). Replace `cc` with one to get an actual instruction: `BEQ`, `DBNE`, `SGT`. The full list, and which ones to use after a `CMP`, is in [Which Bcc do I want?](#which-bcc-do-i-want). (Motorola's manuals also call the flags themselves "condition codes", hence the name `CCR`; here, `cc` only ever means one of these tests.)
 
 ## Instruction Format
 
@@ -54,6 +89,12 @@ MNEMONIC.SIZE src,dst
   The assembler rejects a suffix the instruction cannot take
   (`NOP.L`, `MULU.L`) rather than ignoring it, and `.S` (a short
   branch) exists only on `BRA`, `BSR` and `Bcc`.
+  When `dst` is a data register (`Dn`), `.B`/`.W` only overwrite the
+  low byte/word — the rest of the register keeps whatever it held
+  before, it isn't cleared. An address register (`An`) destination
+  works differently: there's no partial write, a `.W` source is
+  sign-extended to fill the full 32 bits instead (see `MOVEA` in
+  [Instruction Set (Opcodes)](#instruction-set-opcodes)).
 - **src** and **dst** are the operands — "source" (where a value comes
   from) and "destination" (where it goes). Each one is written using
   one of the addressing modes described just below, e.g. a register
@@ -67,30 +108,38 @@ out in its own "Syntax" column further down this page, in [Instruction
 Set (Opcodes)](#instruction-set-opcodes) — the template above is just
 the general shape they all follow.
 
+The 68000 is **big-endian**: for a `.W` or `.L` value, the most
+significant byte is stored at the lowest memory address. Writing
+`$1234` as a word therefore leaves the bytes `$12` then `$34`, in that
+order, at increasing addresses — see [Inspecting Memory](#inspecting-memory)
+for a worked example.
+
 ## Addressing Modes
 
-An addressing mode is how an instruction says where an operand lives — a register, a memory address, or a constant baked right into the instruction. These are the modes wired in today:
+An addressing mode is how an instruction says where an operand lives — a register, a memory address, or a constant baked right into the instruction. Elsewhere on this page, `<ea>` ("effective address") stands for "any operand written using one of the addressing modes below" — it shows up in syntax like `ADD <ea>,Dn` to mean the source can be *any* of them (a register, `(A0)`, `#5`, ...), as opposed to a fixed operand like `Dn`, which only ever means a data register. Not every instruction accepts every mode as its `<ea>` — restrictions (e.g. no `#imm` as a destination) are called out per instruction in [Instruction Set (Opcodes)](#instruction-set-opcodes) and [Instruction Usage Guidance](#instruction-usage-guidance). These are the modes wired in today:
 
 | Mode | Syntax | Example | Description |
 |---|---|---|---|
 | Data register | `Dn` | `MOVE.L D0,D1` | The value in a data register |
 | Address register | `An` | `MOVE.L A0,A1` | The value in an address register |
 | Register indirect | `(An)` | `MOVE.L (A0),D0` | The value in memory at the address held in `An` |
-| Post-increment | `(An)+` | `MOVE.L (A0)+,D0` | Like indirect, then `An` is bumped by the operand's size |
+| Post-increment | `(An)+` | `MOVE.L (A0)+,D0` | `An` is used as the address first, *then* bumped by the operand's size |
 | Pre-decrement | `-(An)` | `MOVE.L D0,-(A0)` | `An` is decremented by the operand's size first, then used as the address |
-| Displacement | `d16(An)` | `MOVE.L $10(A0),D0` | `An` plus a 16-bit displacement |
+| Displacement | `d16(An)` | `MOVE.L $10(A0),D0` | `An` plus a 16-bit displacement — `An` itself is left unchanged |
 | Immediate | `#value` | `MOVE.L #100,D0` | A constant baked into the instruction (source only — can't be a destination) |
-| Absolute short | `xxx.W` | `MOVE.L $100.W,D0` | A 16-bit address, sign-extended — reaches `$0000`-`$7FFF` (or, on real hardware, the top of memory too; this emulator's address space doesn't extend that far) |
-| Absolute long | `xxx.L` | `MOVE.L $40000.L,D0` | A full 32-bit address, written directly into the instruction |
-| Indexed | `d8(An,Xn)` | `MOVE.L $10(A0,D1.W),D0` | `An` plus an index register (`Dn` or `An`, `.W` sign-extended or `.L`) plus an 8-bit displacement |
-| PC displacement | `d16(PC)` | `MOVE.L $10(PC),D0` | The program counter (at the displacement's own extension word) plus a 16-bit displacement — source only, can't be a destination |
-| PC indexed | `d8(PC,Xn)` | `MOVE.L $10(PC,D1.W),D0` | Like Indexed, but based on the program counter instead of an address register — source only |
+| Absolute short | `xxx.W` | `MOVE.L $100.W,D0` | A 16-bit address, sign-extended — can only point at `$0000`-`$7FFF`: the whole [System area](#memory-map) (`$0000`-`$1FFF`) plus the first 24 KB of User RAM, not far enough to reach the Framebuffer, Controller Input, or Sound (or, on real hardware, the top of memory too; this emulator's address space doesn't extend that far) |
+| Absolute long | `xxx.L` | `MOVE.L $40000.L,D0` | A full 32-bit address, written directly into the instruction — can point at any [region](#memory-map): System area, User RAM, Framebuffer, Controller Input, or Sound |
+| Indexed | `d8(An,Xn)` | `MOVE.L $10(A0,D1.W),D0` | `An` plus an index register (`Dn` or `An`, `.W` sign-extended or `.L`) plus an 8-bit displacement — like Displacement above, both `An` and `Xn` are only read, neither is changed |
+| PC displacement | `d16(PC)` | `MOVE.L $10(PC),D0` | The program counter (at the displacement's own extension word) plus a 16-bit displacement — source only, can't be a destination; like Displacement above, `PC` is only read, not changed by this addressing mode itself (it still advances normally past the extension word, same as fetching any other instruction) |
+| PC indexed | `d8(PC,Xn)` | `MOVE.L $10(PC,D1.W),D0` | Like Indexed, but based on the program counter instead of an address register — source only; neither `PC` nor `Xn` is changed by this addressing mode itself |
 
 Absolute addressing works either as shown above or, for an address you'll reuse, by loading it into an address register first with `MOVEA` (e.g. `MOVEA.L #$40000,A0` then `(A0)`) — most examples on this page still use the `MOVEA` style since it's what the addressing modes actually looked like before absolute addressing landed, but either works today.
 
+Displacement (`d16(An)`) only ever *reads* `An` to compute the address — unlike post-increment and pre-decrement, it never writes a new value back into it. Use it when you want to reach an offset from `An` without moving `An` itself (e.g. `MOVE.L 4(A0),D0` to read the second long word of a struct pointed to by `A0`, leaving `A0` where it was for the next access); use post-increment/pre-decrement instead when you're walking through memory one element at a time and want `An` to advance (or retreat) as you go.
+
 ## Memory Map
 
-The emulator's memory system is implemented and working. Every address below is real, addressable memory:
+The emulator's memory system is implemented and working. It's entirely simulated inside the app — a plain in-memory buffer, never your computer's actual RAM:
 
 | Region | Address range | Size | Purpose |
 |---|---|---|---|
@@ -130,7 +179,7 @@ Each component runs from `$00` (none) to `$FF` (full). The 68000 stores the most
 | Magenta | `$FF00FFFF` |
 | Orange | `$FF8000FF` |
 
-To read one component back out of a color, *shift* it down to the lowest byte, then *mask* off what is above it. A shift moves every bit of a register by a given number of places (`LSR`, "logical shift right", moves bits toward the low end and fills with zeros); a mask is an `AND` with `$FF`, which keeps only the low 8 bits and clears the rest. The red byte is already the top one, so shifting by 24 leaves only it:
+To read one component back out of a color, *shift* it down to the lowest byte, then *mask* off what is above it. A shift moves every bit of a register by a given number of places (`LSR`, "logical shift right", moves bits toward the low end and fills created "holes" with zeros); a mask is an `AND` with `$FF`, which keeps only the low 8 bits and clears the rest. The red byte is already the top one, so shifting by 24 leaves only it:
 
 ```
         MOVE.L  #$FF8040FF,D0   ; a color: R=$FF G=$80 B=$40 A=$FF
@@ -214,9 +263,9 @@ duration of 0 is silence. Sound starts after you press **Run** or
 
 ## Instruction Set (Opcodes)
 
-A first handful of real instructions is wired in, grouped below the way Motorola's own 68000 Programmer's Reference Manual groups them. **Cycles** are how many CPU cycles an instruction takes to run — smaller is faster; they're what the emulator's cycle counter adds up as your program executes.
+Every non-privileged 68000 instruction is listed below, grouped the way Motorola's own 68000 Programmer's Reference Manual groups them. **Cycles** are how many CPU cycles an instruction takes to run — smaller is faster; they're what the emulator's cycle counter adds up as your program executes.
 
-*(Real 68000 hardware charges different cycle counts per addressing mode, and `Bcc` costs less when the branch isn't taken — the emulator uses one flat number per instruction for now; that'll get more accurate as addressing-mode-specific timing is added.)*
+*(Real 68000 hardware charges different cycle counts per addressing mode, and `Bcc` costs less when the branch isn't taken — this emulator deliberately doesn't model that: each instruction below just charges one flat cycle count, regardless of addressing mode or whether a branch was taken.)*
 
 ### Data Movement
 
@@ -239,17 +288,17 @@ A first handful of real instructions is wired in, grouped below the way Motorola
 | Mnemonic | Syntax | Sizes | Cycles | Flags affected | Description |
 |---|---|---|---|---|---|
 | `ADD` | `ADD.size src,Dn` / `ADD.size Dn,dst` | byte, word, long | 4 (Dn), 8/12 byte-word/long (mem) | N, Z, V, C, X | Adds `src` into a data register, or a data register into memory — see [below](#how-does-the-memory-destination-direction-work) for the second form's addressing restriction and why the cycle count is higher. |
-| `ADDI` | `ADDI.size #data,dst` | byte, word, long | 8/16 byte-word/long (`Dn`), 16/28 (mem) | N, Z, V, C, X | A different opcode from `ADD #imm,Dn` above — adds an immediate directly into `dst` (`Dn` or memory) with no register on the source side at all. An address register isn't a valid `dst` — that raises the [Illegal Instruction exception](#exceptions). |
+| `ADDI` | `ADDI.size #data,dst` | byte, word, long | 8/16 byte-word/long (`Dn`), 16/28 (mem) | N, Z, V, C, X | A different opcode from `ADD #imm,Dn` above — adds an immediate directly into `dst` (`Dn` or memory) with no register on the source side at all; see [below](#why-does-addi-exist-when-add-immdn-already-works) for why both exist. An address register isn't a valid `dst` — that raises the [Illegal Instruction exception](#exceptions). |
 | `ADDA` | `ADDA.size src,An` | word, long | 8 (word), 6 (long) | none | `ADD`'s `An`-destination form: always a full 32-bit add, word `src` sign-extended first. Same relationship `MOVEA` has to `MOVE` — no flags touched at all, not even the ones a same-size `ADD` would set. |
 | `ADDX` | `ADDX Dy,Dx` / `ADDX -(Ay),-(Ax)` | byte, word, long | 4/8 byte-word/long (register), 18/30 (memory) | N, Z (see below), V, C, X | `ADD`'s extend-carry sibling: `dst = dst + src + X`, for chaining an addition wider than one register — the binary counterpart to `ABCD`'s decimal chaining. See [below](#how-does-packed-bcd-arithmetic-work) for the chaining idiom and the `Z` rule (identical here). |
 | `SUB` | `SUB.size src,Dn` / `SUB.size Dn,dst` | byte, word, long | 4 (Dn), 8/12 byte-word/long (mem) | N, Z, V, C, X | Subtracts `src` from a data register, or a data register from memory — same two directions `ADD` has, see [below](#how-does-the-memory-destination-direction-work). |
 | `SUBI` | `SUBI.size #data,dst` | byte, word, long | 8/16 byte-word/long (`Dn`), 16/28 (mem) | N, Z, V, C, X | `ADDI`'s subtraction counterpart, same relationship `SUB` has to `ADD` — subtracts an immediate directly from `dst`, no register on the source side. Same `An` restriction as `ADDI`. |
 | `SUBA` | `SUBA.size src,An` | word, long | 8 (word), 6 (long) | none | `SUB`'s `An`-destination form — same rules `ADDA` follows. |
 | `SUBX` | `SUBX Dy,Dx` / `SUBX -(Ay),-(Ax)` | byte, word, long | 4/8 byte-word/long (register), 18/30 (memory) | N, Z (see below), V, C, X | `SUB`'s extend-carry sibling: `dst = dst - src - X`, same relationship `ADDX` has to `ADD`. |
-| `ADDQ`/`SUBQ` | `ADDQ #data,dst` / `SUBQ #data,dst` | byte, word, long | 4 | N, Z, V, C, X (`An`: none) | Adds/subtracts a small immediate (`1`-`8`) straight into `dst`, packed into the opcode itself. `dst = An` is always a full 32-bit op with no flags touched, regardless of size — same rule `MOVEA` follows. |
+| `ADDQ`/`SUBQ` | `ADDQ #data,dst` / `SUBQ #data,dst` | byte, word, long | 4 | N, Z, V, C, X (`An`: none) | Adds/subtracts a small immediate (`1`-`8`) straight into `dst`, packed into the opcode itself — see [below](#how-does-addqsubq-pack-its-immediate-into-the-opcode) for how. `dst = An` is always a full 32-bit op with no flags touched, regardless of size — same rule `MOVEA` follows. |
 | `CMP` | `CMP.size src,Dn` | byte, word, long | 4 | N, Z, V, C | Subtracts `src` from a data register like `SUB`, but only sets flags — the register itself is unchanged. Typically followed by a `Bcc`. |
-| `CMPI` | `CMPI.size #data,dst` | byte, word, long | 8/14 byte-word/long (`Dn`), 12/20 (mem) | N, Z, V, C | `CMP`'s immediate counterpart — compares an immediate directly against `dst` (`Dn` or memory), only sets flags, same as `CMP`. `X` untouched. Same `An` restriction as `ADDI`. |
-| `CMPM` | `CMPM (Ay)+,(Ax)+` | byte, word, long | 12/20 byte-word/long | N, Z, V, C | `CMP`'s memory-to-memory form — no register involved, both addresses postincrement. Computes `(Ax) - (Ay)`, only sets flags. `X` untouched. |
+| `CMPI` | `CMPI.size #data,dst` | byte, word, long | 8/14 byte-word/long (`Dn`), 12/20 (mem) | N, Z, V, C | `CMP`'s immediate counterpart — compares an immediate directly against `dst` (`Dn` or memory), only sets flags, same as `CMP`. Flag `X` untouched. Same `An` restriction as `ADDI`. |
+| `CMPM` | `CMPM (Ay)+,(Ax)+` | byte, word, long | 12/20 byte-word/long | N, Z, V, C | `CMP`'s memory-to-memory form — no register involved, both addresses postincrement. Computes `(Ax) - (Ay)`, only sets flags. Flag `X` untouched. |
 | `CMPA` | `CMPA.size src,An` | word, long | 6 | N, Z, V, C | `CMP`'s `An`-destination form: compares the full 32-bit `An` against `src` (sign-extended if word), without modifying `An`. |
 | `CLR` | `CLR.size dst` | byte, word, long | 4 | N, Z, V (0), C (0) | Sets `dst` to `0`. An address register isn't a valid `dst` — that raises the [Illegal Instruction exception](#exceptions). |
 | `NEG` | `NEG.size dst` | byte, word, long | 4 | N, Z, V, C, X | Negates `dst` in place (two's complement: `dst = 0 - dst`). An address register isn't a valid `dst` — that raises the [Illegal Instruction exception](#exceptions). |
@@ -376,7 +425,7 @@ See [TRAP System Calls](#trap-system-calls) below for `TRAP`, and
 
 **S** — [SBCD](#binary-coded-decimal) · [Scc](#program-control) · [SUB](#arithmetic) · [SUBA](#arithmetic) · [SUBI](#arithmetic) · [SUBQ](#arithmetic) · [SUBX](#arithmetic) · [SWAP](#data-movement)
 
-**T** — [TAS](#arithmetic) · [TRAPV](#system) · [TST](#arithmetic)
+**T** — [TAS](#arithmetic) · [TRAP](#trap-system-calls) · [TRAPV](#system) · [TST](#arithmetic)
 
 **U** — [UNLK](#program-control)
 
@@ -388,7 +437,7 @@ Answers to the "how does this actually behave?" questions the tables above can't
 
 ### How does the memory-destination direction work?
 
-`ADD`, `SUB`, `AND`, and `OR` each support two directions that share one mnemonic:
+`ADD`, `SUB`, `AND`, and `OR` each support two directions that share one mnemonic (see [Addressing Modes](#addressing-modes) above for what `<ea>` means):
 
 - **`<ea>,Dn`** — read a value from anywhere (any addressing mode, including `#imm`) and combine it into a data register. This is the form used everywhere else on this page.
 - **`Dn,<ea>`** — the mirror image: combine a data register's value into `<ea>` instead, writing the result back to `<ea>` rather than to `Dn`. `<ea>` here must be a *memory-alterable* address — not `Dn`, not `An`, no `#imm`, no PC-relative — the same restriction the [memory-operand shift/rotate form](#how-does-the-memory-operand-shift-and-rotate-form-work) uses.
@@ -402,11 +451,34 @@ The memory-destination form costs more than the flat `4` cycles the `<ea>,Dn` di
 
 `AND`'s and `OR`'s `Dn,<ea>` form has one more wrinkle worth knowing if you're hand-encoding opcodes: their byte-sized `mode 000`/`001` slot is reserved on real hardware for `ABCD` (in `AND`'s case) or `SBCD` (in `OR`'s case) — see [How does packed BCD arithmetic work?](#how-does-packed-bcd-arithmetic-work). This isn't a conflict in practice: `Dn,<ea>`'s own `<ea>` already excludes `Dn`/`An` (mode `000`/`001`), so the two instructions never actually compete for the same encoding — the split just happens to land exactly where `Dn,<ea>` was never going to use anyway.
 
+### Why does ADDI exist when ADD #imm,Dn already works?
+
+Both really do accept an immediate — `ADD`'s `<ea>,Dn` form's `src` can be any addressing mode, `#imm` included (see [above](#how-does-the-memory-destination-direction-work)), so `ADD #5,D0` is a perfectly ordinary `ADD`, not `ADDI`. `ADD`/`ADDI` are still genuinely different opcodes at the bit level, and the difference that actually matters is `dst`: `ADD #imm,Dn`'s `<ea>,Dn` form can only ever target a data register, while `ADDI #imm,dst` can also target memory directly. So reach for `ADDI` specifically when the immediate needs to land straight in memory, with no register involved at all:
+
+```asm
+        ADDI.W  #1,(A0)     ; adds 1 straight into memory
+```
+
+`SUBI`/`ANDI`/`ORI`/`EORI`/`CMPI` all follow the same split from their non-`I` counterpart.
+
+### How does ADDQ/SUBQ pack its immediate into the opcode?
+
+`ADDQ`/`SUBQ`'s immediate is restricted to `1`-`8` for a specific reason: that narrow range is exactly what fits in the 3 spare bits (`ddd`) the opcode word already has free, right alongside the size and addressing-mode bits — `0101ddd0ssmmmrrr` for `ADDQ`, `0101ddd1ssmmmrrr` for `SUBQ`. Unlike `ADDI`/`SUBI`, which read their immediate from a separate extension word fetched right after the opcode, `ADDQ`/`SUBQ` never fetch one at all — the value is already sitting in the opcode word the CPU just read to know *which* instruction this is. That's also part of why they're cheaper: see their `4`-cycle entry in the [Arithmetic](#arithmetic) table above, versus `ADDI`/`SUBI`'s.
+
+3 bits can only encode `0`-`7`, though, and the instructions need `1`-`8` — so `8` reuses the otherwise-unused `000` bit pattern: the assembler encodes an immediate of `8` as `000`, and the CPU decodes a `000` field back as `8`, never as `0`. There's simply no encoding for "add/subtract `0`" with these two instructions:
+
+```asm
+        MOVEQ   #0,D0
+        ADDQ.L  #8,D0      ; D0 = 8 -- "000" decodes as 8, not 0
+```
+
 ### How does TAS work as a lock?
 
 `TAS dst` does two things in one instruction: it sets flags from `dst` exactly like `TST.B dst` would (`N` from the value's sign bit, `Z` if it was `0`), then — regardless of what it just read — forces `dst`'s bit 7 to `1` and writes that back. Reading the old value and setting the new one happen as a single indivisible step on real 68000 hardware, which is the entire point: it's the classic building block for a *spinlock*, a busy-wait flag that only one caller can ever "win":
 
 ```asm
+FLAG:   DS.B    1              ; the lock: a single reserved byte
+        EVEN                   ; DS.B 1 is odd-sized, see below
 LOOP:
   TAS     FLAG           ; N = old bit 7, then sets FLAG's bit 7
   BMI     LOOP           ; N set: was already busy - spin
@@ -414,6 +486,8 @@ LOOP:
   ...
   CLR.B   FLAG           ; release the lock for the next caller
 ```
+
+`FLAG` here is a [label](#source-layout) — a name the program itself gives to a byte of memory it reserved for the lock — not a keyword or a special register. The `EVEN` after it pads to the next even address, since `DS.B 1` reserves an odd number of bytes and `LOOP`'s first instruction needs to start on an even one — see [Source Layout](#source-layout).
 
 If `FLAG`'s bit 7 was already `1`, `N` comes out set and the loop spins — someone else holds the lock. If it was `0`, `N` comes out clear, execution falls through, and `TAS` has *already* set the bit on its way out — no other caller can slip in between the test and the set, because they were never two separate steps to begin with.
 
@@ -776,8 +850,6 @@ DOUBLE:
 ```
 
 ## TRAP System Calls
-
-All seven TRAP vectors are wired in:
 
 | Vector | Syntax | Cycles | Description |
 |---|---|---|---|

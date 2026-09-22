@@ -451,6 +451,13 @@ straddle a page boundary in edge cases.
   repeating content.
 - **Don't presuppose assembly idioms the reader hasn't been shown yet**
   — see "Working with Laurent" below.
+- **Every TRAP must be listed, in vector order (`#0`, `#1`, ...), in
+  `docs/user/REFERENCE.md`'s "TRAP System Calls" table.** Same rule as
+  the instruction tables above: a one-sentence Description cell, and
+  anything longer (multi-step behavior, wrapping/edge-case rules) goes
+  in its own linked `###` subsection instead of being crammed inline —
+  see `Printing Text with TRAP #1` / `Addressing a Pixel for TRAP #2/#3`
+  for the pattern.
 - **`docs/EXAMPLES.md`, `docs/QUICK_REFERENCE.md`, and the dev
   `docs/TROUBLESHOOTING.md` are stale placeholder content, not a source
   of truth.** They predate the CPU's real semantics and contain real bugs
