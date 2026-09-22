@@ -923,6 +923,20 @@ START:  MOVE.L  #1,D0       ; OK: even address
 
 Without the `EVEN` line, the assembler stops with "Instruction at an odd address".
 
+### Editor Shortcuts
+
+| Keys | Effect |
+|---|---|
+| `Tab` | Inserts spaces up to the next column that's a multiple of 8 (replaces the selection, if any) — lines up labels/mnemonics/operands the same way the examples do. |
+| `Shift+Tab` | Removes up to 8 leading spaces from the current line. |
+| `Enter` | Starts the new line with the same leading spaces as the current one. |
+| `Ctrl+Z` (`Cmd+Z` on macOS) | Undo. |
+| `Ctrl+Y` or `Ctrl+Shift+Z` (`Cmd+Shift+Z` on macOS) | Redo. |
+| Right-click a line number, or `Ctrl+B` | Toggle a bookmark. |
+| `F2` / `Shift+F2` | Jump to the next / previous bookmark. |
+
+Undo/redo is the browser's own text field history, so it only covers edits since the source was last loaded — opening a file or picking an example both start a fresh history. The Debugger's Reset button only resets the CPU and memory, not the source, so it doesn't affect undo/redo.
+
 ### Directives
 
 | Directive | Effect |
