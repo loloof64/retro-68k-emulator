@@ -16,7 +16,7 @@ If you just want to try the app, grab the latest version from the [Downloads](./
 - An on-screen retro gamepad (A/B/X/Y, D-pad, Start/Select), superseded by a real gamepad when one is connected
 - Simple retro-style sound effects (a tone generator, not sampled audio), the way period 8/16-bit consoles did it
 - A step-by-step debugger: watch registers, flags, memory (hex dump) and the screen change instruction by instruction, with breakpoints
-- A syntax-highlighted assembly editor, built into the app — no external tools needed
+- A syntax-highlighted assembly editor, built into the app — no external tools needed: Tab/Shift+Tab indent and outdent to 8-column stops, and Enter carries the current line's indentation onto the next one
 - Bookmarks: mark lines (right-click a line number, or Ctrl+B), jump between them with F2 / Shift+F2; bookmarks and breakpoints are remembered for each file opened from disk
 - Native installers for Windows, macOS, and Linux, so it runs like any other desktop app
 

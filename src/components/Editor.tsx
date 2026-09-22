@@ -2,6 +2,7 @@ import { useRef, useState } from 'react'
 import { useI18n } from '../i18n'
 import { nextBookmark } from '../marks'
 import { highlightLine } from '../highlight'
+import { handleTab, handleShiftTab, handleEnter, type EditResult } from '../editorKeys'
 import './Editor.css'
 
 interface EditorProps {
@@ -40,6 +41,15 @@ export default function Editor({
     if (top < ta.scrollTop || top + 18 > ta.scrollTop + ta.clientHeight)
       ta.scrollTop = Math.max(0, top - ta.clientHeight / 2)
   }
+  // Programmatically apply an edit to the (controlled) textarea: set the DOM
+  // value/selection directly first, then sync React state. Since the value
+  // React re-renders with is already what's on the DOM node, the selection
+  // set here survives the re-render instead of jumping to the end.
+  const applyEdit = (ta: HTMLTextAreaElement, result: EditResult) => {
+    ta.value = result.value
+    ta.setSelectionRange(result.selectionStart, result.selectionEnd)
+    onChange(result.value)
+  }
   const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     const ta = e.currentTarget
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'b') {
@@ -49,6 +59,13 @@ export default function Editor({
       e.preventDefault()
       const line = nextBookmark(bookmarks, caretLine(ta), e.shiftKey ? -1 : 1)
       if (line !== undefined) goToLine(ta, line)
+    } else if (e.key === 'Tab') {
+      e.preventDefault()
+      const fn = e.shiftKey ? handleShiftTab : handleTab
+      applyEdit(ta, fn(ta.value, ta.selectionStart, ta.selectionEnd))
+    } else if (e.key === 'Enter') {
+      e.preventDefault()
+      applyEdit(ta, handleEnter(ta.value, ta.selectionStart, ta.selectionEnd))
     }
   }
 
