@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [1.0.1] - 2026-09-22
+
+Repo-hosted user guide, and a new example program.
+
+### Added
+- README: link to the user guide PDF, now tracked in the repo at `docs/user/Retro68K-User-Guide.pdf` and kept current by a manual `update-user-guide.yml` workflow and automatically on every tagged release
+- Example 14: handling the Zero Divide exception (installing a handler at vector `$40`, catching a `DIVU` by zero), in the editor's example picker (en/fr/es) and in the user guide
+
 ## [1.0.0] - 2026-09-22
 
 First stable release: bookmarks and a breakpoint fix.
