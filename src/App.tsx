@@ -11,10 +11,16 @@ import { readMarks, writeMarks } from './marks';
 import { translate, useI18n } from './i18n';
 import { examplesFor } from './examples';
 import { inTauri, openSource, saveSource } from './sourceFile';
+import { initHistory, pushHistory, undo as undoHistory, redo as redoHistory, currentValue } from './history';
 
 export default function App() {
   const { t, locale } = useI18n();
   const [asmCode, setAsmCode] = useState<string>(() => translate(locale, 'sample.program'));
+  const [history, setHistory] = useState(() => initHistory(asmCode));
+  // -Infinity, not Date.now(): the very first push after mount (or after
+  // loadSource resets it below) must never coalesce, or it would overwrite
+  // the just-loaded baseline instead of recording the edit as its own step.
+  const lastPushAt = useRef(-Infinity);
 
   const [isRunning, setIsRunning] = useState(false);
   const [currentLine, setCurrentLine] = useState<number>();
@@ -38,9 +44,47 @@ export default function App() {
   useEffect(() => {
     if (filePath) writeMarks(filePath, { bookmarks, breakpoints });
   }, [filePath, bookmarks, breakpoints]);
+  // Shared by user edits and undo/redo: remaps breakpoints/bookmarks/the
+  // current-line marker against the outgoing source, then swaps it in.
+  const applyCode = (code: string) => {
+    setBreakpoints((prev) => remapBreakpoints(prev, asmCode, code));
+    setBookmarks((prev) => remapBreakpoints(prev, asmCode, code));
+    setCurrentLine((line) => (line === undefined ? line : [...remapBreakpoints(new Set([line]), asmCode, code)][0]));
+    setAsmCode(code);
+  };
+  const onEditorChange = (code: string) => {
+    applyCode(code);
+    const now = Date.now();
+    // Read+update the ref before scheduling the state update: React may not
+    // invoke this updater until after a following keystroke's handler has
+    // already run, by which point lastPushAt.current would otherwise hold
+    // that later keystroke's timestamp instead of this one's.
+    const prevPushAt = lastPushAt.current;
+    lastPushAt.current = now;
+    setHistory((h) => pushHistory(h, code, now, prevPushAt));
+  };
+  // The app's own undo/redo stack (see ./history.ts) rather than the
+  // browser's native text-field undo: Ctrl+Z/Ctrl+Y never reach that one in
+  // the Tauri desktop build.
+  const doUndo = () => {
+    const next = undoHistory(history);
+    if (next === history) return;
+    setHistory(next);
+    applyCode(currentValue(next));
+  };
+  const doRedo = () => {
+    const next = redoHistory(history);
+    if (next === history) return;
+    setHistory(next);
+    applyCode(currentValue(next));
+  };
+  const canUndo = history.index > 0;
+  const canRedo = history.index < history.entries.length - 1;
   const loadSource = (code: string, path?: string) => {
     const marks = path ? readMarks(path, code.split('\n').length) : undefined;
     setAsmCode(code);
+    setHistory(initHistory(code));
+    lastPushAt.current = -Infinity;
     setFilePath(path);
     setBreakpoints(marks?.breakpoints ?? new Set());
     setBookmarks(marks?.bookmarks ?? new Set());
@@ -116,22 +160,22 @@ export default function App() {
           <button className="file-button" onClick={saveFile}>
             {t('file.save')}
           </button>
+          <button className="file-button" onClick={doUndo} disabled={!canUndo} title={t('history.undo')}>
+            {t('history.undo')}
+          </button>
+          <button className="file-button" onClick={doRedo} disabled={!canRedo} title={t('history.redo')}>
+            {t('history.redo')}
+          </button>
           <Editor
             code={asmCode}
-            onChange={(code) => {
-              setBreakpoints((prev) => remapBreakpoints(prev, asmCode, code));
-              setBookmarks((prev) => remapBreakpoints(prev, asmCode, code));
-              // The yellow bar follows its instruction too (until re-assembly).
-              setCurrentLine((line) =>
-                line === undefined ? line : [...remapBreakpoints(new Set([line]), asmCode, code)][0]
-              );
-              setAsmCode(code);
-            }}
+            onChange={onEditorChange}
             currentLine={currentLine}
             breakpoints={breakpoints}
             onToggleBreakpoint={toggleBreakpoint}
             bookmarks={bookmarks}
             onToggleBookmark={toggleBookmark}
+            onUndo={doUndo}
+            onRedo={doRedo}
           />
         </div>
 

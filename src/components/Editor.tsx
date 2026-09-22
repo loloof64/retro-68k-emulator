@@ -13,6 +13,8 @@ interface EditorProps {
   onToggleBreakpoint: (line: number) => void
   bookmarks: Set<number>
   onToggleBookmark: (line: number) => void
+  onUndo: () => void
+  onRedo: () => void
 }
 
 // Both the gutter and the highlight bar are positioned from --line-height
@@ -25,6 +27,8 @@ export default function Editor({
   onToggleBreakpoint,
   bookmarks,
   onToggleBookmark,
+  onUndo,
+  onRedo,
 }: EditorProps) {
   const { t } = useI18n()
   const textarea = useRef<HTMLTextAreaElement>(null)
@@ -50,10 +54,21 @@ export default function Editor({
       e.preventDefault()
       const line = nextBookmark(bookmarks, caretLine(ta), e.shiftKey ? -1 : 1)
       if (line !== undefined) goToLine(ta, line)
+    } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
+      e.preventDefault()
+      // The app's own history (see ../history.ts), not the browser's
+      // native text-field undo: that one doesn't get Ctrl+Z/Ctrl+Y at all
+      // in the Tauri desktop build.
+      if (e.shiftKey) onRedo()
+      else onUndo()
+    } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') {
+      e.preventDefault()
+      onRedo()
     } else if (e.key === 'Tab') {
       e.preventDefault()
-      // execCommand, not a direct .value assignment: it's what keeps this
-      // edit on the textarea's native undo/redo stack (Ctrl+Z/Ctrl+Y).
+      // execCommand, not a direct .value assignment: it fires a real input
+      // event (so onChange fires on its own) and leaves the browser to
+      // place the caret naturally.
       if (e.shiftKey) {
         const r = shiftTab(ta.value, ta.selectionStart, ta.selectionEnd)
         if (r.deleteStart < r.deleteEnd) {

@@ -935,7 +935,7 @@ Without the `EVEN` line, the assembler stops with "Instruction at an odd address
 | Right-click a line number, or `Ctrl+B` | Toggle a bookmark. |
 | `F2` / `Shift+F2` | Jump to the next / previous bookmark. |
 
-Undo/redo is the browser's own text field history, so it only covers edits since the source was last loaded — opening a file or picking an example both start a fresh history. The Debugger's Reset button only resets the CPU and memory, not the source, so it doesn't affect undo/redo.
+Undo/redo is the app's own history, not the browser's native text field undo (the desktop build doesn't deliver `Ctrl+Z`/`Ctrl+Y` to that one at all) — **Undo**/**Redo** buttons above the editor do the same thing for a mouse. It only covers edits since the source was last loaded — opening a file or picking an example both start a fresh history. The Debugger's Reset button only resets the CPU and memory, not the source, so it doesn't affect undo/redo.
 
 ### Directives
 
