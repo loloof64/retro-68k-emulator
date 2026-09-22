@@ -31,7 +31,7 @@ jobs:
           id=$(gh api "repos/${{ github.repository }}/releases" \
             -f tag_name='${{ github.ref_name }}' \
             -f name='68K Emulator ${{ github.ref_name }}' \
-            -f body='The user guide PDF is now tracked in the repo and linked from the README, and a new example program (14) shows how to handle the Zero Divide exception. See CHANGELOG.md for details on this release.' \
+            -f body='A proper editor toolbar (Open/Save/Save As, Undo/Redo), Tab/Shift+Tab/Enter indentation, and app-owned undo/redo that works reliably in the desktop app. See CHANGELOG.md for details on this release.' \
             -F draft=true -F prerelease=false --jq .id)
           echo "release_id=$id" >> "$GITHUB_OUTPUT"
 

@@ -4,6 +4,21 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [1.1.0] - 2026-09-23
+
+Editor toolbar, save workflow, and app-owned undo/redo.
+
+### Added
+- Editor: a proper toolbar (Open / Save / Save As, Undo / Redo), each button greyed out when its action isn't available
+- Ctrl+S saves directly to the already-known file path with no dialog; Ctrl+Shift+S is always Save As via the picker; Save is disabled until a path is known (a loaded example or the starter program has none until Save As picks one)
+- Editor: Tab/Shift+Tab indent to 8-column stops, Enter carries the current line's indentation onto the new one
+- Editor: app-owned undo/redo (Ctrl+Z / Ctrl+Y / Ctrl+Shift+Z, plus toolbar buttons), coalescing edits made within 700ms into one step
+- Loading an example or a different file now asks for confirmation whenever the buffer is dirty or has any undo history, even if undoing brought the content back to exactly what was last saved
+
+### Fixed
+- The discard-changes confirmation dialog now reliably appears in the Tauri desktop build; it used to rely on the browser's `window.confirm`, which could silently resolve without ever showing a dialog there
+- Undo/redo no longer depends on the browser's native text-field undo stack, which the Tauri WebView doesn't reliably support
+
 ## [1.0.1] - 2026-09-22
 
 Repo-hosted user guide, and a new example program.
