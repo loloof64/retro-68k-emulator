@@ -154,9 +154,15 @@ docs:pdf:user`.
   picked. Dirty state is `asmCode !== savedCode` (a comparison, not a
   flag to keep in sync by hand — undoing back to the saved content is
   "clean" again for free). Loading an example or opening a different
-  file asks for confirmation first if the buffer is dirty, via
-  `sourceFile.ts`'s `confirmDiscard` — see the undo/redo item above
-  for why that isn't `window.confirm` under Tauri.
+  file asks for confirmation first if the buffer is dirty **or** if
+  `history.ts`'s `hasEdits(history)` is true (`entries.length > 1`) —
+  added 2026-09-23 after Laurent pointed out that undoing back to
+  exactly the original content still shouldn't skip the prompt
+  silently, since loading something else throws away the redo history
+  too, which is its own kind of lost work `asmCode !== savedCode`
+  alone can't see. Confirm itself goes through `sourceFile.ts`'s
+  `confirmDiscard` — see the undo/redo item above for why that isn't
+  `window.confirm` under Tauri.
 - **Gamepad UI: implemented** (on-screen + real Gamepad API, auto-switches),
   **including physical-controller visual feedback** (`src/components/
   Controller.tsx`): the polled bitmask is mirrored into a `buttonMask`

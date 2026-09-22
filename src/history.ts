@@ -37,3 +37,10 @@ export function undo(h: History): History {
 export function redo(h: History): History {
   return h.index < h.entries.length - 1 ? { ...h, index: h.index + 1 } : h
 }
+
+// True once any edit has happened this session, even if undo has since
+// brought the content back to exactly what it started as — there's still
+// redo-able history that loading something else would throw away.
+export function hasEdits(h: History): boolean {
+  return h.entries.length > 1
+}

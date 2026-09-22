@@ -940,7 +940,7 @@ Without the `EVEN` line, the assembler stops with "Instruction at an odd address
 
 Undo/redo is the app's own history, not the browser's native text field undo (the desktop build doesn't deliver `Ctrl+Z`/`Ctrl+Y` to that one at all) — **Undo**/**Redo** buttons in the toolbar do the same thing for a mouse, greyed out whenever there's nothing to undo/redo. It only covers edits since the source was last loaded — opening a file or picking an example both start a fresh history. The Debugger's Reset button only resets the CPU and memory, not the source, so it doesn't affect undo/redo.
 
-Opening a file or loading an example discards the current buffer, so both ask for confirmation first if it has unsaved changes.
+Opening a file or loading an example discards the current buffer, so both ask for confirmation first if it has unsaved changes — including when you've edited and then undone your way back to exactly the original content, since that discards the redo history too.
 
 ### Directives
 

@@ -1,5 +1,19 @@
 import { describe, it, expect } from 'vitest'
-import { initHistory, pushHistory, undo, redo, currentValue } from './history'
+import { initHistory, pushHistory, undo, redo, currentValue, hasEdits } from './history'
+
+describe('hasEdits', () => {
+  it('is false right after init, before any edit', () => {
+    expect(hasEdits(initHistory('A'))).toBe(false)
+  })
+
+  it('stays true after undoing back to the original content', () => {
+    let h = initHistory('A')
+    h = pushHistory(h, 'AB', 1000, 0)
+    h = undo(h)
+    expect(currentValue(h)).toBe('A')
+    expect(hasEdits(h)).toBe(true)
+  })
+})
 
 describe('undo/redo', () => {
   it('undo moves back one entry; redo moves forward again', () => {

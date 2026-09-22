@@ -11,7 +11,7 @@ import { readMarks, writeMarks } from './marks';
 import { translate, useI18n } from './i18n';
 import { examplesFor } from './examples';
 import { inTauri, openSource, saveSourceAs, writeSource, confirmDiscard } from './sourceFile';
-import { initHistory, pushHistory, undo as undoHistory, redo as redoHistory, currentValue } from './history';
+import { initHistory, pushHistory, undo as undoHistory, redo as redoHistory, currentValue, hasEdits } from './history';
 
 export default function App() {
   const { t, locale } = useI18n();
@@ -101,8 +101,13 @@ export default function App() {
   // Guards every action that would throw away the current buffer (loading
   // an example, opening a different file): true means it's fine to proceed,
   // either because nothing would be lost or because the user said to
-  // discard it anyway.
-  const confirmDiscardIfDirty = () => !isDirty || confirmDiscard(t('file.discardConfirm'));
+  // discard it anyway. Also confirms when asmCode matches savedCode but
+  // there's undo/redo history beyond the initial load (e.g. edited, then
+  // undid back to the original) — loading something else would silently
+  // throw away that history, which is its own kind of lost work even
+  // though the content itself isn't currently dirty.
+  const confirmDiscardIfDirty = () =>
+    (!isDirty && !hasEdits(history)) || confirmDiscard(t('file.discardConfirm'));
   const loadExample = async (id: string) => {
     const example = examplesFor(locale).find((x) => x.id === id);
     if (example && (await confirmDiscardIfDirty())) loadSource(example.code);
