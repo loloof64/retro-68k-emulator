@@ -10,7 +10,7 @@ import { remapBreakpoints } from './breakpoints';
 import { readMarks, writeMarks } from './marks';
 import { translate, useI18n } from './i18n';
 import { examplesFor } from './examples';
-import { inTauri, openSource, saveSource } from './sourceFile';
+import { inTauri, openSource, saveSourceAs, writeSource } from './sourceFile';
 import { initHistory, pushHistory, undo as undoHistory, redo as redoHistory, currentValue } from './history';
 
 export default function App() {
@@ -21,6 +21,11 @@ export default function App() {
   // loadSource resets it below) must never coalesce, or it would overwrite
   // the just-loaded baseline instead of recording the edit as its own step.
   const lastPushAt = useRef(-Infinity);
+  // The last loaded/saved content, so isDirty is a plain comparison rather
+  // than a flag to keep in sync by hand — undoing back to it, for example,
+  // is "clean" again with no extra bookkeeping.
+  const [savedCode, setSavedCode] = useState(asmCode);
+  const isDirty = asmCode !== savedCode;
 
   const [isRunning, setIsRunning] = useState(false);
   const [currentLine, setCurrentLine] = useState<number>();
@@ -39,7 +44,9 @@ export default function App() {
       return next;
     });
   // Full path of the file being edited; only known for files opened/saved
-  // through the native dialogs (Tauri), and only those keep their marks.
+  // through the native dialogs (Tauri), and only those keep their marks or
+  // allow a direct Save (an example or the built-in default has nowhere to
+  // write to, so only Save As is offered for those).
   const [filePath, setFilePath] = useState<string>();
   useEffect(() => {
     if (filePath) writeMarks(filePath, { bookmarks, breakpoints });
@@ -83,6 +90,7 @@ export default function App() {
   const loadSource = (code: string, path?: string) => {
     const marks = path ? readMarks(path, code.split('\n').length) : undefined;
     setAsmCode(code);
+    setSavedCode(code);
     setHistory(initHistory(code));
     lastPushAt.current = -Infinity;
     setFilePath(path);
@@ -90,15 +98,74 @@ export default function App() {
     setBookmarks(marks?.bookmarks ?? new Set());
     setCurrentLine(undefined);
   };
-  const openFile = async (file?: File) => file && loadSource(await file.text());
+  // Guards every action that would throw away the current buffer (loading
+  // an example, opening a different file): true means it's fine to proceed,
+  // either because nothing would be lost or because the user said to
+  // discard it anyway.
+  const confirmDiscardIfDirty = () => !isDirty || window.confirm(t('file.discardConfirm'));
+  const loadExample = (id: string) => {
+    const example = examplesFor(locale).find((x) => x.id === id);
+    if (example && confirmDiscardIfDirty()) loadSource(example.code);
+  };
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const openFileTauri = () => {
+    if (isRunning) return;
+    openSource()
+      .then((f) => {
+        if (f && confirmDiscardIfDirty()) loadSource(f.code, f.path);
+      })
+      .catch((e) => alert(String(e)));
+  };
+  const openFileBrowser = async (file?: File) => {
+    if (file && confirmDiscardIfDirty()) loadSource(await file.text());
+  };
+  // Direct write to the already-known path; disabled (button + shortcut)
+  // whenever there isn't one, e.g. an example or the built-in default.
+  const canSaveDirect = filePath !== undefined;
   const saveFile = () => {
-    if (inTauri) return void saveSource(asmCode).then((p) => p && setFilePath(p)).catch((e) => alert(String(e)));
+    if (!filePath || isRunning) return;
+    writeSource(filePath, asmCode)
+      .then(() => setSavedCode(asmCode))
+      .catch((e) => alert(String(e)));
+  };
+  const saveFileAs = () => {
+    if (isRunning) return;
+    if (inTauri) {
+      saveSourceAs(asmCode)
+        .then((p) => {
+          if (p) {
+            setFilePath(p);
+            setSavedCode(asmCode);
+          }
+        })
+        .catch((e) => alert(String(e)));
+      return;
+    }
     const a = document.createElement('a');
     a.href = URL.createObjectURL(new Blob([asmCode], { type: 'text/plain' }));
     a.download = 'program.asm';
     a.click();
     URL.revokeObjectURL(a.href);
+    setSavedCode(asmCode);
   };
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (!(e.ctrlKey || e.metaKey)) return;
+      const key = e.key.toLowerCase();
+      if (key === 'o') {
+        e.preventDefault();
+        if (isRunning) return;
+        if (inTauri) openFileTauri();
+        else fileInputRef.current?.click();
+      } else if (key === 's') {
+        e.preventDefault();
+        if (e.shiftKey) saveFileAs();
+        else saveFile();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  });
   const [frame, setFrame] = useState(0); // bumped to make Screen repaint
 
   // Not React state on purpose: the controller reports button changes up to
@@ -114,58 +181,65 @@ export default function App() {
       <div className="container">
         <div className="panel editor-panel">
           <h2>{t('panel.editor')}</h2>
-          <select
-            className="example-select"
-            value=""
-            disabled={isRunning}
-            onChange={(e) => {
-              const example = examplesFor(locale).find((x) => x.id === e.target.value);
-              if (!example) return;
-              loadSource(example.code);
-            }}
-          >
-            <option value="">{t('examples.load')}</option>
-            {examplesFor(locale).map((x) => (
-              <option key={x.id} value={x.id}>
-                {x.title}
-              </option>
-            ))}
-          </select>
-          <label
-            className="file-button"
-            onClick={
-              inTauri
-                ? (e) => {
-                    e.preventDefault();
-                    if (!isRunning)
-                      openSource()
-                        .then((f) => f && loadSource(f.code, f.path))
-                        .catch((e) => alert(String(e)));
-                  }
-                : undefined
-            }
-          >
-            {t('file.open')}
-            <input
-              type="file"
-              accept=".asm,.s,.txt,text/plain"
-              hidden
+          <div className="toolbar">
+            <select
+              className="example-select"
+              value=""
               disabled={isRunning}
               onChange={(e) => {
-                openFile(e.target.files?.[0]);
-                e.target.value = ''; // allow re-opening the same file
+                if (e.target.value) loadExample(e.target.value);
               }}
-            />
-          </label>
-          <button className="file-button" onClick={saveFile}>
-            {t('file.save')}
-          </button>
-          <button className="file-button" onClick={doUndo} disabled={!canUndo} title={t('history.undo')}>
-            {t('history.undo')}
-          </button>
-          <button className="file-button" onClick={doRedo} disabled={!canRedo} title={t('history.redo')}>
-            {t('history.redo')}
-          </button>
+            >
+              <option value="">{t('examples.load')}</option>
+              {examplesFor(locale).map((x) => (
+                <option key={x.id} value={x.id}>
+                  {x.title}
+                </option>
+              ))}
+            </select>
+            <div className="toolbar-divider" />
+            <div className="toolbar-group">
+              <button
+                className="toolbar-button"
+                disabled={isRunning}
+                onClick={() => (inTauri ? openFileTauri() : fileInputRef.current?.click())}
+                title={t('file.open')}
+              >
+                {t('file.open')}
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".asm,.s,.txt,text/plain"
+                hidden
+                disabled={isRunning}
+                onChange={(e) => {
+                  openFileBrowser(e.target.files?.[0]);
+                  e.target.value = ''; // allow re-opening the same file
+                }}
+              />
+              <button
+                className="toolbar-button"
+                onClick={saveFile}
+                disabled={!canSaveDirect || isRunning}
+                title={t('file.save')}
+              >
+                {t('file.save')}
+              </button>
+              <button className="toolbar-button" onClick={saveFileAs} disabled={isRunning} title={t('file.saveAs')}>
+                {t('file.saveAs')}
+              </button>
+            </div>
+            <div className="toolbar-divider" />
+            <div className="toolbar-group">
+              <button className="toolbar-button" onClick={doUndo} disabled={!canUndo} title={t('history.undo')}>
+                ↶ {t('history.undo')}
+              </button>
+              <button className="toolbar-button" onClick={doRedo} disabled={!canRedo} title={t('history.redo')}>
+                ↷ {t('history.redo')}
+              </button>
+            </div>
+          </div>
           <Editor
             code={asmCode}
             onChange={onEditorChange}

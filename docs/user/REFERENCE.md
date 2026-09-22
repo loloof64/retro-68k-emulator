@@ -932,10 +932,15 @@ Without the `EVEN` line, the assembler stops with "Instruction at an odd address
 | `Enter` | Starts the new line with the same leading spaces as the current one. |
 | `Ctrl+Z` (`Cmd+Z` on macOS) | Undo. |
 | `Ctrl+Y` or `Ctrl+Shift+Z` (`Cmd+Shift+Z` on macOS) | Redo. |
+| `Ctrl+O` (`Cmd+O` on macOS) | Open a file (same as the toolbar's **Open…**). |
+| `Ctrl+S` (`Cmd+S` on macOS) | Save to the current file. Disabled (button greyed out, shortcut does nothing) when there isn't one — an example or the built-in starter program was never saved anywhere, so only **Save As…** is available until you pick a location. |
+| `Ctrl+Shift+S` (`Cmd+Shift+S` on macOS) | Save As… — always asks for a location. |
 | Right-click a line number, or `Ctrl+B` | Toggle a bookmark. |
 | `F2` / `Shift+F2` | Jump to the next / previous bookmark. |
 
-Undo/redo is the app's own history, not the browser's native text field undo (the desktop build doesn't deliver `Ctrl+Z`/`Ctrl+Y` to that one at all) — **Undo**/**Redo** buttons above the editor do the same thing for a mouse. It only covers edits since the source was last loaded — opening a file or picking an example both start a fresh history. The Debugger's Reset button only resets the CPU and memory, not the source, so it doesn't affect undo/redo.
+Undo/redo is the app's own history, not the browser's native text field undo (the desktop build doesn't deliver `Ctrl+Z`/`Ctrl+Y` to that one at all) — **Undo**/**Redo** buttons in the toolbar do the same thing for a mouse, greyed out whenever there's nothing to undo/redo. It only covers edits since the source was last loaded — opening a file or picking an example both start a fresh history. The Debugger's Reset button only resets the CPU and memory, not the source, so it doesn't affect undo/redo.
+
+Opening a file or loading an example discards the current buffer, so both ask for confirmation first if it has unsaved changes.
 
 ### Directives
 

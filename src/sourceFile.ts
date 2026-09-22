@@ -11,8 +11,14 @@ export async function openSource(): Promise<{ path: string; code: string } | und
   return path ? { path, code: await readTextFile(path) } : undefined
 }
 
-export async function saveSource(code: string): Promise<string | undefined> {
+// Always shows the native "save as" dialog ("Save As").
+export async function saveSourceAs(code: string): Promise<string | undefined> {
   const path = await save({ filters, defaultPath: 'program.asm' })
   if (path) await writeTextFile(path, code)
   return path ?? undefined
+}
+
+// Writes straight to an already-known path, no dialog ("Save").
+export async function writeSource(path: string, code: string): Promise<void> {
+  await writeTextFile(path, code)
 }
