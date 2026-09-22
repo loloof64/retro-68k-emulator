@@ -308,6 +308,8 @@ export function generateHtmlDocument({
       margin: 1em 0;
       font-family: 'Courier New', monospace;
       font-size: 0.9em;
+      break-inside: avoid;
+      page-break-inside: avoid;
     }
 
     pre code {
