@@ -99,6 +99,64 @@ docs:pdf:user`.
   reloaded (Reset, or the first Step/Run). Also: registers are shown D|A side by side to save
   height (panel must fit ~768px without scrolling, check after touching the layout).
 - **Bookmarks: done** (`src/marks.ts`, tests in `marks.test.ts`). Ctrl+B / right-click on the gutter toggles, F2 / Shift+F2 jumps (wraps). Bookmarks *and* breakpoints persist in `localStorage` (`retro68k.marks`) keyed by the exact full path — only known under Tauri (`openSource`/`saveSource` return the path); examples, new buffers and the browser build don't persist. Stored lines past EOF are dropped on load; no content check if the file changed externally. Save-as writes the marks under the new path (old entry left).
+- **Editor Tab/Shift+Tab/Enter: done** (`src/editorKeys.ts`, pure
+  functions unit-tested without a DOM; wired into `Editor.tsx`'s
+  `onKeyDown`). Tab inserts spaces to the next 8-column stop (replaces
+  the selection, if any — same as typing any other character);
+  Shift+Tab removes up to one tab stop of leading spaces from the
+  current line; Enter carries the current line's indentation onto the
+  new one. Soft tabs only, matching every `.asm` example's existing
+  8-space indent — a literal `\t` would render inconsistently across
+  the editor, the docs and the generated PDFs. Applied via
+  `document.execCommand('insertText'/'delete')`, not a direct
+  `textarea.value` assignment — the latter silently wipes the
+  browser's native undo/redo stack for that edit (see the item below
+  for why that turned out to matter beyond just these three keys).
+- **Editor undo/redo: done, but NOT via the browser's native
+  text-field undo** (`src/history.ts`, pure + unit-tested;
+  `App.tsx` owns the `History` state and a `lastPushAt` ref for
+  coalescing). **Important, reusable finding: the Tauri desktop
+  build's WebView does not reliably support some standard
+  browser-native mechanisms** —
+  `document.execCommand`'s undo stack never receives `Ctrl+Z`/`Ctrl+Y`
+  there at all (it worked fine in the plain browser build), and
+  separately `window.confirm()` can resolve without ever showing a
+  dialog there either (see the toolbar item below). Both were
+  replaced with app-owned equivalents: an in-memory undo/redo stack
+  driven directly by `Ctrl+Z`/`Ctrl+Y`/`Ctrl+Shift+Z` in `Editor.tsx`'s
+  `onKeyDown` (plus two toolbar buttons), and `@tauri-apps/plugin-dialog`'s
+  `confirm()` (already used for Open/Save) instead of `window.confirm`.
+  **When adding any future feature that leans on a native
+  browser API for something Tauri-visible (clipboard, dialogs,
+  keyboard shortcuts, drag-and-drop, etc.), assume it needs verifying
+  under Tauri specifically, not just the browser dev server** — this
+  sandbox has no display to run the actual desktop build, so that
+  verification has to happen on a machine that can (Laurent's).
+  Consecutive edits within 700ms coalesce into one undo step. Loading
+  a file/example resets the history; the Debugger's Reset button
+  (CPU/memory only) does not. Fixed one bug while building this: a
+  ref (`lastPushAt`) read *inside* a `setHistory` updater picked up
+  whatever a later keystroke's handler had already written to it by
+  the time React got around to invoking that updater — capturing the
+  ref into a local *before* calling `setHistory` fixed it.
+- **Editor toolbar: done** — replaced the unstyled row of ad-hoc
+  buttons with a grouped, styled toolbar (`.toolbar`/`.toolbar-group`/
+  `.toolbar-divider`/`.toolbar-button` in `App.css`): File (Open/Save/
+  Save As) then a divider then Edit (Undo/Redo), each button greyed
+  out when its action isn't available. `Ctrl+O` opens; `Ctrl+S` writes
+  straight to the already-known path with **no dialog** (new:
+  `writeSource` in `sourceFile.ts` — every save used to show the OS
+  picker, even for a file already opened, via the now-renamed
+  `saveSourceAs`); `Ctrl+Shift+S` is Save As, always via the picker.
+  Save is disabled (button + shortcut, both a no-op) whenever there's
+  no known path — an example or the built-in starter program has
+  nowhere to write to, only Save As is offered until a location is
+  picked. Dirty state is `asmCode !== savedCode` (a comparison, not a
+  flag to keep in sync by hand — undoing back to the saved content is
+  "clean" again for free). Loading an example or opening a different
+  file asks for confirmation first if the buffer is dirty, via
+  `sourceFile.ts`'s `confirmDiscard` — see the undo/redo item above
+  for why that isn't `window.confirm` under Tauri.
 - **Gamepad UI: implemented** (on-screen + real Gamepad API, auto-switches),
   **including physical-controller visual feedback** (`src/components/
   Controller.tsx`): the polled bitmask is mirrored into a `buttonMask`
@@ -150,6 +208,21 @@ docs:pdf:user`.
   context now created on the first click/key anywhere, `src/audio.ts`, instead of on Run). Same
   bump list as 0.2.0; release body in `build.yml` updated.
 - **Release 1.0.0 (2026-09-22)**: bookmarks + per-file marks persistence, Run/breakpoint fix. Same bump list as 0.2.0 (+ `src-tauri/Cargo.lock`); release body in `build.yml` updated. Tag `v1.0.0` not pushed by Claude (no credentials): Laurent tags and pushes.
+- **Release 1.0.1 (2026-09-22)**: user guide PDF tracked in the repo +
+  linked from README, example 14 (Zero Divide exception). Same bump
+  list as 0.2.0 (no `src-tauri/Cargo.lock` bump this time — it's
+  gitignored and regenerates on its own via a local `cargo` run, not
+  something to hand-edit). Tag `v1.0.1` pushed by Laurent, same
+  reason as `v1.0.0`.
+- **Unreleased since 1.0.1** (`package.json` etc. still say `1.0.1` as
+  of this writing): the four editor items above (Tab/Shift+Tab/Enter,
+  app-owned undo/redo, the toolbar + Open/Save/Save As/dirty-tracking,
+  and the Tauri-safe confirm-discard dialog). Worth a `1.0.2` (or
+  `1.1.0` — this is more than a patch's worth of user-visible change)
+  once it's been exercised in the real Tauri desktop build, not just
+  this sandbox's plain browser dev server — see the undo/redo item's
+  note on why that verification has to happen on a machine that can
+  actually run it.
 - **Release 0.3.0 (2026-09-21)**: gamepad fix. D-pad-as-axes (6/7) + left
   stick read in `gamepadToMask`; under Tauri on Linux `src-tauri/src/lib.rs` polls `gilrs` and
   emits `gamepad-state` events that `Controller.tsx` consumes — and *prefers* them
@@ -166,7 +239,9 @@ docs:pdf:user`.
   considered: its SDL DB has no Windows entry for the GC-100 either, and it can't be tested here.
   Manual `workflow_dispatch` runs create a *draft release named after the branch* (tauri-action
   gets `tagName`) — delete those; branch names with `/` broke the Windows zip name (now fixed).
-- **Examples**: `examples/{en,fr,es}/NN-*.asm` (13 programs; fr/es = same code, translated
+- **Examples**: `examples/{en,fr,es}/NN-*.asm` (14 programs — #14 added
+  2026-09-22, handling the Zero Divide exception: installs a handler at
+  vector `$40`, catches a `DIVU` by zero; fr/es = same code, translated
   comments, enforced by a test; the 2nd line is the title shown in the editor's "Load an example"
   dropdown, `src/examples.ts` via `import.meta.glob`; picks the current locale) — the `en` ones are
   assembled + run + asserted by `src/assembler/examples.test.ts` (add a
@@ -194,6 +269,27 @@ docs:pdf:user`.
   instances (`docs/README.md`'s `CONTRIBUTING.md` link, `docs/MEMORY.md`'s
   `Presentation` link) — both now render as clean, correctly-bounded
   links.
+- **User guide PDF tracked in the repo: done.** `docs/user/Retro68K-User-Guide.pdf`
+  is a real, committed file (not gitignored — only `dist-docs/` is),
+  linked directly from `README.md` so it doesn't require digging
+  through GitHub Releases assets. Kept current two ways: a manual
+  `.github/workflows/update-user-guide.yml` (`workflow_dispatch`,
+  regenerates + commits to `main` if changed) and, on every tag push,
+  an added step at the end of `build.yml`'s existing `user-guide-pdf`
+  job that does the same. Both `cp dist-docs/Retro68K-User-Guide.pdf
+  docs/user/Retro68K-User-Guide.pdf` after `npm run docs:pdf:user`
+  whenever you touch `docs/user/*.md` — it's a tracked binary, so this
+  step doesn't show up as "expected, not optional" the way the
+  gitignored `dist-docs/` regen does; it's easy to forget. Confirmed
+  working: the update-user-guide workflow already committed a
+  regenerated PDF as `github-actions[bot]` once, unprompted.
+- **Fixed**: PDF-generation `pre` (fenced code blocks) had no
+  `break-inside`/`page-break-inside: avoid` in `scripts/lib/docs-html.js`,
+  unlike `.mermaid-diagram` and table rows which already did — a code
+  block starting near the bottom of a page could get cut mid-block
+  instead of moving whole to the next page (found via a user-guide
+  worked example split pages 47/48). One-line fix, shared by both PDFs
+  since both go through this same stylesheet.
 
 ## UI language (i18n)
 
@@ -409,3 +505,12 @@ separate, intentional plain dispatch table (`trapHandlers`).
   environment limitation, not a repo problem — commit normally, mention
   the push failed once, and don't retry repeatedly. Laurent pushes from
   his own terminal when this happens.
+- **No display here** — `npm run tauri:dev`/`tauri:build` can't be
+  driven or screenshotted from this sandbox. UI work gets verified via
+  `npm run dev` + a browser (Playwright MCP in past sessions), which is
+  real verification for anything that's plain web-standard, but is
+  blind to WebView-specific quirks — see the "Editor undo/redo" status
+  item for a concrete case (two native browser APIs that work in the
+  dev-server browser but not in the actual Tauri WebView). Flag
+  Tauri-specific behavior as unverified rather than assuming the
+  browser check covers it, and say so explicitly when reporting done.
