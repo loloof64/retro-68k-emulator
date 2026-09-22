@@ -1,6 +1,6 @@
 # Example Programs
 
-Thirteen small, complete programs to read, paste into the editor and run. Each one lives as a file in the `examples/` folder of the repository (`en`, `fr`, `es` subfolders) and can be loaded from the "Load an example" list above the editor, and each is assembled and executed by the project's automated tests, so they are known to work.
+Fourteen small, complete programs to read, paste into the editor and run. Each one lives as a file in the `examples/` folder of the repository (`en`, `fr`, `es` subfolders) and can be loaded from the "Load an example" list above the editor, and each is assembled and executed by the project's automated tests, so they are known to work.
 
 To try one, copy its code into the editor, then press **Run** (or **Step** to follow it instruction by instruction). New to assembly? Read them in order: each builds on the ones before. Instruction details are in the [Reference](./REFERENCE.md).
 
@@ -398,3 +398,35 @@ NOTES:  DC.W    262,294,330,349,392,440,494,523
 ```
 
 **Result:** The eight notes of a C major scale, then the program exits. Sound only starts after you press **Run** or **Step**.
+
+## Example 14: Handling division by zero
+
+`DIVU`/`DIVS` don't crash on a zero divisor: they raise the *Zero Divide exception* instead, jumping to a handler routine whose address the program installed beforehand at address `$40` (its *vector*, a fixed memory slot the CPU reads when the fault happens). A handler ends with `RTS`, which resumes execution right after the `DIVU` that faulted — see [Exceptions](./REFERENCE.md#exceptions) for the full mechanism and the other three vectors (`Illegal Instruction`, `CHK`, `TRAPV`).
+
+File: `examples/en/14-zero-divide.asm`
+
+```asm
+        ORG     $2000
+
+START:
+        MOVEA.L #$40,A0         ; A0 -> Zero Divide vector
+        MOVE.L  #HANDLER,(A0)   ; install the handler
+
+        MOVE.L  #100,D0         ; D0 = 100
+        MOVE.W  #5,D1           ; D1 = 5
+        DIVU.W  D1,D0           ; D0 = 20 (100 / 5)
+
+        MOVE.L  #100,D0         ; D0 = 100 again
+        MOVE.W  #0,D1           ; D1 = 0 -> triggers the fault
+        DIVU.W  D1,D0           ; jumps to HANDLER instead
+
+        TRAP    #0              ; exit (HANDLER's RTS lands here)
+
+HANDLER:
+        MOVEQ   #-1,D0          ; sentinel: division failed
+        RTS                     ; resume right after DIVU
+
+        END     START
+```
+
+**Result:** `D0` = 20 after the first, valid division, then `D0` = -1 (`$FFFFFFFF`) after the handler catches the second, zero-divide one.

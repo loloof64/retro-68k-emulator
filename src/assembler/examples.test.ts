@@ -42,7 +42,7 @@ describe('translated examples', () => {
 
 describe('examples/en/*.asm', () => {
   it('every example is covered below', () => {
-    expect(readdirSync(DIR).filter((f) => f.endsWith('.asm')).length).toBe(13)
+    expect(readdirSync(DIR).filter((f) => f.endsWith('.asm')).length).toBe(14)
   })
 
   it('01 addition', () => {
@@ -113,5 +113,10 @@ describe('examples/en/*.asm', () => {
     }
     expect(cpu.halted).toBe(true)
     expect(freqs).toEqual([262, 294, 330, 349, 392, 440, 494, 523])
+  })
+  it('14 zero divide: handler catches it and sets a sentinel', () => {
+    const { cpu } = run('14-zero-divide.asm')
+    expect(cpu.halted).toBe(true)
+    expect(d(cpu, 0)).toBe(0xffffffff)
   })
 })
