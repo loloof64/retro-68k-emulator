@@ -1790,7 +1790,7 @@ each.
 | 2 | Read Pixel | `A0` = the pixel's framebuffer byte address (the caller computes it - see docs/MEMORY.md's "Calculating Pixel Address"). `D0` <- the 32-bit RGBA color read from there. |
 | 3 | Write Pixel | `A0` = framebuffer byte address (same convention as `TRAP #2`), `D0` = 32-bit RGBA color to write there. |
 | 4 | Clear Screen | `D0` = 32-bit RGBA color to fill every one of the 64,000 pixels with. |
-| 5 | Read Controller State | Load the controller button bitmask into D0 |
+| 5 | Read Controller State | Load the controller button bitmask into D0 — see docs/user/REFERENCE.md's "Reading the Gamepad". |
 | 6 | Play Tone | Write D0-D3 (frequency, duration, volume, waveform) into the sound registers and trigger playback |
 | 7 | Delay | `D0` (not `D1` - TRAP #6's duration field is `D1`) = duration in milliseconds (word). Sets `cpu.sleepRemainingMs`; not real 68000 hardware - see docs/user/REFERENCE.md's "Waiting with TRAP #7". |
 | 8 | Read Keyboard | Pops the next queued keyboard character into `D0` as a full 32-bit long, zero-extended (0 if none pending). Not backed by a real memory address, unlike the other TRAPs here - see docs/user/REFERENCE.md's "Reading the Keyboard with TRAP #8". |

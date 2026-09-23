@@ -877,7 +877,7 @@ CPU outright instead.
 | `#2` | `TRAP #2` | 4 | Reads the pixel at the framebuffer address in `A0` into `D0` (32-bit RGBA). See [Addressing a Pixel for TRAP #2/#3](#addressing-a-pixel-for-trap-23) below. |
 | `#3` | `TRAP #3` | 4 | Writes `D0` (32-bit RGBA) as the pixel at the framebuffer address in `A0`. |
 | `#4` | `TRAP #4` | 4 | Fills every one of the 64,000 framebuffer pixels with `D0` (32-bit RGBA) — clears the screen to any solid color, not just black. |
-| `#5` | `TRAP #5` | 4 | Loads the controller button bitmask into D0 — a shortcut for reading `$7E800` directly. |
+| `#5` | `TRAP #5` | 4 | Loads the controller button bitmask into D0 — a shortcut for reading `$7E800` directly. See [Reading the Gamepad](#reading-the-gamepad) above. |
 | `#6` | `TRAP #6` | 4 | Writes D0 (frequency), D1 (duration), D2 (volume), D3 (waveform) into the [sound registers](#sound) and sets the trigger byte. |
 | `#7` | `TRAP #7` | 4 | Pauses the program for `D0` milliseconds (word) — not `D1`, unlike `TRAP #6`'s duration field. See [Waiting with TRAP #7](#waiting-with-trap-7) below. |
 | `#8` | `TRAP #8` | 4 | Pops the next queued keyboard character into `D0` (0 if none pending). See [Reading the Keyboard with TRAP #8](#reading-the-keyboard-with-trap-8) below. |
