@@ -24,6 +24,10 @@ describe('createCPU', () => {
     expect(cpu.halted).toBe(false)
     expect(cpu.cycles).toBe(0)
   })
+
+  it('starts with no pending sleep', () => {
+    expect(createCPU().sleepRemainingMs).toBe(0)
+  })
 })
 
 describe('reset', () => {
@@ -34,6 +38,7 @@ describe('reset', () => {
     cpu.status.Z = true
     cpu.halted = true
     cpu.cycles = 999
+    cpu.sleepRemainingMs = 500
 
     reset(cpu)
 
@@ -42,6 +47,7 @@ describe('reset', () => {
     expect(cpu.status.Z).toBe(false)
     expect(cpu.halted).toBe(false)
     expect(cpu.cycles).toBe(0)
+    expect(cpu.sleepRemainingMs).toBe(0)
     expect(cpu.registers[Register.A7]).toBe(DEFAULT_STACK_POINTER)
   })
 })

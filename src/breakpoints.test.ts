@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { remapBreakpoints, runSteps } from './breakpoints'
+import { drainSleep, remapBreakpoints, runSteps } from './breakpoints'
 
 const r = (bps: number[], a: string, b: string) => [...remapBreakpoints(new Set(bps), a, b)].sort()
 
@@ -59,5 +59,23 @@ describe('runSteps', () => {
     const f = fake(4)
     expect(runSteps(100, f.execute, f.halted, f.lineAtPc, new Set([99]))).toBe(false)
     expect(f.pos()).toBe(4)
+  })
+  it('stops right after the instruction that sets the sleeping flag, leaving the rest of the batch unrun', () => {
+    const f = fake()
+    let asleep = false
+    const execute = () => {
+      f.execute()
+      if (f.pos() === 3) asleep = true // TRAP #7 lands on line 3
+    }
+    runSteps(100, execute, f.halted, f.lineAtPc, undefined, () => asleep)
+    expect(f.pos()).toBe(3)
+  })
+})
+
+describe('drainSleep', () => {
+  it('counts down the remaining sleep by the elapsed real time', () => {
+    const cpu = { sleepRemainingMs: 500 }
+    expect(drainSleep(cpu, 200)).toBe(true) // still asleep, skip stepping this frame
+    expect(cpu.sleepRemainingMs).toBe(300)
   })
 })

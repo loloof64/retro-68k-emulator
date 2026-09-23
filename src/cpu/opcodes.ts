@@ -3332,6 +3332,14 @@ export const trapHandlers: Record<number, TrapHandler> = {
     memory.write8(SOUND_WAVEFORM, readRegister(cpu, Register.D3, 'byte'))
     memory.write8(SOUND_TRIGGER, 1)
   },
+  // TRAP #7: delay. D0 = duration in milliseconds (word, same convention as
+  // TRAP #6's duration field). Deliberate extension, not real 68000
+  // hardware — see docs/user/REFERENCE.md. Only sets cpu.sleepRemainingMs;
+  // the host run loop (src/components/Debugger.tsx) is what actually
+  // drains it in real time and honors it differently for Run vs Step.
+  7: (cpu) => {
+    cpu.sleepRemainingMs = readRegister(cpu, Register.D0, 'word')
+  },
 }
 
 const TRAP: OpcodeDefinition = {

@@ -49,7 +49,8 @@ $0C      3        Write pixel
 $10      4        Clear screen
 $14      5        Read controller state
 $18      6        Play tone
-$1C-$3F  7-15     (reserved for future)
+$1C      7        Delay
+$20-$3F  8-15     (reserved for future)
 ```
 
 ### CPU Exception Vector Table

@@ -7,7 +7,7 @@ import type { AssembledProgram, CPUState } from '../types/cpu'
 import type { SystemMemory } from '../memory'
 import { useI18n } from '../i18n'
 import MemoryView from './MemoryView'
-import { runSteps } from '../breakpoints'
+import { drainSleep, runSteps } from '../breakpoints'
 import { pollSound, stopSound, unlockAudio } from '../audio'
 
 // Instructions executed per 1/60 s while running (scaled by real elapsed time).
@@ -108,7 +108,8 @@ export default function Debugger({
         },
         () => cpu.halted,
         lineAtPc,
-        useBreakpoints ? breakpointsRef.current : undefined
+        useBreakpoints ? breakpointsRef.current : undefined,
+        () => cpu.sleepRemainingMs > 0
       )
     } catch (e) {
       setRuntimeError(e instanceof Error ? e.message : String(e))
@@ -129,6 +130,12 @@ export default function Debugger({
     let raf = requestAnimationFrame(function loop(now) {
       const dt = Math.min(now - last, 100) // cap after a stall (hidden tab)
       last = now
+      // TRAP #7 delay: honored in real time here, and only here - paused for
+      // free whenever this loop isn't ticking (Pause / not running).
+      if (drainSleep(cpuRef.current, dt)) {
+        raf = requestAnimationFrame(loop)
+        return
+      }
       const count = Math.max(1, Math.round((speedRef.current * dt) / (1000 / 60)))
       if (stepCpu(count, true)) raf = requestAnimationFrame(loop)
     })
@@ -144,6 +151,9 @@ export default function Debugger({
 
   const handleStep = () => {
     unlockAudio()
+    // TRAP #7 delay never blocks single-stepping: the developer already
+    // controls the pace manually, so a pending sleep resolves instantly.
+    cpuRef.current.sleepRemainingMs = 0
     if (ensureProgram()) stepCpu(1, false)
   }
 

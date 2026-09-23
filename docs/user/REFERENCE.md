@@ -860,6 +860,7 @@ DOUBLE:
 | `#4` | `TRAP #4` | 4 | Fills every one of the 64,000 framebuffer pixels with `D0` (32-bit RGBA) — clears the screen to any solid color, not just black. |
 | `#5` | `TRAP #5` | 4 | Loads the controller button bitmask into D0 — a shortcut for reading `$7E800` directly. |
 | `#6` | `TRAP #6` | 4 | Writes D0 (frequency), D1 (duration), D2 (volume), D3 (waveform) into the [sound registers](#sound) and sets the trigger byte. |
+| `#7` | `TRAP #7` | 4 | Pauses the program for `D0` milliseconds (word). See [Waiting with TRAP #7](#waiting-with-trap-7) below. |
 
 ### Addressing a Pixel for TRAP #2/#3
 
@@ -901,6 +902,37 @@ negative position) stops the program with an error.
 `TRAP #2`/`#3` take a framebuffer address, not `x`/`y`: see
 [Addressing a Pixel for TRAP #2/#3](#addressing-a-pixel-for-trap-23)
 above.
+
+### Waiting with TRAP #7
+
+The real MC68000 has no delay instruction and no TRAP reserved for one -
+`TRAP #n` on real hardware is a bare software interrupt, and Motorola
+never assigned any of the 16 vectors a fixed meaning. Machines built
+around it got precise pauses either from a busy-wait loop hand-timed to
+the CPU's clock speed, or from a separate hardware timer chip. `TRAP #7`
+is a deliberate addition specific to this emulator, not a real 68000
+facility, to spare a program written here from either of those.
+
+`D0` (word) is the delay in milliseconds - up to 65,535 (about 65
+seconds); call it again for longer pauses:
+
+```asm
+        MOVE.W  #500,D0    ; 500 ms
+        TRAP    #7
+```
+
+The debugger's three ways of running a program treat this delay
+differently:
+
+- **Run** honors it for real: the program genuinely pauses for the
+  requested duration before the next instruction executes.
+- **Pause**, hit while a delay is in progress, freezes it along with
+  everything else - resuming Run later continues counting down from
+  wherever it was, not from the moment `TRAP #7` was first reached.
+- **Step** always resolves a pending delay instantly. Single-stepping
+  means *you* are setting the pace already, so a `TRAP #7` never blocks
+  a Step click - the next click just moves straight on to the following
+  instruction.
 
 ## Exceptions
 

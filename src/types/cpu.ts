@@ -41,6 +41,7 @@ export interface CPUState {
   status: StatusFlags;
   halted: boolean;
   cycles: number;
+  sleepRemainingMs: number; // TRAP #7 (delay); host run loop drains this in real time
 }
 
 // Instruction types

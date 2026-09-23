@@ -23,21 +23,33 @@ export function remapBreakpoints(bps: Set<number>, oldText: string, newText: str
   return out
 }
 
-// Executes up to `count` instructions, stopping early when the CPU halts or,
-// if `breakpoints` is given, right after reaching one of its lines. Returns
-// true on a breakpoint. Single-stepping passes no breakpoints: whether they
-// apply is the caller's call, not something to infer from `count`.
+// Executes up to `count` instructions, stopping early when the CPU halts,
+// falls asleep (TRAP #7 delay - see `sleeping`), or, if `breakpoints` is
+// given, right after reaching one of its lines. Returns true on a
+// breakpoint. Single-stepping passes no breakpoints: whether they apply is
+// the caller's call, not something to infer from `count`.
 export function runSteps(
   count: number,
   execute: () => void,
   halted: () => boolean,
   lineAtPc: () => number | undefined,
-  breakpoints?: Set<number>
+  breakpoints?: Set<number>,
+  sleeping?: () => boolean
 ): boolean {
   for (let i = 0; i < count && !halted(); i++) {
     execute()
+    if (sleeping && sleeping()) return false
     const line = lineAtPc()
     if (breakpoints && line !== undefined && breakpoints.has(line)) return true
   }
   return false
+}
+
+// Counts down a TRAP #7 delay by real elapsed time (`dt`, ms). Called only
+// from the Run loop's own ticks, so the countdown is naturally frozen
+// while paused - nothing else decrements it. Returns whether the CPU is
+// still asleep (caller should skip stepping this frame).
+export function drainSleep(cpu: { sleepRemainingMs: number }, dt: number): boolean {
+  cpu.sleepRemainingMs = Math.max(0, cpu.sleepRemainingMs - dt)
+  return cpu.sleepRemainingMs > 0
 }

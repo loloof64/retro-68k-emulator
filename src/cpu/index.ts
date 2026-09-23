@@ -15,6 +15,7 @@ export function createCPU(startPC: number = USER_RAM_START): CPUState {
     status: { C: false, V: false, Z: false, N: false, X: false },
     halted: false,
     cycles: 0,
+    sleepRemainingMs: 0,
   }
 }
 
@@ -30,6 +31,7 @@ export function reset(cpu: CPUState, startPC: number = USER_RAM_START): void {
   cpu.status.X = false
   cpu.halted = false
   cpu.cycles = 0
+  cpu.sleepRemainingMs = 0
 }
 
 export type Size = 'byte' | 'word' | 'long'
