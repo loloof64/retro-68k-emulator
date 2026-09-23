@@ -863,6 +863,13 @@ machine ran. Here, each of the 8 implemented vectors (`#0`-`#7`) has
 one fixed, documented job — this table is effectively this emulator's
 own tiny "operating system calls" list.
 
+Like any instruction that isn't a branch (`Bcc`, `JMP`, `JSR`...),
+`TRAP #n` doesn't redirect execution anywhere: once it's done, the CPU
+simply moves on to whatever comes right after it in memory — the
+instruction written on the next line, unless a label or jump says
+otherwise. `TRAP #0` (halt) is the only exception, since it stops the
+CPU outright instead.
+
 | Vector | Syntax | Cycles | Description |
 |---|---|---|---|
 | `#0` | `TRAP #0` | 4 | Halts the CPU (ends the program). |
@@ -933,8 +940,11 @@ seconds); call it again for longer pauses:
         TRAP    #7
 ```
 
-The debugger's three ways of running a program treat this delay
-differently:
+`TRAP #7` itself still executes instantly and the CPU still moves on
+to the next instruction right away, exactly like every other `TRAP` -
+it doesn't sit "inside" the delay. What differs is *when* that next
+instruction actually runs: the debugger's three ways of running a
+program treat the pending delay differently:
 
 - **Run** honors it for real: the program genuinely pauses for the
   requested duration before the next instruction executes.
