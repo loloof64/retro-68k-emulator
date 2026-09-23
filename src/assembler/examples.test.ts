@@ -42,7 +42,7 @@ describe('translated examples', () => {
 
 describe('examples/en/*.asm', () => {
   it('every example is covered below', () => {
-    expect(readdirSync(DIR).filter((f) => f.endsWith('.asm')).length).toBe(14)
+    expect(readdirSync(DIR).filter((f) => f.endsWith('.asm')).length).toBe(15)
   })
 
   it('01 addition', () => {
@@ -118,5 +118,16 @@ describe('examples/en/*.asm', () => {
     const { cpu } = run('14-zero-divide.asm')
     expect(cpu.halted).toBe(true)
     expect(d(cpu, 0)).toBe(0xffffffff)
+  })
+  it('15 keyboard input: echoes up to 10 typed characters then exits', () => {
+    const { cpu, memory } = load('15-keyboard-input.asm')
+    for (const c of 'HELLO68K!!') memory.pushKey(c.charCodeAt(0))
+    for (let i = 0; i < 500_000 && !cpu.halted; i++) step(cpu, memory, opcodeTable)
+    expect(cpu.halted).toBe(true)
+    for (let i = 0; i < 10; i++) {
+      let lit = 0
+      for (let y = 10; y < 18; y++) for (let x = 10 + i * 8; x < 18 + i * 8; x++) if (px(memory, x, y) === 0xffffffff) lit++
+      expect(lit).toBeGreaterThan(0)
+    }
   })
 })

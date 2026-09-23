@@ -95,7 +95,7 @@ Only the D-pad, A/B/X/Y, Start and Select are used; the shoulder buttons, trigge
 
 ## Getting More Help
 
-- **Compare with the [Example Programs](./EXAMPLES.md)**: fourteen complete, working programs (loops, framebuffer writes, subroutines, gamepad...) to check your code against.
+- **Compare with the [Example Programs](./EXAMPLES.md)**: fifteen complete, working programs (loops, framebuffer writes, subroutines, gamepad...) to check your code against.
 - **Re-read the relevant [Reference](./REFERENCE.md) row** for the instruction in question — its Description and Flags columns call out the gotchas already known.
 - **Hand-trace the instructions**, the way every worked example on the Reference page does — writing out each register's value line by line is usually where a wrong assumption becomes visible.
 - **Simplify**: cut the program down to the smallest sequence that still shows the problem.

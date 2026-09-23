@@ -1,6 +1,6 @@
 # Example Programs
 
-Fourteen small, complete programs to read, paste into the editor and run. Each one lives as a file in the `examples/` folder of the repository (`en`, `fr`, `es` subfolders) and can be loaded from the "Load an example" list above the editor, and each is assembled and executed by the project's automated tests, so they are known to work.
+Fifteen small, complete programs to read, paste into the editor and run. Each one lives as a file in the `examples/` folder of the repository (`en`, `fr`, `es` subfolders) and can be loaded from the "Load an example" list above the editor, and each is assembled and executed by the project's automated tests, so they are known to work.
 
 To try one, copy its code into the editor, then press **Run** (or **Step** to follow it instruction by instruction). New to assembly? Read them in order: each builds on the ones before. Instruction details are in the [Reference](./REFERENCE.md).
 
@@ -430,3 +430,45 @@ HANDLER:
 ```
 
 **Result:** `D0` = 20 after the first, valid division, then `D0` = -1 (`$FFFFFFFF`) after the handler catches the second, zero-divide one.
+
+## Example 15: Reading the keyboard
+
+`TRAP #8` pops one typed character into `D0` (`0` if none is pending) — see [Reading the Keyboard with TRAP #8](./REFERENCE.md#reading-the-keyboard-with-trap-8). This program polls it in a loop, storing each character into a buffer and redrawing the growing string with `TRAP #1` after every key, until 10 characters have been typed. Only visible ASCII and accented characters are recognized; other keys (Enter, Backspace, arrows...) are silently ignored, as always with `TRAP #8`.
+
+File: `examples/en/15-keyboard-input.asm`
+
+```asm
+        ORG     $2000
+
+MAXLEN  EQU     10
+
+START:
+        LEA     BUFFER,A1       ; A1 = next free byte
+        MOVEQ   #0,D3           ; D3 = characters typed so far
+
+POLL:
+        TRAP    #8              ; D0 = next key (0 = none)
+        TST.B   D0
+        BEQ     POLL            ; nothing typed yet - keep polling
+
+        MOVE.B  D0,(A1)+        ; store the character, advance
+        CLR.B   (A1)            ; keep the string null-terminated
+        ADDQ.L  #1,D3
+
+        LEA     BUFFER,A0       ; A0 = the string so far
+        MOVEQ   #10,D0          ; x
+        MOVEQ   #10,D1          ; y
+        MOVE.L  #$FFFFFFFF,D2   ; white
+        TRAP    #1
+
+        CMPI.L  #MAXLEN,D3
+        BLT     POLL            ; keep going until MAXLEN chars
+
+        TRAP    #0              ; exit once the buffer is full
+
+BUFFER: DS.B    MAXLEN+1        ; +1 for the null terminator
+
+        END     START
+```
+
+**Result:** type up to 10 characters and watch the string grow on screen; the program exits (halts) once the 10th one lands.
