@@ -1792,7 +1792,7 @@ each.
 | 4 | Clear Screen | `D0` = 32-bit RGBA color to fill every one of the 64,000 pixels with. |
 | 5 | Read Controller State | Load the controller button bitmask into D0 |
 | 6 | Play Tone | Write D0-D3 (frequency, duration, volume, waveform) into the sound registers and trigger playback |
-| 7 | Delay | `D0` = duration in milliseconds (word). Sets `cpu.sleepRemainingMs`; not real 68000 hardware - see docs/user/REFERENCE.md's "Waiting with TRAP #7". |
+| 7 | Delay | `D0` (not `D1` - TRAP #6's duration field is `D1`) = duration in milliseconds (word). Sets `cpu.sleepRemainingMs`; not real 68000 hardware - see docs/user/REFERENCE.md's "Waiting with TRAP #7". |
 
 ### How TRAP #1 (Print String) renders text
 

@@ -879,7 +879,7 @@ CPU outright instead.
 | `#4` | `TRAP #4` | 4 | Fills every one of the 64,000 framebuffer pixels with `D0` (32-bit RGBA) — clears the screen to any solid color, not just black. |
 | `#5` | `TRAP #5` | 4 | Loads the controller button bitmask into D0 — a shortcut for reading `$7E800` directly. |
 | `#6` | `TRAP #6` | 4 | Writes D0 (frequency), D1 (duration), D2 (volume), D3 (waveform) into the [sound registers](#sound) and sets the trigger byte. |
-| `#7` | `TRAP #7` | 4 | Pauses the program for `D0` milliseconds (word). See [Waiting with TRAP #7](#waiting-with-trap-7) below. |
+| `#7` | `TRAP #7` | 4 | Pauses the program for `D0` milliseconds (word) — not `D1`, unlike `TRAP #6`'s duration field. See [Waiting with TRAP #7](#waiting-with-trap-7) below. |
 
 ### Addressing a Pixel for TRAP #2/#3
 
@@ -933,7 +933,13 @@ is a deliberate addition specific to this emulator, not a real 68000
 facility, to spare a program written here from either of those.
 
 `D0` (word) is the delay in milliseconds - up to 65,535 (about 65
-seconds); call it again for longer pauses:
+seconds); call it again for longer pauses. **Careful: that's `D0`, not
+`D1`** - easy to mix up with `TRAP #6` (see the [sound
+registers](#sound)), whose duration field is `D1` (`D0` there is
+frequency). Leaving `D0` at
+whatever it held from an earlier instruction, instead of loading the
+delay into it, silently waits for that leftover value instead of the
+one you meant:
 
 ```asm
         MOVE.W  #500,D0    ; 500 ms
