@@ -851,6 +851,18 @@ DOUBLE:
 
 ## TRAP System Calls
 
+A `TRAP #n` instruction is a *software interrupt*: unlike `JSR`/`BSR`,
+which jump to an address you choose, `TRAP #n` jumps to one of 16
+fixed, numbered entry points (`n` = `0`-`15`, encoded right in the
+instruction itself) — think of it as calling a small built-in
+"operating system" routine by number instead of by address. On real
+68000 hardware this mechanism is a blank slate: Motorola reserved the
+16 vectors but assigned none of them a fixed job, so what `TRAP #5`
+(say) actually did depended entirely on whichever OS or ROM a given
+machine ran. Here, each of the 8 implemented vectors (`#0`-`#7`) has
+one fixed, documented job — this table is effectively this emulator's
+own tiny "operating system calls" list.
+
 | Vector | Syntax | Cycles | Description |
 |---|---|---|---|
 | `#0` | `TRAP #0` | 4 | Halts the CPU (ends the program). |
