@@ -14,6 +14,7 @@ import {
   SOUND_WAVEFORM,
   SOUND_TRIGGER,
   SOUND_END,
+  KEYBOARD_QUEUE_SIZE,
 } from './index'
 
 describe('SystemMemory', () => {
@@ -123,6 +124,36 @@ describe('SystemMemory', () => {
     it('starts right after the controller input port and stays in bounds', () => {
       expect(SOUND_START).toBe(INPUT_START + 4)
       expect(SOUND_END).toBeLessThan(MEMORY_SIZE)
+    })
+  })
+
+  describe('keyboard queue', () => {
+    it('pops 0 when the queue is empty', () => {
+      const mem = new SystemMemory()
+      expect(mem.popKey()).toBe(0)
+    })
+
+    it('pops queued characters in FIFO order', () => {
+      const mem = new SystemMemory()
+      mem.pushKey(0x41) // 'A'
+      mem.pushKey(0x42) // 'B'
+      expect(mem.popKey()).toBe(0x41)
+      expect(mem.popKey()).toBe(0x42)
+    })
+
+    it('drops the newest character once the queue is full, keeping older ones', () => {
+      const mem = new SystemMemory()
+      for (let i = 0; i < KEYBOARD_QUEUE_SIZE; i++) mem.pushKey(0x30 + i)
+      mem.pushKey(0x39) // dropped: queue already full
+      for (let i = 0; i < KEYBOARD_QUEUE_SIZE; i++) expect(mem.popKey()).toBe(0x30 + i)
+      expect(mem.popKey()).toBe(0)
+    })
+
+    it('is cleared by reset', () => {
+      const mem = new SystemMemory()
+      mem.pushKey(0x41)
+      mem.reset()
+      expect(mem.popKey()).toBe(0)
     })
   })
 

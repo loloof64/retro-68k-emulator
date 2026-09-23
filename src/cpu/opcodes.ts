@@ -3341,6 +3341,15 @@ export const trapHandlers: Record<number, TrapHandler> = {
   7: (cpu) => {
     cpu.sleepRemainingMs = readRegister(cpu, Register.D0, 'word')
   },
+  // TRAP #8: read keyboard -> D0. Pops the next queued character (0 if
+  // none pending) from the UI's keydown-fed FIFO - see docs/MEMORY.md.
+  // Unlike every other TRAP here, there's no equivalent plain MOVE: the
+  // queue isn't a real memory address, precisely so that reading it (e.g.
+  // the debugger's Memory Inspector) never has the side effect of
+  // consuming a keystroke just by displaying it.
+  8: (cpu, memory) => {
+    writeRegister(cpu, Register.D0, memory.popKey(), 'long')
+  },
 }
 
 const TRAP: OpcodeDefinition = {

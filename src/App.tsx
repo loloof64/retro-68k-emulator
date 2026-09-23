@@ -12,6 +12,7 @@ import { translate, useI18n } from './i18n';
 import { examplesFor } from './examples';
 import { inTauri, openSource, saveSourceAs, writeSource, confirmDiscard } from './sourceFile';
 import { initHistory, pushHistory, undo as undoHistory, redo as redoHistory, currentValue, hasEdits } from './history';
+import { charCodeForKey, isEditableTarget } from './keyboard';
 
 export default function App() {
   const { t, locale } = useI18n();
@@ -180,6 +181,23 @@ export default function App() {
   if (memoryRef.current === null) {
     memoryRef.current = new SystemMemory();
   }
+
+  // Feeds the running program's keyboard queue (TRAP #8) - captured
+  // globally so it works without first clicking the Screen panel, except
+  // while the user is typing into a real UI field (isEditableTarget) or
+  // holding a shortcut modifier. See docs/user/REFERENCE.md for why only
+  // visible ASCII + Latin-1 accented characters are recognized.
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.ctrlKey || e.metaKey) return;
+      if (isEditableTarget(e.target)) return;
+      const code = charCodeForKey(e.key);
+      if (code === undefined) return;
+      memoryRef.current?.pushKey(code);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, []);
 
   return (
     <div className="app">

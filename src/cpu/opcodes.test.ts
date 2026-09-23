@@ -3589,9 +3589,9 @@ describe('TRAP', () => {
   it('throws on an unimplemented TRAP vector', () => {
     const cpu = createCPU(0x2000)
     const memory = new SystemMemory()
-    memory.write16(0x2000, 0x4e48) // TRAP #8
+    memory.write16(0x2000, 0x4e49) // TRAP #9
 
-    expect(() => step(cpu, memory, opcodeTable)).toThrow(/Unimplemented TRAP vector: 8/)
+    expect(() => step(cpu, memory, opcodeTable)).toThrow(/Unimplemented TRAP vector: 9/)
   })
 
   it('TRAP #1 draws a null-terminated string at (D0, D1) in the D2 color', () => {
@@ -3691,6 +3691,27 @@ describe('TRAP', () => {
     step(cpu, memory, opcodeTable)
 
     expect(cpu.sleepRemainingMs).toBe(500)
+  })
+
+  it('TRAP #8 pops the next queued keyboard character into D0', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    memory.pushKey(0x41) // 'A'
+    memory.write16(0x2000, 0x4e48) // TRAP #8
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.registers[Register.D0]).toBe(0x41)
+  })
+
+  it('TRAP #8 loads 0 into D0 when no key is queued', () => {
+    const cpu = createCPU(0x2000)
+    const memory = new SystemMemory()
+    memory.write16(0x2000, 0x4e48) // TRAP #8
+
+    step(cpu, memory, opcodeTable)
+
+    expect(cpu.registers[Register.D0]).toBe(0)
   })
 })
 

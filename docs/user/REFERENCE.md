@@ -859,7 +859,7 @@ instruction itself) — think of it as calling a small built-in
 68000 hardware this mechanism is a blank slate: Motorola reserved the
 16 vectors but assigned none of them a fixed job, so what `TRAP #5`
 (say) actually did depended entirely on whichever OS or ROM a given
-machine ran. Here, each of the 8 implemented vectors (`#0`-`#7`) has
+machine ran. Here, each of the 9 implemented vectors (`#0`-`#8`) has
 one fixed, documented job — this table is effectively this emulator's
 own tiny "operating system calls" list.
 
@@ -880,6 +880,7 @@ CPU outright instead.
 | `#5` | `TRAP #5` | 4 | Loads the controller button bitmask into D0 — a shortcut for reading `$7E800` directly. |
 | `#6` | `TRAP #6` | 4 | Writes D0 (frequency), D1 (duration), D2 (volume), D3 (waveform) into the [sound registers](#sound) and sets the trigger byte. |
 | `#7` | `TRAP #7` | 4 | Pauses the program for `D0` milliseconds (word) — not `D1`, unlike `TRAP #6`'s duration field. See [Waiting with TRAP #7](#waiting-with-trap-7) below. |
+| `#8` | `TRAP #8` | 4 | Pops the next queued keyboard character into `D0` (0 if none pending). See [Reading the Keyboard with TRAP #8](#reading-the-keyboard-with-trap-8) below. |
 
 ### Addressing a Pixel for TRAP #2/#3
 
@@ -961,6 +962,40 @@ program treat the pending delay differently:
   means *you* are setting the pace already, so a `TRAP #7` never blocks
   a Step click - the next click just moves straight on to the following
   instruction.
+
+### Reading the Keyboard with TRAP #8
+
+Every key you type is captured by the emulator and queued (up to 16
+characters - typing faster than your program reads them just means it
+catches up later; the 17th character typed before that happens is
+dropped rather than growing the queue further). `TRAP #8` pops the
+*oldest* queued character into `D0`, or loads `D0` with `0` if nothing
+is waiting - call it in a loop each frame and keep reading while `D0`
+is nonzero to drain everything that piled up.
+
+Only two ranges of characters are recognized: visible ASCII
+(`$20`-`$7E` - letters, digits, punctuation, space) and the accented
+Latin-1 characters (`$A0`-`$FF` - `é`, `à`, `ñ`, `¿`, `¡`, and similar).
+Anything else you press - Enter, Backspace, arrow keys, function keys,
+modifier keys, or a character outside both ranges (the Euro sign `€`
+and the French `œ` ligature, for instance, fall outside Latin-1) - is
+silently ignored and never queued. This is deliberate: `TRAP #8` hands
+your program raw characters, nothing more. If you want a real line
+editor - reading a name, letting the player correct a typo with
+Backspace - that logic (what Backspace does, where the cursor is, when
+the line is "done") is entirely up to your program to build out of the
+characters `TRAP #8` gives it; the emulator doesn't impose one.
+
+Unlike every other `TRAP` in this table, there's no plain-memory
+equivalent for `TRAP #8` — reading the queue has a side effect (it
+removes the character), and giving that to a raw address would mean
+the debugger's read-only Memory Inspector could silently consume
+keystrokes just by displaying that address. `TRAP #8` is the only way
+to read it.
+
+Typing is captured everywhere in the app except while your cursor is in
+the code editor or another text field - no need to click the Screen
+panel first.
 
 ## Exceptions
 

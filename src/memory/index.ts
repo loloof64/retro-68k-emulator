@@ -69,6 +69,12 @@ export const SOUND_WAVEFORM_TRIANGLE = 2
 export const SOUND_WAVEFORM_SAWTOOTH = 3
 export const SOUND_WAVEFORM_NOISE = 4
 
+// Keyboard: not memory-mapped (see docs/MEMORY.md) - the queue is internal
+// engine state, popped only through TRAP #8, same as TRAP #7's delay. A
+// real memory address with pop-on-read semantics would make the read-only
+// Memory Inspector silently consume keystrokes just by displaying it.
+export const KEYBOARD_QUEUE_SIZE = 16 // like a 16550 UART's FIFO
+
 // The docs state the framebuffer region is 64-128KB, but 320x200 @ 32bpp
 // actually needs ~250KB. Total space is rounded up to fit it exactly.
 export const MEMORY_SIZE = SOUND_END + 1
@@ -77,6 +83,7 @@ export class SystemMemory implements Memory {
   private bytes: Uint8Array
   private lastWrite: number | undefined
   private written = new Set<number>()
+  private keyQueue: number[] = []
 
   constructor(size: number = MEMORY_SIZE) {
     this.bytes = new Uint8Array(size)
@@ -160,6 +167,7 @@ export class SystemMemory implements Memory {
   reset(): void {
     this.bytes.fill(0)
     this.takeWrites()
+    this.keyQueue = []
   }
 
   getPixel(x: number, y: number): number {
@@ -188,5 +196,16 @@ export class SystemMemory implements Memory {
 
   getButtonState(): number {
     return this.read32(INPUT_START)
+  }
+
+  // For the UI's keydown listener to queue a captured character; see
+  // docs/MEMORY.md. Silently drops the newest key once the queue is full.
+  pushKey(code: number): void {
+    if (this.keyQueue.length < KEYBOARD_QUEUE_SIZE) this.keyQueue.push(code)
+  }
+
+  // TRAP #8's sole access path (see the KEYBOARD_QUEUE_SIZE comment above).
+  popKey(): number {
+    return this.keyQueue.shift() ?? 0
   }
 }

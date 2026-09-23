@@ -92,6 +92,7 @@ export interface Memory {
   write8(address: number, value: number): void;
   write16(address: number, value: number): void;
   write32(address: number, value: number): void;
+  popKey(): number;
 }
 
 // Emulator state

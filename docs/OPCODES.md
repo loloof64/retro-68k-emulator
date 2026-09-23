@@ -1793,6 +1793,7 @@ each.
 | 5 | Read Controller State | Load the controller button bitmask into D0 |
 | 6 | Play Tone | Write D0-D3 (frequency, duration, volume, waveform) into the sound registers and trigger playback |
 | 7 | Delay | `D0` (not `D1` - TRAP #6's duration field is `D1`) = duration in milliseconds (word). Sets `cpu.sleepRemainingMs`; not real 68000 hardware - see docs/user/REFERENCE.md's "Waiting with TRAP #7". |
+| 8 | Read Keyboard | Pops the next queued keyboard character into `D0` (0 if none pending). Not backed by a real memory address, unlike the other TRAPs here - see docs/user/REFERENCE.md's "Reading the Keyboard with TRAP #8". |
 
 ### How TRAP #1 (Print String) renders text
 

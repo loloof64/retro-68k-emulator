@@ -14,6 +14,7 @@ If you just want to try the app, grab the latest version from the [Downloads](./
 - A TRAP-based system-call layer, for things like printing text or drawing to the screen from your own assembly code
 - A simulated 320×200 color LCD (32-bit RGBA), mapped directly into memory
 - An on-screen retro gamepad (A/B/X/Y, D-pad, Start/Select), superseded by a real gamepad when one is connected
+- Keyboard input: visible ASCII and accented (Latin-1) characters, read a queued character at a time from your own assembly code
 - Simple retro-style sound effects (a tone generator, not sampled audio), the way period 8/16-bit consoles did it
 - A step-by-step debugger: watch registers, flags, memory (hex dump) and the screen change instruction by instruction, with breakpoints
 - A syntax-highlighted assembly editor, built into the app — no external tools needed: Tab/Shift+Tab indent and outdent to 8-column stops, and Enter carries the current line's indentation onto the next one

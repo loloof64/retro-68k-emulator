@@ -18,6 +18,11 @@ $7E804-$7E80B          8 B      Sound (tone generator — played through Web Aud
 flat `$40000-$5FFFF` range would give — the framebuffer is sized to fit
 exactly, and the Controller Input and Sound registers sit right after it.
 
+Keyboard input has no entry in this map — deliberately: it's queued
+engine-side state readable only through `TRAP #8`, not a memory-mapped
+register like the two above it. See `docs/user/REFERENCE.md`'s "Reading
+the Keyboard with TRAP #8" for why.
+
 ## System Area ($00000-$01FFF)
 
 Reserved for interrupt vectors and system-level data:
@@ -50,7 +55,8 @@ $10      4        Clear screen
 $14      5        Read controller state
 $18      6        Play tone
 $1C      7        Delay
-$20-$3F  8-15     (reserved for future)
+$20      8        Read keyboard
+$24-$3F  9-15     (reserved for future)
 ```
 
 ### CPU Exception Vector Table
