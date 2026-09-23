@@ -4,6 +4,27 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [1.2.0] - 2026-09-23
+
+TRAP #7: pause a program for a given duration.
+
+### Added
+- `TRAP #7`: pauses the program for `D0` milliseconds (word) — a
+  deliberate emulator extension, not real 68000 hardware. Run honors it
+  in real time, Pause freezes the countdown, and Step always resolves
+  a pending delay instantly since single-stepping already means the
+  user is setting the pace
+
+### Changed
+- Detailed clarity pass over `docs/user/REFERENCE.md`: a new Stack
+  section, big-endian and register partial-write notes, an `<ea>`
+  definition surfaced in Addressing Modes, explicit no-side-effect
+  notes for Displacement/Indexed/PC-relative modes, new "Why does ADDI
+  exist" and "How does ADDQ/SUBQ pack its immediate" guidance, a fixed
+  TAS spinlock example, and several reworded stale sentences
+- New "What is a TRAP?" and control-flow-after-TRAP explainers ahead of
+  the TRAP System Calls table, for readers new to assembly
+
 ## [1.1.0] - 2026-09-23
 
 Editor toolbar, save workflow, and app-owned undo/redo.

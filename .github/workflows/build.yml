@@ -31,7 +31,7 @@ jobs:
           id=$(gh api "repos/${{ github.repository }}/releases" \
             -f tag_name='${{ github.ref_name }}' \
             -f name='68K Emulator ${{ github.ref_name }}' \
-            -f body='A proper editor toolbar (Open/Save/Save As, Undo/Redo), Tab/Shift+Tab/Enter indentation, and app-owned undo/redo that works reliably in the desktop app. See CHANGELOG.md for details on this release.' \
+            -f body='New TRAP #7: pause a running program for a given duration (in milliseconds), honored in real time by Run and correctly frozen by Pause. See CHANGELOG.md for details on this release.' \
             -F draft=true -F prerelease=false --jq .id)
           echo "release_id=$id" >> "$GITHUB_OUTPUT"
 
