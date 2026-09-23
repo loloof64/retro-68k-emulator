@@ -68,7 +68,10 @@ docs:pdf:user`.
     actually honors it, differently per Run/Pause/Step — see
     `docs/user/REFERENCE.md#waiting-with-trap-7`.
   - `#8` (2026-09-23, this session): pops the next queued keyboard
-    character into `D0` (0 if none pending) — `SystemMemory.pushKey`/
+    character into `D0` (0 if none pending), written as a full 32-bit
+    long, zero-extended — `writeRegister(cpu, Register.D0, memory.popKey(),
+    'long')`, same width convention as `#5`/`#2`, not a byte-only write
+    like `#6`'s D2/D3 inputs — `SystemMemory.pushKey`/
     `popKey` in `src/memory/index.ts`, a 16-char FIFO, drop-newest on
     overflow. **Not memory-mapped** like every other TRAP here — reading
     the queue has a side effect (pops it), and a raw address would let

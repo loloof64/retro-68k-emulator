@@ -971,7 +971,10 @@ catches up later; the 17th character typed before that happens is
 dropped rather than growing the queue further). `TRAP #8` pops the
 *oldest* queued character into `D0`, or loads `D0` with `0` if nothing
 is waiting - call it in a loop each frame and keep reading while `D0`
-is nonzero to drain everything that piled up.
+is nonzero to drain everything that piled up. `D0` is written as a full
+32-bit long, zero-extended (`$000000xx`, never leftover garbage in the
+upper three bytes from an earlier instruction) - a plain `CMPI.L #0,D0`
+or `CMPI.B #0,D0` both work to test "nothing pending".
 
 Only two ranges of characters are recognized: visible ASCII
 (`$20`-`$7E` - letters, digits, punctuation, space) and the accented
