@@ -1025,6 +1025,31 @@ to fold together, clearing that bit first is shorter than a pair of
 the `CMPI.B` above - safe precisely because `D0`'s upper three bytes are
 always zero after `TRAP #8`, per the width note above.
 
+**Example** — echoing the key you just read: `TRAP #1` (see
+[Printing Text with TRAP #1](#printing-text-with-trap-1) above) needs
+`A0` to point at a string *in memory*, and a register holds a value,
+not an address, so there's no way to hand it `D0` directly. The
+standard fix is a small buffer you declare once (its address never
+changes) but fill at runtime (its *content* does) - here, one byte for
+the character plus the `0` terminator `TRAP #1` needs:
+
+```asm
+POLL:
+        TRAP    #8              ; D0 = next key (0 = none)
+        TST.B   D0
+        BEQ     POLL            ; nothing typed yet - keep polling
+
+        MOVE.B  D0,CHAR         ; store the character
+        LEA     CHAR,A0         ; A0 = the string to print
+        MOVEQ   #10,D0
+        MOVEQ   #10,D1
+        MOVE.L  #$FFFFFFFF,D2   ; white
+        TRAP    #1
+
+CHAR:   DS.B    1               ; the character, set at runtime
+        DC.B    0               ; null terminator
+```
+
 Typing is captured everywhere in the app except while your cursor is in
 the code editor or another text field - no need to click the Screen
 panel first.
