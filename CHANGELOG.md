@@ -4,6 +4,31 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [1.3.0] - 2026-09-24
+
+TRAP #8: keyboard input.
+
+### Added
+- `TRAP #8`: pops the next queued keyboard character into `D0` (0 if
+  none pending) — visible ASCII and Latin-1 accented characters only,
+  from a 16-character FIFO fed by a keydown listener that works
+  anywhere in the app except while typing in the editor or another UI
+  field. Not memory-mapped like every other TRAP here: reading it has
+  a side effect (it pops the queue), so a raw address would let the
+  debugger's Memory Inspector silently consume keystrokes just by
+  displaying it — `TRAP #8` is the sole access path
+- Example #15: reading the keyboard — builds a 10-character string
+  from typed input, echoing it to the screen with `TRAP #1` after
+  every key
+
+### Changed
+- `docs/user/REFERENCE.md`: new "Reading the Keyboard with TRAP #8"
+  section (character set, FIFO behavior, `D0`'s full 32-bit
+  zero-extended width, worked examples for testing a key against
+  `'A'`/`'a'` and for printing a runtime-read character), and `TRAP
+  #5`'s table row now links to the existing "Reading the Gamepad"
+  section it was missing a pointer to
+
 ## [1.2.0] - 2026-09-23
 
 TRAP #7: pause a program for a given duration.
