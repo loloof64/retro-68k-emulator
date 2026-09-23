@@ -50,9 +50,10 @@ docs:pdf:user`.
   supervisor-mode/status-register model, by design (see
   `docs/user/REFERENCE.md#why-doesnt-this-emulator-implement-rtestopresetmove-sr`).
   No known correctness bugs remain in the implemented set.
-- **TRAP system calls: 7 of 7 done.** `#0` (exit), `#1` (print string),
+- **TRAP system calls: 9 of 9 done.** `#0` (exit), `#1` (print string),
   `#2`/`#3` (read/write pixel), `#4` (clear screen), `#5` (read
-  controller), `#6` (play tone). `#1`: `A0` = null-terminated ASCII
+  controller), `#6` (play tone), `#7` (delay), `#8` (read keyboard).
+  `#1`: `A0` = null-terminated ASCII
   string, `D0`/`D1` = x/y pixel, `D2` = RGBA color; 8×8 `font8x8_basic`
   in `src/graphics/font.ts` (bit 0 = leftmost pixel, kept verbatim from
   upstream — deviates from the earlier "MSB = leftmost" design note),
@@ -61,6 +62,30 @@ docs:pdf:user`.
   directly followed by the input registers and wouldn't fault by itself).
   - Color format settled as `0xRRGGBBAA` (matches `docs/API.md`; red =
     `0xFF0000FF`) — `docs/MEMORY.md`'s diagram/examples fixed to match.
+  - `#7` (2026-09-22ish, before this session): `D0` (word) = delay ms —
+    not `D1`, unlike `#6`'s duration field. Sets `cpu.sleepRemainingMs`;
+    the debugger's run loop (`src/components/Debugger.tsx`) is what
+    actually honors it, differently per Run/Pause/Step — see
+    `docs/user/REFERENCE.md#waiting-with-trap-7`.
+  - `#8` (2026-09-23, this session): pops the next queued keyboard
+    character into `D0` (0 if none pending) — `SystemMemory.pushKey`/
+    `popKey` in `src/memory/index.ts`, a 16-char FIFO, drop-newest on
+    overflow. **Not memory-mapped** like every other TRAP here — reading
+    the queue has a side effect (pops it), and a raw address would let
+    the debugger's read-only Memory Inspector silently consume
+    keystrokes just by displaying it; `TRAP #8` is the sole access path.
+    Recognizes only visible ASCII (`$20`-`$7E`) and Latin-1 accented
+    characters (`$A0`-`$FF`) via `src/keyboard.ts`'s `charCodeForKey`
+    (a plain code-point range check on `KeyboardEvent.key` — no lookup
+    table needed, and it naturally excludes the Euro sign and the French
+    `œ` ligature, both outside Latin-1). Deliberately excludes
+    Enter/Backspace/arrows/function keys — a program that wants line
+    editing (backspace, cursor movement) builds it itself out of the raw
+    characters this TRAP supplies; the emulator doesn't impose one.
+    Captured via a `window` keydown listener in `src/App.tsx`, skipped
+    whenever `isEditableTarget` says focus is on the code editor or
+    another UI field (`src/keyboard.ts`) — works everywhere else with no
+    need to click the Screen panel first.
 - **Assembler: v1 library implemented** (`src/assembler/`, two-pass,
   `assemble(source)` -> `AssembledProgram | AssemblerError[]`); UI wiring
   pending. Assemblable: every real mnemonic (`CCR`/`SR` are Operand kinds `ccr`/`sr`, valid only in
@@ -527,3 +552,18 @@ separate, intentional plain dispatch table (`trapHandlers`).
   dev-server browser but not in the actual Tauri WebView). Flag
   Tauri-specific behavior as unverified rather than assuming the
   browser check covers it, and say so explicitly when reporting done.
+- **`tdd-guard` (the Claude Code plugin) can't be wired up in this repo
+  yet.** Its Vitest reporter (`tdd-guard-vitest`) requires
+  `vitest@>=3.2.4`; this repo is pinned to `vitest@^1.0.0` (`1.6.1`
+  installed). `npm install --save-dev tdd-guard-vitest` fails with an
+  ERESOLVE peer-dependency error and installs nothing (verified — no
+  `package.json`/lock changes from the failed attempt). Don't re-attempt
+  the install without first upgrading Vitest 1→3 as its own separate,
+  deliberate task (a 2-major-version jump, likely disruptive — not a
+  drive-by fix). If `tdd-guard` is enabled (`.claude/tdd-guard/data/
+  config.json`'s `guardEnabled`) while this incompatibility stands, it
+  blocks every implementation edit with no way to satisfy it (it can't
+  see real test results without the reporter) — flip `guardEnabled` to
+  `false` in that file directly (Laurent already approved this once,
+  2026-09-23) rather than getting stuck re-arguing with it turn after
+  turn.
