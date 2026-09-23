@@ -996,6 +996,35 @@ the debugger's read-only Memory Inspector could silently consume
 keystrokes just by displaying that address. `TRAP #8` is the only way
 to read it.
 
+**Example** — testing for a specific key, both cases: a source-code
+`'A'`/`'a'` is just a number (its ASCII code, `65`/`97` - see
+[Source Layout](#source-layout)), so comparing `D0` against one is an
+ordinary `CMPI`:
+
+```asm
+        TRAP    #8          ; D0 = next key (0 if none pending)
+        CMPI.B  #'A',D0     ; uppercase A?
+        BEQ     GOT_A
+        CMPI.B  #'a',D0     ; lowercase a?
+        BEQ     GOT_A
+```
+
+Every letter's uppercase and lowercase codes differ by exactly `$20`
+(bit 5) - `A` is `$41`, `a` is `$61` - so once you have several letters
+to fold together, clearing that bit first is shorter than a pair of
+`CMPI`s per letter:
+
+```asm
+        TRAP    #8
+        ANDI.B  #$DF,D0     ; clear bit 5: force uppercase
+        CMPI.B  #'A',D0     ; only need to test the one case now
+        BEQ     GOT_A
+```
+
+`ANDI.B #$DF,D0` only touches the byte the letter lives in, exactly like
+the `CMPI.B` above - safe precisely because `D0`'s upper three bytes are
+always zero after `TRAP #8`, per the width note above.
+
 Typing is captured everywhere in the app except while your cursor is in
 the code editor or another text field - no need to click the Screen
 panel first.
