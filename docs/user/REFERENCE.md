@@ -1268,6 +1268,19 @@ BUFFER: DS.B    MAXLEN+1        ; reads as "DS.B 11"
 
 Since `MAXLEN` never becomes a real address, you can't use `MOVE` on it or index through it with `(An)` the way you would with a `DC`/`DS` label — `MAXLEN` in code is replaced by the literal `10`, nothing more. This is what makes it useful for a size or a repeated magic number: change the one `EQU` line and every use of the name picks it up. There are no forward references: an `EQU` line must come before every place that uses its name (see [Assembler Limits](#assembler-limits)).
 
+### Writing the same number four ways
+
+An immediate operand (`#...`) or a `DS` count doesn't have to be a plain decimal number — the assembler also accepts hexadecimal, binary, a character's ASCII code, and an `EQU` name. These four lines all load the exact same value:
+
+```asm
+        MOVE.B  #65,D0          ; decimal
+        MOVE.B  #$41,D0         ; hexadecimal
+        MOVE.B  #%01000001,D0   ; binary
+        MOVE.B  #'A',D0         ; character code
+```
+
+Pick whichever reads clearest for what the number *means* — `$41` for a raw byte value, `%01000001` for a bit pattern you're building up, `'A'` when the number is really a letter (see [Reading the Keyboard with TRAP #8](#reading-the-keyboard-with-trap-8) for a worked example). An `EQU` name works the same way once it's declared, as `#LEN` would above once `LEN: EQU 65` exists earlier in the source.
+
 ### Tips
 
 A few habits worth having, some of them straight from gotchas this emulator's own opcodes hit during development:
