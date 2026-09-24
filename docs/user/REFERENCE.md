@@ -1248,7 +1248,14 @@ BUFFER: DS.B    10              ; 10 zeroed bytes, nothing set yet
 COUNT:  DS.W    1               ; one zeroed word
 ```
 
-Same caveats as `DC.W`/`DC.L`: `DS.W` and `DS.L` must start at an even address (`EVEN` before them if needed — see the `FLAG` example under [Directives](#directives)), and the count itself can't reference a label defined later in the source (see [Assembler Limits](#assembler-limits)).
+Same caveats as `DC.W`/`DC.L`: `DS.W` and `DS.L` must start at an even address (`EVEN` before them if needed — see the `FLAG` example under [Directives](#directives)). `n` doesn't have to be a plain number — a label or an [`EQU`](#naming-constants-equ) constant works too, as long as it's already defined earlier in the source:
+
+```asm
+LEN:    EQU     20
+TABLE:  DS.B    LEN              ; ok: LEN is defined above
+```
+
+Swap the two lines and it fails to assemble — at that point in the source, `LEN` hasn't been defined yet (see [Assembler Limits](#assembler-limits)).
 
 ### Naming constants: EQU
 
