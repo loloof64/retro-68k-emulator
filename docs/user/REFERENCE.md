@@ -1239,6 +1239,28 @@ MESSAGE:
 
 The assembler accepts `DC.x` (see [Writing Assembly Source](#writing-assembly-source)). An alternative is building the data at *runtime*: pick an address, then write each value into it with its own `MOVE`, stepping the address with [`(An)+`](#addressing-modes) the same way a program would read the data back out later. The memory ends up holding exactly the same bytes.
 
+### Reserving space: DS.B, DS.W, DS.L
+
+Where `DC.x` fills memory with values known at assembly time, `DS.x` ("Define Storage") does the opposite: it reserves `n` zero-filled bytes, words or long words without giving them a starting value — the usual way to set aside a buffer or a scratch variable that a running program will write into later, e.g.:
+
+```asm
+BUFFER: DS.B    10              ; 10 zeroed bytes, nothing set yet
+COUNT:  DS.W    1               ; one zeroed word
+```
+
+Same caveats as `DC.W`/`DC.L`: `DS.W` and `DS.L` must start at an even address (`EVEN` before them if needed — see the `FLAG` example under [Directives](#directives)), and the count itself can't reference a label defined later in the source (see [Assembler Limits](#assembler-limits)).
+
+### Naming constants: EQU
+
+`DC`/`DS` both reserve a byte, word or long word *in memory*, at an address the label refers to. `EQU` is different: it never touches memory, it just gives a name to a fixed value the assembler substitutes wherever that name appears, e.g.:
+
+```asm
+MAXLEN: EQU     10              ; not an address, just 10
+BUFFER: DS.B    MAXLEN+1        ; reads as "DS.B 11"
+```
+
+Since `MAXLEN` never becomes a real address, you can't use `MOVE` on it or index through it with `(An)` the way you would with a `DC`/`DS` label — `MAXLEN` in code is replaced by the literal `10`, nothing more. This is what makes it useful for a size or a repeated magic number: change the one `EQU` line and every use of the name picks it up. There are no forward references: an `EQU` line must come before every place that uses its name (see [Assembler Limits](#assembler-limits)).
+
 ### Tips
 
 A few habits worth having, some of them straight from gotchas this emulator's own opcodes hit during development:
