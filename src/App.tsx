@@ -22,6 +22,7 @@ import {
   BookmarkIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
+  SearchIcon,
   MenuIcon,
 } from './icons';
 
@@ -247,6 +248,15 @@ export default function App() {
     [
       { key: 'undo', icon: <UndoIcon />, label: t('history.undo'), onClick: doUndo, disabled: !canUndo },
       { key: 'redo', icon: <RedoIcon />, label: t('history.redo'), onClick: doRedo, disabled: !canRedo },
+    ],
+    [
+      {
+        key: 'search',
+        icon: <SearchIcon />,
+        label: t('search.open'),
+        onClick: () => editorRef.current?.openSearch(),
+        disabled: false,
+      },
     ],
     [
       {

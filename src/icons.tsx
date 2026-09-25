@@ -84,6 +84,15 @@ export function ChevronRightIcon({ size = 16 }: IconProps) {
   );
 }
 
+export function SearchIcon({ size = 16 }: IconProps) {
+  return (
+    <svg width={size} height={size} {...base}>
+      <circle cx="11" cy="11" r="7" />
+      <path d="m21 21-4.3-4.3" />
+    </svg>
+  );
+}
+
 export function MenuIcon({ size = 16 }: IconProps) {
   return (
     <svg width={size} height={size} {...base}>

@@ -21,6 +21,7 @@ interface EditorProps {
 export interface EditorHandle {
   jumpBookmark: (dir: 1 | -1) => void
   toggleBookmarkAtCaret: () => void
+  openSearch: () => void
 }
 
 // Monospace character width in px, needed to scroll a search match's column
@@ -172,6 +173,10 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       const ta = textarea.current
       if (!ta) return
       onToggleBookmark(caretLine(ta))
+    },
+    openSearch: () => {
+      setSearchOpen(true)
+      searchInput.current?.focus()
     },
   }))
 
