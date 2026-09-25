@@ -107,6 +107,20 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     setSearchOpen(false)
     textarea.current?.focus()
   }
+  // Pre-fills the query from the current selection, like Ctrl+F in a browser
+  // or VS Code — but only a single-line one, since the search bar's matches
+  // are always within one line.
+  const openSearchBar = (ta: HTMLTextAreaElement | null) => {
+    if (ta && ta.selectionStart !== ta.selectionEnd) {
+      const selected = ta.value.slice(ta.selectionStart, ta.selectionEnd)
+      if (!selected.includes('\n')) setSearchQuery(selected)
+    }
+    setSearchOpen(true)
+    // If the bar was already open (e.g. focus moved back to the code),
+    // setSearchOpen(true) is a no-op and won't retrigger the focus effect.
+    searchInput.current?.focus()
+    searchInput.current?.select()
+  }
   const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     const ta = e.currentTarget
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'b') {
@@ -118,10 +132,7 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       if (line !== undefined) goToLine(ta, line)
     } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f') {
       e.preventDefault()
-      setSearchOpen(true)
-      // If the bar was already open (e.g. focus moved back to the code),
-      // setSearchOpen(true) is a no-op and won't retrigger the focus effect.
-      searchInput.current?.focus()
+      openSearchBar(ta)
     } else if (e.key === 'F3' && searchOpen) {
       e.preventDefault()
       jumpMatch(e.shiftKey ? -1 : 1)
@@ -175,13 +186,15 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       onToggleBookmark(caretLine(ta))
     },
     openSearch: () => {
-      setSearchOpen(true)
-      searchInput.current?.focus()
+      openSearchBar(textarea.current)
     },
   }))
 
   useEffect(() => {
-    if (searchOpen) searchInput.current?.focus()
+    if (searchOpen) {
+      searchInput.current?.focus()
+      searchInput.current?.select()
+    }
   }, [searchOpen])
   useEffect(() => setCurrentMatchIndex(0), [searchQuery])
 
