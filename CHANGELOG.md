@@ -4,6 +4,23 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [1.4.1] - 2026-09-25
+
+Memory inspector row count, find-bar selection prefill, taller default window.
+
+### Added
+- Find bar: opening it (`Ctrl+F` or the toolbar button) with a
+  single-line selection loads it as the query, pre-selected so typing
+  replaces it immediately — the usual browser/editor behavior
+
+### Changed
+- Debugger memory inspector: 24 rows (192 bytes) instead of 16 (128
+  bytes), the largest count that still fits the default window height
+  without a scrollbar
+- Default window height increased (900→950, `minHeight` 700→750) so
+  the taller memory inspector doesn't need to scroll on the real
+  desktop build
+
 ## [1.4.0] - 2026-09-25
 
 Editor toolbar overhaul: icons, find-in-code, bookmark buttons.
