@@ -118,14 +118,20 @@ docs:pdf:user`.
   the overlay math holds); Run stops on a breakpoint line; a select
   sets instructions per frame. Syntax highlighting: a `<pre>` overlay (`src/highlight.ts`) under a transparent `<textarea>`, scroll-synced; font/padding/line-height must stay identical in both.
 - **Debugger memory inspector: done** (`src/components/MemoryView.tsx`, pure helpers in
-  `src/memoryView.ts`). Read-only hex+ASCII dump, 8 bytes x 16 rows (a 16-byte row + ASCII
-  overflows the 400px column), go-to / pages / shortcuts. Highlights bytes the *program* wrote
+  `src/memoryView.ts`). Read-only hex+ASCII dump, 8 bytes x 24 rows (`WINDOW_ROWS`; bumped
+  from 16 on 2026-09-25 once the wider-window change (see below) left ~140px of unused space
+  below the memory dump at the 1650x900 default — 24 is the actual max that still fits with
+  zero scroll there, verified with Playwright: `.debugger`'s clientHeight/scrollHeight both
+  841px; 26 already overflowed by 4px. A 16-byte row + ASCII overflows the 400px column),
+  go-to / pages / shortcuts. Highlights bytes the *program* wrote
   (`SystemMemory.takeWrites()`, capped at 64 bytes per refresh; `setButtonState` and
   `patch8` deliberately don't count), and "Follow writes" (default on) jumps to the last
   written address on Step/Pause, never during Run. Click-to-edit a byte (2 hex digits, Enter =
   store + next byte) via `patch8`, disabled while running; edits are wiped when the program is
   reloaded (Reset, or the first Step/Run). Also: registers are shown D|A side by side to save
-  height (panel must fit ~768px without scrolling, check after touching the layout).
+  height. `.debugger` already has `overflow-y: auto` and starts scrolling on its own well
+  before `minWidth`/`minHeight` (1150x700) — verified there too, so a fixed row count degrading
+  to a scrollbar at small window sizes is expected, not a bug to chase.
 - **Bookmarks: done** (`src/marks.ts`, tests in `marks.test.ts`). Ctrl+B / right-click on the gutter toggles, F2 / Shift+F2 jumps (wraps). Bookmarks *and* breakpoints persist in `localStorage` (`retro68k.marks`) keyed by the exact full path — only known under Tauri (`openSource`/`saveSource` return the path); examples, new buffers and the browser build don't persist. Stored lines past EOF are dropped on load; no content check if the file changed externally. Save-as writes the marks under the new path (old entry left).
   A toolbar Previous/Next bookmark button pair (2026-09-25) mirrors F2/Shift+F2: `Editor` is
   wrapped in `forwardRef`/`useImperativeHandle` (`EditorHandle.jumpBookmark(dir)`, exported from
