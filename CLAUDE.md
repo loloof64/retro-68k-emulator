@@ -119,10 +119,9 @@ docs:pdf:user`.
   sets instructions per frame. Syntax highlighting: a `<pre>` overlay (`src/highlight.ts`) under a transparent `<textarea>`, scroll-synced; font/padding/line-height must stay identical in both.
 - **Debugger memory inspector: done** (`src/components/MemoryView.tsx`, pure helpers in
   `src/memoryView.ts`). Read-only hex+ASCII dump, 8 bytes x 24 rows (`WINDOW_ROWS`; bumped
-  from 16 on 2026-09-25 once the wider-window change (see below) left ~140px of unused space
-  below the memory dump at the 1650x900 default — 24 is the actual max that still fits with
-  zero scroll there, verified with Playwright: `.debugger`'s clientHeight/scrollHeight both
-  841px; 26 already overflowed by 4px. A 16-byte row + ASCII overflows the 400px column),
+  from 16 on 2026-09-25 once the wider-window change (see below) left unused space below the
+  memory dump — verified with Playwright at the *then*-default 1650x900: 24 rows fit, 26
+  already overflowed by 4px. A 16-byte row + ASCII overflows the 400px column),
   go-to / pages / shortcuts. Highlights bytes the *program* wrote
   (`SystemMemory.takeWrites()`, capped at 64 bytes per refresh; `setButtonState` and
   `patch8` deliberately don't count), and "Follow writes" (default on) jumps to the last
@@ -130,8 +129,18 @@ docs:pdf:user`.
   store + next byte) via `patch8`, disabled while running; edits are wiped when the program is
   reloaded (Reset, or the first Step/Run). Also: registers are shown D|A side by side to save
   height. `.debugger` already has `overflow-y: auto` and starts scrolling on its own well
-  before `minWidth`/`minHeight` (1150x700) — verified there too, so a fixed row count degrading
-  to a scrollbar at small window sizes is expected, not a bug to chase.
+  before `minWidth`/`minHeight` — a fixed row count degrading to a scrollbar at small window
+  sizes is expected, not a bug to chase. **Same-day follow-up**: Laurent reported the memory
+  zone actually scrolling on the real Tauri desktop build at the 1650x900 default, something
+  this sandbox's plain-browser Playwright check at that exact size didn't catch (see the
+  Tauri-WebView-quirks note under "Environment notes" — this is the same class of issue: a
+  check here isn't proof for the real WebView, DPI scaling and native window chrome differ per
+  platform). Fix: bumped `src-tauri/tauri.conf.json`'s default `height` 900→950 and `minHeight`
+  700→750 (width/minWidth untouched), giving ~84px of margin below the memory dump instead of
+  0 in the sandbox's own check. **Unverified on the actual desktop build** — Laurent to confirm
+  the scrollbar is gone; if it still shows, the real gap is bigger than this margin covers and
+  needs another bump, or `WINDOW_ROWS` should come back down instead of the window growing
+  further.
 - **Bookmarks: done** (`src/marks.ts`, tests in `marks.test.ts`). Ctrl+B / right-click on the gutter toggles, F2 / Shift+F2 jumps (wraps). Bookmarks *and* breakpoints persist in `localStorage` (`retro68k.marks`) keyed by the exact full path — only known under Tauri (`openSource`/`saveSource` return the path); examples, new buffers and the browser build don't persist. Stored lines past EOF are dropped on load; no content check if the file changed externally. Save-as writes the marks under the new path (old entry left).
   A toolbar Previous/Next bookmark button pair (2026-09-25) mirrors F2/Shift+F2: `Editor` is
   wrapped in `forwardRef`/`useImperativeHandle` (`EditorHandle.jumpBookmark(dir)`, exported from
