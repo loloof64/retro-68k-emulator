@@ -31,7 +31,7 @@ jobs:
           id=$(gh api "repos/${{ github.repository }}/releases" \
             -f tag_name='${{ github.ref_name }}' \
             -f name='68K Emulator ${{ github.ref_name }}' \
-            -f body='New TRAP #8: read keyboard input (visible ASCII and accented characters), plus a new example program showing how to build a typed string on screen. See CHANGELOG.md for details on this release.' \
+            -f body='Editor toolbar overhaul: icon buttons with a commands menu, find-in-code (Ctrl+F / F3), bookmark navigation buttons, and a wider default window. See CHANGELOG.md for details on this release.' \
             -F draft=true -F prerelease=false --jq .id)
           echo "release_id=$id" >> "$GITHUB_OUTPUT"
 

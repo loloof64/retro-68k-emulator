@@ -4,6 +4,30 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [1.4.0] - 2026-09-25
+
+Editor toolbar overhaul: icons, find-in-code, bookmark buttons.
+
+### Added
+- Find-in-code: `Ctrl+F` opens a find bar in the editor, `F3`/`Shift+F3`
+  cycle through matches with wraparound, `Escape` closes; also exposed
+  as its own toolbar/commands-menu entry
+- Toolbar: Previous/Next bookmark and Toggle bookmark buttons,
+  mirroring the existing `F2`/`Shift+F2`/`Ctrl+B` shortcuts
+- A hamburger commands menu listing every toolbar action by its full
+  text label, kept in sync with the icon toolbar from the same
+  grouped item list
+
+### Changed
+- Toolbar buttons switched from text labels to dependency-free inline
+  SVG icons, with the old labels kept as native tooltips
+- Default window width increased to give the code editor more room
+- `docs/user/`: DS.B/W/L and EQU documented in Assembly Programming
+  Tips (with worked examples), and a new subsection shows decimal,
+  hex, binary, character-code and EQU forms all loading the same
+  value
+- README screenshot updated to show the new icon toolbar
+
 ## [1.3.0] - 2026-09-24
 
 TRAP #8: keyboard input.
