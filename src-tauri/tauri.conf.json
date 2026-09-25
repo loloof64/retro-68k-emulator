@@ -15,9 +15,9 @@
       {
         "label": "main",
         "title": "Retro 68K Emulator",
-        "width": 1400,
+        "width": 1650,
         "height": 900,
-        "minWidth": 1000,
+        "minWidth": 1150,
         "minHeight": 700,
         "center": true,
         "resizable": true,
