@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { forwardRef, useImperativeHandle, useRef, useState } from 'react'
 import { useI18n } from '../i18n'
 import { nextBookmark } from '../marks'
 import { highlightLine } from '../highlight'
@@ -17,19 +17,27 @@ interface EditorProps {
   onRedo: () => void
 }
 
+export interface EditorHandle {
+  jumpBookmark: (dir: 1 | -1) => void
+  toggleBookmarkAtCaret: () => void
+}
+
 // Both the gutter and the highlight bar are positioned from --line-height
 // and the textarea's scrollTop, which is why the textarea must not wrap.
-export default function Editor({
-  code,
-  onChange,
-  currentLine,
-  breakpoints,
-  onToggleBreakpoint,
-  bookmarks,
-  onToggleBookmark,
-  onUndo,
-  onRedo,
-}: EditorProps) {
+const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
+  {
+    code,
+    onChange,
+    currentLine,
+    breakpoints,
+    onToggleBreakpoint,
+    bookmarks,
+    onToggleBookmark,
+    onUndo,
+    onRedo,
+  }: EditorProps,
+  ref,
+) {
   const { t } = useI18n()
   const textarea = useRef<HTMLTextAreaElement>(null)
   const [scrollTop, setScrollTop] = useState(0)
@@ -84,6 +92,23 @@ export default function Editor({
       document.execCommand('insertText', false, enterInsertText(ta.value, ta.selectionStart))
     }
   }
+
+  useImperativeHandle(ref, () => ({
+    jumpBookmark: (dir) => {
+      const ta = textarea.current
+      if (!ta) return
+      const line = nextBookmark(bookmarks, caretLine(ta), dir)
+      if (line !== undefined) {
+        ta.focus()
+        goToLine(ta, line)
+      }
+    },
+    toggleBookmarkAtCaret: () => {
+      const ta = textarea.current
+      if (!ta) return
+      onToggleBookmark(caretLine(ta))
+    },
+  }))
 
   return (
     <div className="editor">
@@ -144,4 +169,6 @@ export default function Editor({
       </div>
     </div>
   )
-}
+})
+
+export default Editor

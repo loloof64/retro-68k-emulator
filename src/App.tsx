@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import './App.css';
-import Editor from './components/Editor';
+import Editor, { EditorHandle } from './components/Editor';
 import Debugger from './components/Debugger';
 import Screen from './components/Screen';
 import Controller from './components/Controller';
@@ -114,6 +114,7 @@ export default function App() {
     if (example && (await confirmDiscardIfDirty())) loadSource(example.code);
   };
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const editorRef = useRef<EditorHandle>(null);
   const openFileTauri = () => {
     if (isRunning) return;
     openSource()
@@ -262,8 +263,35 @@ export default function App() {
                 ↷ {t('history.redo')}
               </button>
             </div>
+            <div className="toolbar-divider" />
+            <div className="toolbar-group">
+              <button
+                className="toolbar-button"
+                onClick={() => editorRef.current?.toggleBookmarkAtCaret()}
+                title={t('bookmark.toggleCurrent')}
+              >
+                {t('bookmark.toggleCurrent')}
+              </button>
+              <button
+                className="toolbar-button"
+                onClick={() => editorRef.current?.jumpBookmark(-1)}
+                disabled={bookmarks.size === 0}
+                title={t('bookmark.prev')}
+              >
+                ◀ {t('bookmark.prev')}
+              </button>
+              <button
+                className="toolbar-button"
+                onClick={() => editorRef.current?.jumpBookmark(1)}
+                disabled={bookmarks.size === 0}
+                title={t('bookmark.next')}
+              >
+                {t('bookmark.next')} ▶
+              </button>
+            </div>
           </div>
           <Editor
+            ref={editorRef}
             code={asmCode}
             onChange={onEditorChange}
             currentLine={currentLine}

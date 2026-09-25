@@ -127,6 +127,18 @@ docs:pdf:user`.
   reloaded (Reset, or the first Step/Run). Also: registers are shown D|A side by side to save
   height (panel must fit ~768px without scrolling, check after touching the layout).
 - **Bookmarks: done** (`src/marks.ts`, tests in `marks.test.ts`). Ctrl+B / right-click on the gutter toggles, F2 / Shift+F2 jumps (wraps). Bookmarks *and* breakpoints persist in `localStorage` (`retro68k.marks`) keyed by the exact full path — only known under Tauri (`openSource`/`saveSource` return the path); examples, new buffers and the browser build don't persist. Stored lines past EOF are dropped on load; no content check if the file changed externally. Save-as writes the marks under the new path (old entry left).
+  A toolbar Previous/Next bookmark button pair (2026-09-25) mirrors F2/Shift+F2: `Editor` is
+  wrapped in `forwardRef`/`useImperativeHandle` (`EditorHandle.jumpBookmark(dir)`, exported from
+  `src/components/Editor.tsx`) since the caret/scroll logic (`goToLine`) needs the textarea ref
+  that lives inside `Editor`, not `App`. Buttons disabled when `bookmarks.size === 0`. New i18n
+  keys `bookmark.prev`/`bookmark.next` in all three locales.
+  A third toolbar button, "Toggle bookmark" (`bookmark.toggleCurrent`, same group), toggles a
+  bookmark on the editor's caret line (same as Ctrl+B) — first tried wiring it to the debugger's
+  `currentLine` (the highlighted line about to execute) instead, but that's the wrong "current
+  line": Laurent expected it to act on wherever the cursor is in the code, which is also always
+  defined, so the button is never disabled. `EditorHandle.toggleBookmarkAtCaret()` (new, alongside
+  `jumpBookmark`) reuses the same `caretLine`/`onToggleBookmark` the keyboard shortcut already
+  uses.
 - **Editor Tab/Shift+Tab/Enter: done** (`src/editorKeys.ts`, pure
   functions unit-tested without a DOM; wired into `Editor.tsx`'s
   `onKeyDown`). Tab inserts spaces to the next 8-column stop (replaces
