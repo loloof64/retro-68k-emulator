@@ -19,6 +19,7 @@ If you just want to try the app, grab the latest version from the [Downloads](./
 - A step-by-step debugger: watch registers, flags, memory (hex dump) and the screen change instruction by instruction, with breakpoints
 - A syntax-highlighted assembly editor, built into the app — no external tools needed: Tab/Shift+Tab indent and outdent to 8-column stops, and Enter carries the current line's indentation onto the next one
 - Bookmarks: mark lines (right-click a line number, or Ctrl+B), jump between them with F2 / Shift+F2; bookmarks and breakpoints are remembered for each file opened from disk
+- Find in code: Ctrl+F opens a find bar, F3 / Shift+F3 cycle through matches
 - Native installers for Windows, macOS, and Linux, so it runs like any other desktop app
 
 ## Why This Project?

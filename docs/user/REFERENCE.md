@@ -1161,6 +1161,9 @@ Without the `EVEN` line, the assembler stops with "Instruction at an odd address
 | `Ctrl+Shift+S` (`Cmd+Shift+S` on macOS) | Save As… — always asks for a location. |
 | Right-click a line number, or `Ctrl+B` | Toggle a bookmark. |
 | `F2` / `Shift+F2` | Jump to the next / previous bookmark. |
+| `Ctrl+F` (`Cmd+F` on macOS) | Open the find bar. |
+| `F3` / `Shift+F3`, or Enter in the find field | Jump to the next / previous match, wrapping around. |
+| `Escape` | Close the find bar. |
 
 Undo/redo is the app's own history, not the browser's native text field undo (the desktop build doesn't deliver `Ctrl+Z`/`Ctrl+Y` to that one at all) — **Undo**/**Redo** buttons in the toolbar do the same thing for a mouse, greyed out whenever there's nothing to undo/redo. It only covers edits since the source was last loaded — opening a file or picking an example both start a fresh history. The Debugger's Reset button only resets the CPU and memory, not the source, so it doesn't affect undo/redo.
 
