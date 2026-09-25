@@ -23,7 +23,6 @@ const documentStructure = [
   { title: 'Presentation', file: 'PRESENTATION.md', id: 'presentation' },
   { title: 'Downloads', file: 'DOWNLOAD.md', id: 'downloads' },
   { title: 'References and Guidelines', file: 'REFERENCE.md', id: 'reference' },
-  { title: 'Example Programs', file: 'EXAMPLES.md', id: 'examples' },
   { title: 'Troubleshooting', file: 'TROUBLESHOOTING.md', id: 'troubleshooting' },
 ]
 

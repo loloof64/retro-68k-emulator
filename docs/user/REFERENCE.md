@@ -194,7 +194,7 @@ To read one component back out of a color, *shift* it down to the lowest byte, t
         ANDI.L  #$FF,D4         ; D4 = $000000FF: the alpha byte
 ```
 
-The blue byte needs a shift by 8 and the same mask. To go the other way and *build* a color from components, shift left (`LSL`) and `OR` the pieces together, or simply write the whole `$RRGGBBAA` value as one immediate, which is what the [example programs](./EXAMPLES.md) do.
+The blue byte needs a shift by 8 and the same mask. To go the other way and *build* a color from components, shift left (`LSL`) and `OR` the pieces together, or simply write the whole `$RRGGBBAA` value as one immediate, which is what the built-in example programs do.
 
 ### Reading the Gamepad
 
@@ -781,7 +781,7 @@ throws a generic error instead of raising a catchable exception.
 
 ### Worked Examples
 
-Small programs to read alongside the instruction tables. All of them assemble. For complete, runnable programs, see the [Example Programs](./EXAMPLES.md).
+Small programs to read alongside the instruction tables. All of them assemble. For complete, runnable programs, load one from the editor's "Load an example" menu.
 
 **Example** — add two numbers and write a white pixel, using a direct absolute address:
 

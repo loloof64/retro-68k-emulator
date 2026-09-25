@@ -4,7 +4,7 @@ The Retro 68K Emulator is a free desktop app for learning Motorola 68000 assembl
 
 It's aimed at students, hobbyists, and anyone curious about how a CPU actually executes instructions, one step at a time.
 
-If you just want to try the app, grab the latest version from the [Downloads](./DOWNLOAD.md) page, then load one of the fifteen built-in programs from the editor's "Load an example" menu and press Run — see [Example Programs](./EXAMPLES.md) if you'd rather read through them first.
+If you just want to try the app, grab the latest version from the [Downloads](./DOWNLOAD.md) page, then load one of the fifteen built-in programs from the editor's "Load an example" menu and press Run.
 
 ## Features
 

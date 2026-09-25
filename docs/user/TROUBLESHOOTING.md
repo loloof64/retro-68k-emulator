@@ -32,7 +32,7 @@ A `DBcc`/`DBRA` loop can do the same thing if its counter never reaches its stop
 
 ### "The highlighted line doesn't follow my program while it runs"
 
-While **Run** is going, the yellow line is refreshed only once per screen refresh, after that many instructions (see **Speed**). A program that spends most of its time in a waiting loop — like the `WAIT: DBRA D4,WAIT` loop of [Example 13](./EXAMPLES.md#example-13-playing-a-scale) — is nearly always caught inside that loop, so a line executed once per note, like `TRAP #6`, is never the one shown. The CPU does run every line; the display just doesn't sample it.
+While **Run** is going, the yellow line is refreshed only once per screen refresh, after that many instructions (see **Speed**). A program that spends most of its time in a waiting loop — like the `WAIT: DBRA D4,WAIT` loop of example 13, "Playing a Scale" (editor's "Load an example" menu) — is nearly always caught inside that loop, so a line executed once per note, like `TRAP #6`, is never the one shown. The CPU does run every line; the display just doesn't sample it.
 
 To watch the flow:
 
@@ -95,7 +95,7 @@ Only the D-pad, A/B/X/Y, Start and Select are used; the shoulder buttons, trigge
 
 ## Getting More Help
 
-- **Compare with the [Example Programs](./EXAMPLES.md)**: fifteen complete, working programs (loops, framebuffer writes, subroutines, gamepad...) to check your code against.
+- **Compare with the built-in examples**: fifteen complete, working programs (loops, framebuffer writes, subroutines, gamepad...) to check your code against, in the editor's "Load an example" menu.
 - **Re-read the relevant [Reference](./REFERENCE.md) row** for the instruction in question — its Description and Flags columns call out the gotchas already known.
 - **Hand-trace the instructions**, the way every worked example on the Reference page does — writing out each register's value line by line is usually where a wrong assumption becomes visible.
 - **Simplify**: cut the program down to the smallest sequence that still shows the problem.
