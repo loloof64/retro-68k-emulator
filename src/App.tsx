@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import './App.css';
 import Editor, { EditorHandle } from './components/Editor';
 import Debugger from './components/Debugger';
@@ -13,6 +13,17 @@ import { examplesFor } from './examples';
 import { inTauri, openSource, saveSourceAs, writeSource, confirmDiscard } from './sourceFile';
 import { initHistory, pushHistory, undo as undoHistory, redo as redoHistory, currentValue, hasEdits } from './history';
 import { charCodeForKey, isEditableTarget } from './keyboard';
+import {
+  FolderOpenIcon,
+  SaveIcon,
+  SaveAsIcon,
+  UndoIcon,
+  RedoIcon,
+  BookmarkIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  MenuIcon,
+} from './icons';
 
 export default function App() {
   const { t, locale } = useI18n();
@@ -115,6 +126,25 @@ export default function App() {
   };
   const fileInputRef = useRef<HTMLInputElement>(null);
   const editorRef = useRef<EditorHandle>(null);
+  // Icon-only toolbar's text fallback: a dropdown listing the same actions
+  // by full label. Closes on outside click or Escape.
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onPointerDown = (e: PointerEvent) => {
+      if (!menuRef.current?.contains(e.target as Node)) setMenuOpen(false);
+    };
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMenuOpen(false);
+    };
+    document.addEventListener('pointerdown', onPointerDown);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [menuOpen]);
   const openFileTauri = () => {
     if (isRunning) return;
     openSource()
@@ -200,12 +230,89 @@ export default function App() {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, []);
 
+  // Toolbar actions, grouped the same way in both the icon-only toolbar and
+  // its text-label dropdown, so the two never drift apart.
+  const toolbarGroups = [
+    [
+      {
+        key: 'open',
+        icon: <FolderOpenIcon />,
+        label: t('file.open'),
+        onClick: () => (inTauri ? openFileTauri() : fileInputRef.current?.click()),
+        disabled: isRunning,
+      },
+      { key: 'save', icon: <SaveIcon />, label: t('file.save'), onClick: saveFile, disabled: !canSaveDirect || isRunning },
+      { key: 'saveAs', icon: <SaveAsIcon />, label: t('file.saveAs'), onClick: saveFileAs, disabled: isRunning },
+    ],
+    [
+      { key: 'undo', icon: <UndoIcon />, label: t('history.undo'), onClick: doUndo, disabled: !canUndo },
+      { key: 'redo', icon: <RedoIcon />, label: t('history.redo'), onClick: doRedo, disabled: !canRedo },
+    ],
+    [
+      {
+        key: 'bookmarkToggle',
+        icon: <BookmarkIcon />,
+        label: t('bookmark.toggleCurrent'),
+        onClick: () => editorRef.current?.toggleBookmarkAtCaret(),
+        disabled: false,
+      },
+      {
+        key: 'bookmarkPrev',
+        icon: <ChevronLeftIcon />,
+        label: t('bookmark.prev'),
+        onClick: () => editorRef.current?.jumpBookmark(-1),
+        disabled: bookmarks.size === 0,
+      },
+      {
+        key: 'bookmarkNext',
+        icon: <ChevronRightIcon />,
+        label: t('bookmark.next'),
+        onClick: () => editorRef.current?.jumpBookmark(1),
+        disabled: bookmarks.size === 0,
+      },
+    ],
+  ];
+
   return (
     <div className="app">
       <div className="container">
         <div className="panel editor-panel">
           <h2>{t('panel.editor')}</h2>
           <div className="toolbar">
+            <div className="toolbar-menu" ref={menuRef}>
+              <button
+                className="toolbar-button toolbar-button-icon"
+                onClick={() => setMenuOpen((open) => !open)}
+                title={t('toolbar.menu')}
+                aria-label={t('toolbar.menu')}
+                aria-expanded={menuOpen}
+              >
+                <MenuIcon />
+              </button>
+              {menuOpen && (
+                <div className="toolbar-menu-dropdown">
+                  {toolbarGroups.map((group, gi) => (
+                    <div className="toolbar-menu-group" key={gi}>
+                      {group.map((item) => (
+                        <button
+                          key={item.key}
+                          className="toolbar-menu-item"
+                          disabled={item.disabled}
+                          onClick={() => {
+                            item.onClick();
+                            setMenuOpen(false);
+                          }}
+                        >
+                          {item.icon}
+                          <span>{item.label}</span>
+                        </button>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="toolbar-divider" />
             <select
               className="example-select"
               value=""
@@ -221,74 +328,36 @@ export default function App() {
                 </option>
               ))}
             </select>
-            <div className="toolbar-divider" />
-            <div className="toolbar-group">
-              <button
-                className="toolbar-button"
-                disabled={isRunning}
-                onClick={() => (inTauri ? openFileTauri() : fileInputRef.current?.click())}
-                title={t('file.open')}
-              >
-                {t('file.open')}
-              </button>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".asm,.s,.txt,text/plain"
-                hidden
-                disabled={isRunning}
-                onChange={(e) => {
-                  openFileBrowser(e.target.files?.[0]);
-                  e.target.value = ''; // allow re-opening the same file
-                }}
-              />
-              <button
-                className="toolbar-button"
-                onClick={saveFile}
-                disabled={!canSaveDirect || isRunning}
-                title={t('file.save')}
-              >
-                {t('file.save')}
-              </button>
-              <button className="toolbar-button" onClick={saveFileAs} disabled={isRunning} title={t('file.saveAs')}>
-                {t('file.saveAs')}
-              </button>
-            </div>
-            <div className="toolbar-divider" />
-            <div className="toolbar-group">
-              <button className="toolbar-button" onClick={doUndo} disabled={!canUndo} title={t('history.undo')}>
-                ↶ {t('history.undo')}
-              </button>
-              <button className="toolbar-button" onClick={doRedo} disabled={!canRedo} title={t('history.redo')}>
-                ↷ {t('history.redo')}
-              </button>
-            </div>
-            <div className="toolbar-divider" />
-            <div className="toolbar-group">
-              <button
-                className="toolbar-button"
-                onClick={() => editorRef.current?.toggleBookmarkAtCaret()}
-                title={t('bookmark.toggleCurrent')}
-              >
-                {t('bookmark.toggleCurrent')}
-              </button>
-              <button
-                className="toolbar-button"
-                onClick={() => editorRef.current?.jumpBookmark(-1)}
-                disabled={bookmarks.size === 0}
-                title={t('bookmark.prev')}
-              >
-                ◀ {t('bookmark.prev')}
-              </button>
-              <button
-                className="toolbar-button"
-                onClick={() => editorRef.current?.jumpBookmark(1)}
-                disabled={bookmarks.size === 0}
-                title={t('bookmark.next')}
-              >
-                {t('bookmark.next')} ▶
-              </button>
-            </div>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".asm,.s,.txt,text/plain"
+              hidden
+              disabled={isRunning}
+              onChange={(e) => {
+                openFileBrowser(e.target.files?.[0]);
+                e.target.value = ''; // allow re-opening the same file
+              }}
+            />
+            {toolbarGroups.map((group, gi) => (
+              <Fragment key={gi}>
+                <div className="toolbar-divider" />
+                <div className="toolbar-group">
+                  {group.map((item) => (
+                    <button
+                      key={item.key}
+                      className="toolbar-button toolbar-button-icon"
+                      onClick={item.onClick}
+                      disabled={item.disabled}
+                      title={item.label}
+                      aria-label={item.label}
+                    >
+                      {item.icon}
+                    </button>
+                  ))}
+                </div>
+              </Fragment>
+            ))}
           </div>
           <Editor
             ref={editorRef}
