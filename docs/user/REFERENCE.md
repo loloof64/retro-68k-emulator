@@ -472,6 +472,17 @@ Both really do accept an immediate — `ADD`'s `<ea>,Dn` form's `src` can be any
 
 3 bits can only encode `0`-`7`, though, and the instructions need `1`-`8` — so `8` reuses the otherwise-unused `000` bit pattern: the assembler encodes an immediate of `8` as `000`, and the CPU decodes a `000` field back as `8`, never as `0`. There's simply no encoding for "add/subtract `0`" with these two instructions:
 
+| `ddd` bits | Immediate value |
+|---|---|
+| `001` | 1 |
+| `010` | 2 |
+| `011` | 3 |
+| `100` | 4 |
+| `101` | 5 |
+| `110` | 6 |
+| `111` | 7 |
+| `000` | **8** (not 0) |
+
 ```asm
         MOVEQ   #0,D0
         ADDQ.L  #8,D0      ; D0 = 8 -- "000" decodes as 8, not 0
