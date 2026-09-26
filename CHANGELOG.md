@@ -4,6 +4,31 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [1.4.4] - 2026-09-27
+
+Editor copy/cut fix and a round of user-guide clarity passes.
+
+### Fixed
+- Editor: `Ctrl+C`/`Ctrl+X` with no selection now wraps the copied/cut
+  line in a newline on both ends, not just trailing — previously,
+  pasting it mid-line glued it onto whatever preceded the caret instead
+  of landing on its own line
+
+### Added
+- `docs/user/REFERENCE.md`: worked example for printing text with
+  `TRAP #1`
+
+### Changed
+- `docs/user/REFERENCE.md` clarity passes: named `Xn` explicitly in the
+  Indexed addressing mode description, defined "sign-extended" at its
+  first use, added a `ddd` -> immediate mapping table for `ADDQ`/
+  `SUBQ`, noted the `000=8` encoding is Motorola's own ISA design, said
+  "N flag" instead of bare N in CHK's failure explanation, added a
+  worked memory-layout example to MOVEM's register list section,
+  clarified MOVEM's list syntax chains multiple ranges freely, and
+  spelled out that an exception handler resumes like an ordinary
+  JSR/RTS call
+
 ## [1.4.3] - 2026-09-26
 
 Assembler documentation and subroutine example.

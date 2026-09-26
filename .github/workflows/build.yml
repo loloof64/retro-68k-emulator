@@ -31,7 +31,7 @@ jobs:
           id=$(gh api "repos/${{ github.repository }}/releases" \
             -f tag_name='${{ github.ref_name }}' \
             -f name='${{ github.ref_name }}' \
-            -f body='Copy/Cut/Paste are now in the editor toolbar and commands menu, with no-selection Ctrl+C/Ctrl+X acting on the whole current line; the editor panel also shows the file you are currently editing. See CHANGELOG.md for details on this release.' \
+            -f body='A no-selection Ctrl+C/Ctrl+X copy-cut fix (the copied line now lands cleanly when pasted mid-line) plus a round of user-guide clarity passes, including a new worked example for printing text with TRAP #1. See CHANGELOG.md for details on this release.' \
             -F draft=true -F prerelease=false --jq .id)
           echo "release_id=$id" >> "$GITHUB_OUTPUT"
 
