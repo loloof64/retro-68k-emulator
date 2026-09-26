@@ -94,7 +94,12 @@ MNEMONIC.SIZE src,dst
   before, it isn't cleared. An address register (`An`) destination
   works differently: there's no partial write, a `.W` source is
   sign-extended to fill the full 32 bits instead (see `MOVEA` in
-  [Instruction Set (Opcodes)](#instruction-set-opcodes)).
+  [Instruction Set (Opcodes)](#instruction-set-opcodes)). **Sign-extended**
+  means the value's top bit (its sign: 0 for positive, 1 for negative) is
+  copied into every new upper bit being added, instead of those bits
+  just being set to 0 — that's what makes a negative 16-bit value like
+  `$FFFF` (-1) turn into the 32-bit `$FFFFFFFF` (still -1) rather than
+  `$0000FFFF` (a large positive number instead).
 - **src** and **dst** are the operands — "source" (where a value comes
   from) and "destination" (where it goes). Each one is written using
   one of the addressing modes described just below, e.g. a register
