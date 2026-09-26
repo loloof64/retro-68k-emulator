@@ -31,7 +31,7 @@ jobs:
           id=$(gh api "repos/${{ github.repository }}/releases" \
             -f tag_name='${{ github.ref_name }}' \
             -f name='${{ github.ref_name }}' \
-            -f body='Memory inspector now shows 24 rows instead of 16, the find bar pre-fills from your selection, and the default window is a bit taller. See CHANGELOG.md for details on this release.' \
+            -f body='Copy/Cut/Paste are now in the editor toolbar and commands menu, with no-selection Ctrl+C/Ctrl+X acting on the whole current line; the editor panel also shows the file you are currently editing. See CHANGELOG.md for details on this release.' \
             -F draft=true -F prerelease=false --jq .id)
           echo "release_id=$id" >> "$GITHUB_OUTPUT"
 

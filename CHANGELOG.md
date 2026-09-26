@@ -4,6 +4,32 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [1.4.2] - 2026-09-26
+
+Editor copy/cut/paste, filename display, and two user-guide additions.
+
+### Added
+- Editor: Copy/Cut/Paste toolbar buttons and commands-menu entries —
+  there was previously no discoverable UI for them, only the browser's
+  native keyboard shortcuts
+- `Ctrl+C`/`Ctrl+X` with no text selected now act on the whole current
+  line (right-trimmed, trailing newline added) instead of doing
+  nothing, matching most code editors; a selection still gets the
+  browser's own native copy/cut, unchanged
+- Editor panel header now shows the name of the file currently being
+  edited ("Untitled" for an example or the built-in starter program),
+  with a `•` when there are unsaved changes
+- `docs/user`: new Stack and Local Variables guide — how `A7` works,
+  and the `SUB.L`/`ADD.L` vs `LINK`/`UNLK` approaches to local
+  variables, with common mistakes
+
+### Changed
+- `docs/user`: dropped the redundant Example Programs chapter from the
+  PDF — every example is already loadable and runnable in-app via the
+  editor's "Load an example" menu
+- GitHub release title is now the bare version tag (e.g. `v1.4.2`)
+  instead of "68K Emulator v1.4.2"
+
 ## [1.4.1] - 2026-09-25
 
 Memory inspector row count, find-bar selection prefill, taller default window.
