@@ -668,7 +668,7 @@ Neither case comes up in the `LINK A6,#-8` / `UNLK A6` idiom above, since a subr
         MOVE.W  (A0,D0.W),D1  ; safe: D0 passed the bounds check
 ```
 
-Two ways to fail, and `N` tells you which one happened right before the exception fires:
+Two ways to fail, and the `N` flag tells you which one happened right before the exception fires:
 
 - **`Dn` is negative** — `N` is set to `1`.
 - **`Dn` is greater than the bound** — `N` is cleared to `0`.
