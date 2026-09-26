@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { tabInsertText, shiftTab, enterInsertText } from './editorKeys'
+import { tabInsertText, shiftTab, enterInsertText, wholeLineClipboardText, wholeLineDeleteRange } from './editorKeys'
 
 describe('tabInsertText', () => {
   it('inserts spaces up to the next tab stop (column 0 -> 8)', () => {
@@ -30,5 +30,38 @@ describe('enterInsertText', () => {
   it("carries the current line's leading whitespace onto the new line", () => {
     const line = ' '.repeat(8) + 'MOVE.L D0,D1'
     expect(enterInsertText(line, line.length)).toBe('\n' + ' '.repeat(8))
+  })
+})
+
+describe('wholeLineClipboardText', () => {
+  it('returns the current line right-trimmed plus a trailing newline', () => {
+    const value = 'START:\n  MOVE.L D0,D1   \nEND:'
+    expect(wholeLineClipboardText(value, 10)).toBe('  MOVE.L D0,D1\n')
+  })
+
+  it('works on the last line even with no trailing newline in the source', () => {
+    const value = 'START:\nEND:  '
+    expect(wholeLineClipboardText(value, value.length)).toBe('END:\n')
+  })
+})
+
+describe('wholeLineDeleteRange', () => {
+  it('spans the line plus its own trailing newline, when one exists', () => {
+    const value = 'AAA\nBBB\nCCC'
+    // caret anywhere inside "BBB" (offsets 4-6)
+    const r = wholeLineDeleteRange(value, 5)
+    expect(value.slice(r.start, r.end)).toBe('BBB\n')
+  })
+
+  it('drops the preceding newline instead, for a last line with none of its own', () => {
+    const value = 'AAA\nBBB'
+    const r = wholeLineDeleteRange(value, 5) // caret inside "BBB"
+    expect(value.slice(r.start, r.end)).toBe('\nBBB')
+  })
+
+  it('deletes the whole buffer for a single line with no newline at all', () => {
+    const value = 'ONLY'
+    const r = wholeLineDeleteRange(value, 2)
+    expect(value.slice(r.start, r.end)).toBe('ONLY')
   })
 })

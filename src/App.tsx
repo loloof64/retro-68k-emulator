@@ -19,6 +19,9 @@ import {
   SaveAsIcon,
   UndoIcon,
   RedoIcon,
+  CopyIcon,
+  CutIcon,
+  PasteIcon,
   BookmarkIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
@@ -250,6 +253,11 @@ export default function App() {
       { key: 'redo', icon: <RedoIcon />, label: t('history.redo'), onClick: doRedo, disabled: !canRedo },
     ],
     [
+      { key: 'copy', icon: <CopyIcon />, label: t('edit.copy'), onClick: () => editorRef.current?.copy(), disabled: false },
+      { key: 'cut', icon: <CutIcon />, label: t('edit.cut'), onClick: () => editorRef.current?.cut(), disabled: false },
+      { key: 'paste', icon: <PasteIcon />, label: t('edit.paste'), onClick: () => editorRef.current?.paste(), disabled: false },
+    ],
+    [
       {
         key: 'search',
         icon: <SearchIcon />,
@@ -287,7 +295,14 @@ export default function App() {
     <div className="app">
       <div className="container">
         <div className="panel editor-panel">
-          <h2>{t('panel.editor')}</h2>
+          <h2>
+            {t('panel.editor')}
+            <span className="editor-filename">
+              {' — '}
+              {filePath ? filePath.split(/[/\\]/).pop() : t('editor.untitled')}
+              {isDirty ? ' •' : ''}
+            </span>
+          </h2>
           <div className="toolbar">
             <div className="toolbar-menu" ref={menuRef}>
               <button

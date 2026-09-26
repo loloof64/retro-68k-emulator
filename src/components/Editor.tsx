@@ -2,7 +2,7 @@ import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState }
 import { useI18n } from '../i18n'
 import { nextBookmark } from '../marks'
 import { highlightLine } from '../highlight'
-import { tabInsertText, shiftTab, enterInsertText } from '../editorKeys'
+import { tabInsertText, shiftTab, enterInsertText, wholeLineClipboardText, wholeLineDeleteRange } from '../editorKeys'
 import { findMatches, nextMatchIndex, prevMatchIndex, type Match } from '../search'
 import './Editor.css'
 
@@ -22,6 +22,9 @@ export interface EditorHandle {
   jumpBookmark: (dir: 1 | -1) => void
   toggleBookmarkAtCaret: () => void
   openSearch: () => void
+  copy: () => void
+  cut: () => void
+  paste: () => void
 }
 
 // Monospace character width in px, needed to scroll a search match's column
@@ -121,9 +124,41 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     searchInput.current?.focus()
     searchInput.current?.select()
   }
+  // Copy/cut: with a selection, the browser's native handling already
+  // copies/cuts it fine and this is never called for the keyboard shortcut
+  // path (see onKeyDown below) — only the toolbar/menu buttons reach here
+  // with a selection present, since a button click has no native fallback
+  // to defer to. With no selection, copies (or cuts) the whole current
+  // line, VS Code-style (see wholeLineClipboardText/wholeLineDeleteRange).
+  const copyOrCut = (ta: HTMLTextAreaElement, cut: boolean) => {
+    const hasSelection = ta.selectionStart !== ta.selectionEnd
+    const text = hasSelection
+      ? ta.value.slice(ta.selectionStart, ta.selectionEnd)
+      : wholeLineClipboardText(ta.value, ta.selectionStart)
+    navigator.clipboard.writeText(text).catch(() => {})
+    if (!cut) return
+    if (!hasSelection) {
+      const r = wholeLineDeleteRange(ta.value, ta.selectionStart)
+      ta.setSelectionRange(r.start, r.end)
+    }
+    document.execCommand('delete')
+  }
+  const paste = () => {
+    navigator.clipboard
+      .readText()
+      .then((text) => document.execCommand('insertText', false, text))
+      .catch(() => {})
+  }
   const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     const ta = e.currentTarget
-    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'b') {
+    if ((e.ctrlKey || e.metaKey) && (e.key.toLowerCase() === 'c' || e.key.toLowerCase() === 'x')) {
+      // A selection is left to the browser's own native copy/cut; only the
+      // no-selection VS Code-style fallback is ours to handle.
+      if (ta.selectionStart === ta.selectionEnd) {
+        e.preventDefault()
+        copyOrCut(ta, e.key.toLowerCase() === 'x')
+      }
+    } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'b') {
       e.preventDefault()
       onToggleBookmark(caretLine(ta))
     } else if (e.key === 'F2') {
@@ -187,6 +222,24 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     },
     openSearch: () => {
       openSearchBar(textarea.current)
+    },
+    copy: () => {
+      const ta = textarea.current
+      if (!ta) return
+      ta.focus()
+      copyOrCut(ta, false)
+    },
+    cut: () => {
+      const ta = textarea.current
+      if (!ta) return
+      ta.focus()
+      copyOrCut(ta, true)
+    },
+    paste: () => {
+      const ta = textarea.current
+      if (!ta) return
+      ta.focus()
+      paste()
     },
   }))
 

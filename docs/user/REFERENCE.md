@@ -1156,6 +1156,8 @@ Without the `EVEN` line, the assembler stops with "Instruction at an odd address
 | `Enter` | Starts the new line with the same leading spaces as the current one. |
 | `Ctrl+Z` (`Cmd+Z` on macOS) | Undo. |
 | `Ctrl+Y` or `Ctrl+Shift+Z` (`Cmd+Shift+Z` on macOS) | Redo. |
+| `Ctrl+C` / `Ctrl+X` (`Cmd+C` / `Cmd+X` on macOS) | Copy / cut. With a selection, the usual behavior. With no selection, copies/cuts the whole current line (see below). |
+| `Ctrl+V` (`Cmd+V` on macOS) | Paste. |
 | `Ctrl+O` (`Cmd+O` on macOS) | Open a file (same as the toolbar's **Open…**). |
 | `Ctrl+S` (`Cmd+S` on macOS) | Save to the current file. Disabled (button greyed out, shortcut does nothing) when there isn't one — an example or the built-in starter program was never saved anywhere, so only **Save As…** is available until you pick a location. |
 | `Ctrl+Shift+S` (`Cmd+Shift+S` on macOS) | Save As… — always asks for a location. |
@@ -1168,6 +1170,10 @@ Without the `EVEN` line, the assembler stops with "Instruction at an odd address
 Undo/redo is the app's own history, not the browser's native text field undo (the desktop build doesn't deliver `Ctrl+Z`/`Ctrl+Y` to that one at all) — **Undo**/**Redo** buttons in the toolbar do the same thing for a mouse, greyed out whenever there's nothing to undo/redo. It only covers edits since the source was last loaded — opening a file or picking an example both start a fresh history. The Debugger's Reset button only resets the CPU and memory, not the source, so it doesn't affect undo/redo.
 
 Opening a file or loading an example discards the current buffer, so both ask for confirmation first if it has unsaved changes — including when you've edited and then undone your way back to exactly the original content, since that discards the redo history too.
+
+Copying or cutting with no text selected acts on the whole current line instead of doing nothing: the line (trailing spaces removed) plus a newline, so pasting it elsewhere inserts a full line, the same way most code editors handle it. **Copy**/**Cut**/**Paste** are also available as toolbar buttons (and in the commands menu) for the mouse — useful since cutting or pasting that way still respects the no-selection whole-line behavior for Copy/Cut.
+
+The editor panel's title shows the file currently being edited (its name only, not the full path), or "Untitled" for an example or the built-in starter program that hasn't been saved anywhere yet; a `•` next to it means there are unsaved changes.
 
 ### Directives
 

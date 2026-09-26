@@ -40,3 +40,28 @@ export function enterInsertText(value: string, start: number): string {
   const indent = /^ */.exec(value.slice(ls))![0]
   return '\n' + indent
 }
+
+// The current line's [start, end) around `caret`, end excluding any newline.
+function currentLineSpan(value: string, caret: number): { start: number; end: number; hasNewlineAfter: boolean } {
+  const start = lineStartOf(value, caret)
+  const nl = value.indexOf('\n', caret)
+  return { start, end: nl === -1 ? value.length : nl, hasNewlineAfter: nl !== -1 }
+}
+
+// Ctrl+C/Ctrl+X with no selection: the whole current line, right-trimmed,
+// with a trailing newline added so pasting elsewhere inserts a full line
+// (matches VS Code's no-selection copy/cut).
+export function wholeLineClipboardText(value: string, caret: number): string {
+  const { start, end } = currentLineSpan(value, caret)
+  return value.slice(start, end).replace(/\s+$/, '') + '\n'
+}
+
+// Range to delete from `value` for a no-selection Ctrl+X: the line plus one
+// adjoining newline, so cutting drops the line count by one instead of
+// leaving a blank line behind. A last line with none of its own drops the
+// newline before it instead (none to drop for a single-line buffer).
+export function wholeLineDeleteRange(value: string, caret: number): { start: number; end: number } {
+  const { start, end, hasNewlineAfter } = currentLineSpan(value, caret)
+  if (hasNewlineAfter) return { start, end: end + 1 }
+  return { start: start > 0 ? start - 1 : start, end }
+}

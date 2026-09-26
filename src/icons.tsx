@@ -93,6 +93,37 @@ export function SearchIcon({ size = 16 }: IconProps) {
   );
 }
 
+export function CopyIcon({ size = 16 }: IconProps) {
+  return (
+    <svg width={size} height={size} {...base}>
+      <rect x="9" y="9" width="12" height="12" rx="2" />
+      <path d="M6 15H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v1" />
+    </svg>
+  );
+}
+
+export function CutIcon({ size = 16 }: IconProps) {
+  return (
+    <svg width={size} height={size} {...base}>
+      <circle cx="6" cy="6" r="3" />
+      <circle cx="6" cy="18" r="3" />
+      <path d="M8.5 8 20 20" />
+      <path d="M8.5 16 20 4" />
+    </svg>
+  );
+}
+
+export function PasteIcon({ size = 16 }: IconProps) {
+  return (
+    <svg width={size} height={size} {...base}>
+      <path d="M9 3h6a1 1 0 0 1 1 1v1H8V4a1 1 0 0 1 1-1Z" />
+      <path d="M6 6h12a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2Z" />
+      <path d="M9 12h6" />
+      <path d="M9 16h6" />
+    </svg>
+  );
+}
+
 export function MenuIcon({ size = 16 }: IconProps) {
   return (
     <svg width={size} height={size} {...base}>
