@@ -30,7 +30,7 @@ jobs:
         run: |
           id=$(gh api "repos/${{ github.repository }}/releases" \
             -f tag_name='${{ github.ref_name }}' \
-            -f name='68K Emulator ${{ github.ref_name }}' \
+            -f name='${{ github.ref_name }}' \
             -f body='Memory inspector now shows 24 rows instead of 16, the find bar pre-fills from your selection, and the default window is a bit taller. See CHANGELOG.md for details on this release.' \
             -F draft=true -F prerelease=false --jq .id)
           echo "release_id=$id" >> "$GITHUB_OUTPUT"
@@ -90,7 +90,7 @@ jobs:
           # Set on tag pushes: attach to the draft made by create-release.
           releaseId: ${{ needs.create-release.outputs.release_id }}
           tagName: ${{ github.ref_name }}
-          releaseName: '68K Emulator ${{ github.ref_name }}'
+          releaseName: '${{ github.ref_name }}'
           # Only actually create/publish a GitHub Release when triggered by a tag push.
           # Manual "workflow_dispatch" runs just build and upload the artifacts below.
           releaseDraft: true
