@@ -26,7 +26,7 @@ Where:
 | Displacement | `d16(An)` | `MOVE.L $10(A0),D0` | `An` + 16-bit displacement |
 | Absolute Short | `xxx.W` | `MOVE.L $100.W,D0` | 16-bit address, sign-extended (reaches `$0000`-`$7FFF`) |
 | Absolute Long | `xxx.L` | `MOVE.L D0,$40000.L` | Full 32-bit address, direct |
-| Indexed | `d8(An,Xn)` | `MOVE.L $10(A0,D0.W),D0` | `An` + index register (`.W` sign-extended or `.L`) + 8-bit displacement |
+| Indexed | `d8(An,Xn)` | `MOVE.L $10(A0,D0.W),D0` | `An` + index register, `Xn` (`Dn` or `An`, `.W` sign-extended or `.L`) + 8-bit displacement |
 | PC Displacement | `d16(PC)` | `MOVE.L $10(PC),D0` | PC (address of the extension word) + 16-bit displacement — source only |
 | PC Indexed | `d8(PC,Xn)` | `MOVE.L $10(PC,D0.W),D0` | Like Indexed, but based on PC instead of `An` — source only |
 
