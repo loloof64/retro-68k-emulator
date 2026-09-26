@@ -681,7 +681,7 @@ The `10`/`40` cycle split isn't arbitrary: `10` is just the cost of fetching and
 
 ### How does MOVEM's register list work?
 
-`MOVEM` moves any subset of the 16 registers (`D0`-`D7`, `A0`-`A7`) to or from memory in one instruction. The register list — written as a range/list like `D0-D2/A0`, meaning `D0`, `D1`, `D2`, and `A0` — gets packed into a 16-bit bitmask, one bit per register, that follows the opcode word. (The assembler builds that bitmask for you from the written list; for `-(An)` stores it reverses the bit order automatically.)
+`MOVEM` moves any subset of the 16 registers (`D0`-`D7`, `A0`-`A7`) to or from memory in one instruction. The register list — written as a range/list like `D0-D2/A0`, meaning `D0`, `D1`, `D2`, and `A0` — gets packed into a 16-bit bitmask, one bit per register, that follows the opcode word. (The assembler builds that bitmask for you from the written list; for `-(An)` stores it reverses the bit order automatically.) The list can chain as many `/`-separated ranges or single registers as needed, freely mixing `Dn` and `An`: `D0-D1/A0-A4` (`D0`, `D1`, `A0`, `A1`, `A2`, `A3`, `A4`) is just as valid as the simpler `D0-D2/A0` example above.
 
 Which addressing modes are valid depends on which direction the data is moving:
 - **Register list → memory** (`MOVEM.size list,dst`): the [control addressing modes](#which-addressing-modes-can-jsr-target) `JSR`/`LEA`/`PEA` use, plus predecrement (`-(An)`).
