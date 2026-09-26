@@ -483,6 +483,13 @@ Both really do accept an immediate — `ADD`'s `<ea>,Dn` form's `src` can be any
 | `111` | 7 |
 | `000` | **8** (not 0) |
 
+This is a deliberate design decision made by Motorola's engineers when they
+defined the 68000 instruction set, not something specific to this emulator:
+adding or subtracting `0` is a no-op, so encoding it would have wasted one
+of the 8 possible `ddd` patterns on a value nobody would ever want. Reusing
+`000` for `8` instead stretches the same 3 bits to cover the actual useful
+range, `1`-`8`.
+
 ```asm
         MOVEQ   #0,D0
         ADDQ.L  #8,D0      ; D0 = 8 -- "000" decodes as 8, not 0
