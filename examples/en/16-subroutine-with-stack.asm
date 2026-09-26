@@ -7,10 +7,13 @@
         ORG     $2000
 
 ; Routine: add two words and return a long.
-; Stack parameters: word2 at 6(A7), word1 at 4(A7).
+; Stack layout after JSR:
+;   [A7+0] = return PC (4 bytes, DON'T read this!)
+;   [A7+4] = word1 (first parameter)
+;   [A7+6] = word2 (second parameter)
 ; Return value: D0 (long result).
 add_words:
-        MOVE.W  4(A7), D0        ; D0 = word1
+        MOVE.W  4(A7), D0        ; D0 = word1 (skip return address)
         MOVE.W  6(A7), D1        ; D1 = word2
         ADD.L   D1, D0           ; D0 = word1 + word2
         RTS                      ; return to caller

@@ -4,6 +4,20 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [1.4.3] - 2026-09-26
+
+Assembler documentation and subroutine example.
+
+### Added
+- `docs/ASSEMBLER.md`: new sections on program structure (ORG/END) and
+  subroutine calling conventions with stack parameters, explaining the
+  offset-by-4 pattern caused by JSR's return address
+- Example #16: Subroutine with Stack Parameters — demonstrates calling
+  a routine that receives word parameters via the stack and returns a
+  long result; available in the Debugger's "Load an example" dropdown
+- `docs/user/EXAMPLES.md`: new user guide chapter documenting all 16
+  built-in example programs (starts with Example #16)
+
 ## [1.4.2] - 2026-09-26
 
 Editor copy/cut/paste, filename display, and two user-guide additions.

@@ -7,10 +7,13 @@
         ORG     $2000
 
 ; Rutina : suma dos palabras y devuelve un long.
-; Parámetros en pila : word2 en 6(A7), word1 en 4(A7).
+; Disposición de pila después de JSR :
+;   [A7+0] = PC retorno (4 bytes, ¡NO leer!)
+;   [A7+4] = word1 (primer parámetro)
+;   [A7+6] = word2 (segundo parámetro)
 ; Valor retornado : D0 (resultado long).
 add_words:
-        MOVE.W  4(A7), D0        ; D0 = word1
+        MOVE.W  4(A7), D0        ; D0 = word1 (salta dirección retorno)
         MOVE.W  6(A7), D1        ; D1 = word2
         ADD.L   D1, D0           ; D0 = word1 + word2
         RTS                      ; volver al llamador

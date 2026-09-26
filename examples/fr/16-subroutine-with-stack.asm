@@ -7,10 +7,13 @@
         ORG     $2000
 
 ; Routine : additionne deux words et retourne un long.
-; Paramètres sur pile : word2 à 6(A7), word1 à 4(A7).
+; Disposition pile après JSR :
+;   [A7+0] = PC retour (4 bytes, NE PAS lire !)
+;   [A7+4] = word1 (premier paramètre)
+;   [A7+6] = word2 (second paramètre)
 ; Valeur retournée : D0 (résultat long).
 add_words:
-        MOVE.W  4(A7), D0        ; D0 = word1
+        MOVE.W  4(A7), D0        ; D0 = word1 (ignore l'adresse retour)
         MOVE.W  6(A7), D1        ; D1 = word2
         ADD.L   D1, D0           ; D0 = word1 + word2
         RTS                      ; retourner à l'appelant
