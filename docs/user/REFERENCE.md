@@ -963,6 +963,18 @@ left as they were. Bytes outside `$20`-`$7E` draw nothing.
 There is no scrolling: drawing past the bottom of the screen (or at a
 negative position) stops the program with an error.
 
+For example, to print "Hi" in white at pixel `(10, 10)`:
+
+```asm
+        LEA     MSG,A0          ; the string to print
+        MOVEQ   #10,D0          ; x
+        MOVEQ   #10,D1          ; y
+        MOVE.L  #$FFFFFFFF,D2   ; white
+        TRAP    #1
+
+MSG:    DC.B    "Hi",0          ; null-terminated
+```
+
 `TRAP #2`/`#3` take a framebuffer address, not `x`/`y`: see
 [Addressing a Pixel for TRAP #2/#3](#addressing-a-pixel-for-trap-23)
 above.
