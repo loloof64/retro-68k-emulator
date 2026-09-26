@@ -42,7 +42,7 @@ describe('translated examples', () => {
 
 describe('examples/en/*.asm', () => {
   it('every example is covered below', () => {
-    expect(readdirSync(DIR).filter((f) => f.endsWith('.asm')).length).toBe(15)
+    expect(readdirSync(DIR).filter((f) => f.endsWith('.asm')).length).toBe(16)
   })
 
   it('01 addition', () => {
@@ -130,4 +130,5 @@ describe('examples/en/*.asm', () => {
       expect(lit).toBeGreaterThan(0)
     }
   })
+  it('16 subroutine with stack', () => expect(d(run('16-subroutine-with-stack.asm').cpu, 0)).toBe(15))
 })
