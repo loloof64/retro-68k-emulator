@@ -1134,6 +1134,17 @@ aren't implemented here. If no handler was installed when the fault
 happens, the emulator throws a clear error instead of jumping to address
 `$0` the way real (misconfigured) hardware would.
 
+In other words, a handler runs exactly like an ordinary subroutine called
+with `JSR`/`RTS` (see [What is a "return address"?](#what-is-a-return-address)) — the CPU
+just triggers the "call" itself, on a fault, instead of your code doing it
+with an explicit `JSR`. The "return address" pushed is PC's value right
+after the faulting instruction, the same way it would be after any other
+instruction: in [example 14](#worked-examples)'s `DIVU.W D1,D0` at `$2022`
+(2 bytes, no extension word), that's `$2024` — which is exactly where the
+following `TRAP #0` sits. So `HANDLER`'s `RTS` resumes there, not back at
+the `DIVU` that faulted (which would just trigger the same exception
+again).
+
 ## Inspecting Memory
 
 The Debugger panel ends with a **Memory** section: a read-only hex dump of 192 bytes, 8 per row. Each row shows its address, the 8 bytes in hexadecimal, then the same bytes as ASCII text (a dot for anything unprintable). It opens on `$2000`, where programs are loaded.
