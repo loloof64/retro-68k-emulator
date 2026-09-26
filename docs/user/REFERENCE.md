@@ -693,6 +693,27 @@ Two quirks worth knowing before hand-encoding one:
 1. **Predecrement reverses the bit order.** For every addressing mode except `-(An)`, bit 0 of the mask is `D0` and bit 15 is `A7`. But `-(An)` decrements the address *before* each store, filling memory backward — so to keep the lowest address holding the lowest-numbered register (matching normal reading order), the bit order flips too: bit 0 becomes `A7`, bit 15 becomes `D0`. A real assembler handles this automatically from the `list,-(An)` syntax; hand-encoding it means reversing the bits yourself.
 2. **Word-size loads sign-extend.** `MOVEM.W src,list` sign-extends each 16-bit value it reads to the full 32 bits of its register — unlike `MOVE.W`, which only overwrites the low word and leaves the high word alone. `MOVEM.W list,dst` (storing) just writes each register's low 16 bits, no extension involved.
 
+**Worked example** — starting with `A7 = $1000`, `D0 = $11111111`, `D1 = $22222222`, `A0 = $33333333`:
+
+```asm
+        MOVEM.L D0-D1/A0,-(A7)   ; push D0, D1, A0
+```
+
+This pushes 3 registers × 4 bytes = 12 bytes, so `A7` ends at `$0FF4`. Despite
+writing backward (highest address first), quirk 1 above makes the *final*
+layout read in the same order as the register list, lowest address first:
+
+| Address | Holds |
+|---|---|
+| `$0FF4` (new `A7`) | `D0` = `$11111111` |
+| `$0FF8` | `D1` = `$22222222` |
+| `$0FFC` | `A0` = `$33333333` |
+
+`MOVEM.L (A7)+,D0-D1/A0` reads those same three addresses back in the same
+order, restoring each register and leaving `A7` back at `$1000` — see the
+register-saving example in [Worked Examples](#worked-examples) below for
+this pattern used to protect a caller's registers.
+
 **Cycles**: `8 + 4n` (register→memory, word) / `8 + 8n` (long); `12 + 4n` (memory→register, word) / `12 + 8n` (long) — `n` is the number of registers actually transferred, not 16.
 
 ### How does MOVEP transfer alternating bytes?
