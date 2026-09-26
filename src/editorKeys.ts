@@ -49,11 +49,12 @@ function currentLineSpan(value: string, caret: number): { start: number; end: nu
 }
 
 // Ctrl+C/Ctrl+X with no selection: the whole current line, right-trimmed,
-// with a trailing newline added so pasting elsewhere inserts a full line
-// (matches VS Code's no-selection copy/cut).
+// with a newline added on both ends so pasting elsewhere always lands the
+// line on its own line, whether the caret sits mid-line or at the start of
+// another line (matches VS Code's no-selection copy/cut).
 export function wholeLineClipboardText(value: string, caret: number): string {
   const { start, end } = currentLineSpan(value, caret)
-  return value.slice(start, end).replace(/\s+$/, '') + '\n'
+  return '\n' + value.slice(start, end).replace(/\s+$/, '') + '\n'
 }
 
 // Range to delete from `value` for a no-selection Ctrl+X: the line plus one

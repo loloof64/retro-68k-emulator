@@ -34,14 +34,14 @@ describe('enterInsertText', () => {
 })
 
 describe('wholeLineClipboardText', () => {
-  it('returns the current line right-trimmed plus a trailing newline', () => {
+  it('returns the current line right-trimmed, wrapped in newlines', () => {
     const value = 'START:\n  MOVE.L D0,D1   \nEND:'
-    expect(wholeLineClipboardText(value, 10)).toBe('  MOVE.L D0,D1\n')
+    expect(wholeLineClipboardText(value, 10)).toBe('\n  MOVE.L D0,D1\n')
   })
 
   it('works on the last line even with no trailing newline in the source', () => {
     const value = 'START:\nEND:  '
-    expect(wholeLineClipboardText(value, value.length)).toBe('END:\n')
+    expect(wholeLineClipboardText(value, value.length)).toBe('\nEND:\n')
   })
 })
 
