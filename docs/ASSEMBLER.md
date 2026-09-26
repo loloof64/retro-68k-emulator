@@ -61,6 +61,91 @@ A *directive* is an instruction to the assembler itself; it produces no CPU inst
 | `EQU expr` | Gives the line's label a constant value instead of an address. |
 | `EVEN` | Pads with one zero byte if the address is odd. |
 
+## Program Structure: ORG and END
+
+Every assembled program needs two pieces of address information:
+
+1. **`ORG address`** — where in memory the code is placed. The assembler records this as `origin`. Execution does not automatically jump here; it's purely a label offset for the assembled bytes.
+   - `ORG 0` is the default if omitted. For this emulator, `ORG $2000` is typical (user RAM starts there).
+   - All label addresses are computed relative to `origin`.
+
+2. **`END [label]`** — stops assembly and optionally marks an entry point. The assembler records the label's address as `entry`. When the CPU starts, it jumps to `entry`, not to `origin`.
+   - If `END` names no label, `entry` defaults to `origin` (code starts immediately).
+   - If you have initialization code, a loader, or utility routines before your `start` label, you must use `END start` so execution jumps to the right place.
+
+Without `END start`, the CPU jumps to whatever instruction is at `ORG`—possibly the middle of a routine or data region, crashing or producing garbage.
+
+### Example
+
+```asm
+ORG $0
+
+add_words:      ; Routine (not an entry point)
+    RTS
+
+start:          ; Main program
+    TRAP #0
+    
+END start       ; Jump here when loaded, not to add_words
+```
+
+## Subroutines and Stack Calling Conventions
+
+A *subroutine* is a routine you call from multiple places via `JSR`. Passing parameters and returning results requires care around the stack.
+
+### How JSR Affects the Stack
+
+When `JSR add_words` executes, the CPU automatically:
+1. Pushes the return address (the next instruction's address, 4 bytes) onto the stack (`A7`).
+2. Jumps to `add_words`.
+
+Inside the routine, the stack looks like:
+
+```
+[A7+0]  = return PC (4 bytes, pushed by JSR)
+[A7+4]  = first parameter (if pushed before JSR)
+[A7+6]  = second parameter
+...
+```
+
+Reading `(A7)` gets the return address (not what you want). To access parameters, you must skip over it: `4(A7)` for the first, `6(A7)` for the second, etc.
+
+### Example: Addition Routine with Stack Parameters
+
+```asm
+ORG $0
+
+; Routine: add two words and return a long.
+; Caller must push parameters before JSR:
+;   MOVE.W  word2, -(A7)
+;   MOVE.W  word1, -(A7)
+;   JSR     add_words
+; Result in D0 (a long).
+
+add_words:
+    ; Stack layout:
+    ; [A7+0] = return PC (4 bytes)
+    ; [A7+4] = word1 (parameter 1)
+    ; [A7+6] = word2 (parameter 2)
+    
+    MOVE.W  4(A7), D0   ; D0 = word1 (skip return PC)
+    MOVE.W  6(A7), D1   ; D1 = word2
+    ADD.L   D1, D0      ; D0 = word1 + word2 (long result)
+    RTS                 ; Return to caller
+
+start:
+    MOVE.W  #10, -(A7)  ; Push 10 (word2)
+    MOVE.W  #5, -(A7)   ; Push 5 (word1)
+    JSR     add_words   ; Call the routine
+                        ; D0 now holds 15 (0x0000000F as a long)
+    
+    TRAP    #0          ; Exit
+
+END start
+```
+
+**Key point:** The offset `4` exists *only* because `JSR` reserves 4 bytes for the return address. If you wrote the code inline (no subroutine), parameters would be at `0(A7)` and `2(A7)` instead. Always account for what is already on the stack before reading your own data.
+
 ## Assembler Branch Sizes
 
 `BRA`, `BSR`, `Bcc` and `DBcc` are encoded from the size suffix: `.S` is an 8-bit displacement (must be nonzero), `.W` (the default) is 16-bit. A target out of range is an error; there is no automatic relaxation to a longer form. All conditions are supported except `BF`, which the 68000 does not have as a branch.
