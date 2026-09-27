@@ -926,6 +926,70 @@ CPU outright instead.
 | `#7` | `TRAP #7` | 4 | Pauses the program for `D0` milliseconds (word) — not `D1`, unlike `TRAP #6`'s duration field. See [Waiting with TRAP #7](#waiting-with-trap-7) below. |
 | `#8` | `TRAP #8` | 4 | Pops the next queued keyboard character into `D0` (0 if none pending). See [Reading the Keyboard with TRAP #8](#reading-the-keyboard-with-trap-8) below. |
 
+See [TRAP Register Sizes](#trap-register-sizes) below for the exact size of every register each `TRAP` reads or writes.
+
+### TRAP Register Sizes
+
+Unless noted otherwise, a register a `TRAP` reads is read at its full 32-bit value, and a register a `TRAP` writes gets a full 32-bit value written to it — even when the value itself (a color, a coordinate) would fit in fewer bytes.
+
+**TRAP #0** — no registers.
+
+**TRAP #1**
+
+| Register | Size | Value |
+|---|---|---|
+| `A0` | long | string address |
+| `D0` | long | x |
+| `D1` | long | y |
+| `D2` | long | RGBA color |
+
+**TRAP #2**
+
+| Register | Size | Value |
+|---|---|---|
+| `A0` | long | framebuffer address |
+| `D0` | long | RGBA color (out) |
+
+**TRAP #3**
+
+| Register | Size | Value |
+|---|---|---|
+| `A0` | long | framebuffer address |
+| `D0` | long | RGBA color |
+
+**TRAP #4**
+
+| Register | Size | Value |
+|---|---|---|
+| `D0` | long | RGBA color |
+
+**TRAP #5**
+
+| Register | Size | Value |
+|---|---|---|
+| `D0` | long | controller bitmask (out) |
+
+**TRAP #6**
+
+| Register | Size | Value |
+|---|---|---|
+| `D0` | word | frequency (Hz) |
+| `D1` | word | duration (ms) |
+| `D2` | byte | volume (0-255) |
+| `D3` | byte | waveform |
+
+**TRAP #7**
+
+| Register | Size | Value |
+|---|---|---|
+| `D0` | word | delay (ms) |
+
+**TRAP #8**
+
+| Register | Size | Value |
+|---|---|---|
+| `D0` | long | next key code (out, zero-extended) |
+
 ### Addressing a Pixel for TRAP #2/#3
 
 `TRAP #2` (read pixel) and `TRAP #3` (write pixel) take a framebuffer *byte address* in `A0`, not `x`/`y` coordinates, so compute it yourself first. The framebuffer starts at `$40000` (see the [Memory Map](#memory-map)), each row is 320 pixels, and each pixel takes 4 bytes, so the address of pixel `(x, y)` is:

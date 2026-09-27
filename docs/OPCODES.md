@@ -1795,6 +1795,30 @@ each.
 | 7 | Delay | `D0` (not `D1` - TRAP #6's duration field is `D1`) = duration in milliseconds (word). Sets `cpu.sleepRemainingMs`; not real 68000 hardware - see docs/user/REFERENCE.md's "Waiting with TRAP #7". |
 | 8 | Read Keyboard | Pops the next queued keyboard character into `D0` as a full 32-bit long, zero-extended (0 if none pending). Not backed by a real memory address, unlike the other TRAPs here - see docs/user/REFERENCE.md's "Reading the Keyboard with TRAP #8". |
 
+### TRAP Register Sizes
+
+Unless noted otherwise, a register a `TRAP` reads is read at its full 32-bit value, and a register a `TRAP` writes gets a full 32-bit value written to it — even when the value itself (a color, a coordinate) would fit in fewer bytes. From `trapHandlers` in `src/cpu/opcodes.ts`:
+
+| TRAP # | Register | Size | Value |
+|---|---|---|---|
+| 0 | - | - | no registers |
+| 1 | `A0` | long | string address |
+| 1 | `D0` | long | x |
+| 1 | `D1` | long | y |
+| 1 | `D2` | long | RGBA color |
+| 2 | `A0` | long | framebuffer address |
+| 2 | `D0` | long | RGBA color (out) |
+| 3 | `A0` | long | framebuffer address |
+| 3 | `D0` | long | RGBA color |
+| 4 | `D0` | long | RGBA color |
+| 5 | `D0` | long | controller bitmask (out) |
+| 6 | `D0` | word | frequency (Hz) |
+| 6 | `D1` | word | duration (ms) |
+| 6 | `D2` | byte | volume (0-255) |
+| 6 | `D3` | byte | waveform |
+| 7 | `D0` | word | delay (ms) |
+| 8 | `D0` | long | next key code (out, zero-extended) |
+
 ### How TRAP #1 (Print String) renders text
 
 Glyphs come from a fixed 8x8 monospace bitmap font (`font8x8_basic`,
