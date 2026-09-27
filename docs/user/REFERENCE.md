@@ -402,37 +402,37 @@ See [TRAP System Calls](#trap-system-calls) below for `TRAP`, and
 
 ### Alphabetical Index
 
-**A** — [ABCD](#binary-coded-decimal) · [ADD](#arithmetic) · [ADDA](#arithmetic) · [ADDI](#arithmetic) · [ADDQ](#arithmetic) · [ADDX](#arithmetic) · [AND](#logical) · [ANDI](#logical) · [ANDI to CCR](#logical) · [ASL](#shift-and-rotate) · [ASR](#shift-and-rotate)
+**A** — [ABCD](#op-abcd) · [ADD](#op-add) · [ADDA](#op-adda) · [ADDI](#op-addi) · [ADDQ](#op-addq) · [ADDX](#op-addx) · [AND](#op-and) · [ANDI](#op-andi) · [ANDI to CCR](#op-andi) · [ASL](#op-asl) · [ASR](#op-asr)
 
-**B** — [Bcc](#program-control) · [BCHG](#bit-manipulation) · [BCLR](#bit-manipulation) · [BRA](#program-control) · [BSET](#bit-manipulation) · [BSR](#program-control) · [BTST](#bit-manipulation)
+**B** — [Bcc](#op-bcc) · [BCHG](#op-bchg) · [BCLR](#op-bclr) · [BRA](#op-bra) · [BSET](#op-bset) · [BSR](#op-bsr) · [BTST](#op-btst)
 
-**C** — [CHK](#program-control) · [CLR](#arithmetic) · [CMP](#arithmetic) · [CMPA](#arithmetic) · [CMPI](#arithmetic) · [CMPM](#arithmetic)
+**C** — [CHK](#op-chk) · [CLR](#op-clr) · [CMP](#op-cmp) · [CMPA](#op-cmpa) · [CMPI](#op-cmpi) · [CMPM](#op-cmpm)
 
-**D** — [DBcc](#program-control) · [DIVS](#arithmetic) · [DIVU](#arithmetic)
+**D** — [DBcc](#op-dbcc) · [DIVS](#op-divs) · [DIVU](#op-divu)
 
-**E** — [EORI](#logical) · [EORI to CCR](#logical) · [EXG](#data-movement) · [EXT](#arithmetic)
+**E** — [EORI](#op-eori) · [EORI to CCR](#op-eori) · [EXG](#op-exg) · [EXT](#op-ext)
 
-**I** — [ILLEGAL](#system)
+**I** — [ILLEGAL](#op-illegal)
 
-**J** — [JMP](#program-control) · [JSR](#program-control)
+**J** — [JMP](#op-jmp) · [JSR](#op-jsr)
 
-**L** — [LEA](#data-movement) · [LINK](#program-control) · [LSL](#shift-and-rotate) · [LSR](#shift-and-rotate)
+**L** — [LEA](#op-lea) · [LINK](#op-link) · [LSL](#op-lsl) · [LSR](#op-lsr)
 
-**M** — [MOVE](#data-movement) · [MOVEA](#data-movement) · [MOVEM](#data-movement) · [MOVEP](#data-movement) · [MOVEQ](#data-movement) · [MOVE SR](#data-movement) · [MOVE to CCR](#data-movement) · [MULS](#arithmetic) · [MULU](#arithmetic)
+**M** — [MOVE](#op-move) · [MOVEA](#op-movea) · [MOVEM](#op-movem) · [MOVEP](#op-movep) · [MOVEQ](#op-moveq) · [MOVE SR](#op-move) · [MOVE to CCR](#op-move) · [MULS](#op-muls) · [MULU](#op-mulu)
 
-**N** — [NBCD](#binary-coded-decimal) · [NEG](#arithmetic) · [NEGX](#arithmetic) · [NOP](#system) · [NOT](#logical)
+**N** — [NBCD](#op-nbcd) · [NEG](#op-neg) · [NEGX](#op-negx) · [NOP](#op-nop) · [NOT](#op-not)
 
-**O** — [OR](#logical) · [ORI](#logical) · [ORI to CCR](#logical)
+**O** — [OR](#op-or) · [ORI](#op-ori) · [ORI to CCR](#op-ori)
 
-**P** — [PEA](#data-movement)
+**P** — [PEA](#op-pea)
 
-**R** — [ROL](#shift-and-rotate) · [ROR](#shift-and-rotate) · [ROXL](#shift-and-rotate) · [ROXR](#shift-and-rotate) · [RTR](#program-control) · [RTS](#program-control)
+**R** — [ROL](#op-rol) · [ROR](#op-ror) · [ROXL](#op-roxl) · [ROXR](#op-roxr) · [RTR](#op-rtr) · [RTS](#op-rts)
 
-**S** — [SBCD](#binary-coded-decimal) · [Scc](#program-control) · [SUB](#arithmetic) · [SUBA](#arithmetic) · [SUBI](#arithmetic) · [SUBQ](#arithmetic) · [SUBX](#arithmetic) · [SWAP](#data-movement)
+**S** — [SBCD](#op-sbcd) · [Scc](#op-scc) · [SUB](#op-sub) · [SUBA](#op-suba) · [SUBI](#op-subi) · [SUBQ](#op-addq) · [SUBX](#op-subx) · [SWAP](#op-swap)
 
-**T** — [TAS](#arithmetic) · [TRAP](#trap-system-calls) · [TRAPV](#system) · [TST](#arithmetic)
+**T** — [TAS](#op-tas) · [TRAP](#trap-system-calls) · [TRAPV](#op-trapv) · [TST](#op-tst)
 
-**U** — [UNLK](#program-control)
+**U** — [UNLK](#op-unlk)
 
 **X** — [XOR](#logical)
 

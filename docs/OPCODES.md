@@ -1740,46 +1740,46 @@ than raising a catchable
 
 Every mnemonic documented above, A-Z, linking back to its section. The
 conditional `Bcc` variants (`BEQ`, `BNE`, ...) all share the one
-[Conditional Branches](#conditional-branches) table, the conditional
+[Conditional Branches](#op-conditional) table, the conditional
 `DBcc` variants (`DBEQ`, `DBNE`, ...) all share the one
-[DBcc](#dbcc---decrement-and-branch-conditionally) section, and the
+[DBcc](#op-dbcc) section, and the
 conditional `Scc` variants (`SEQ`, `SNE`, ...) all share the one
-[Scc](#scc---set-conditionally) section, rather than having a section
+[Scc](#op-scc) section, rather than having a section
 each.
 
-**A** — [ABCD](#abcd---add-decimal-with-extend) · [ADD](#add---add) · [ADDA](#adda---add-address) · [ADDI](#addi---add-immediate) · [ADDQ](#addqsubq---addsubtract-quick) · [ADDX](#addx---add-extended) · [AND](#and---bitwise-and) · [ANDI](#andi---and-immediate) · [ANDI to CCR](#andiorieori-to-ccr---combine-an-immediate-into-the-condition-codes) · [ASL](#aslasr---arithmetic-shift) · [ASR](#aslasr---arithmetic-shift)
+**A** — [ABCD](#op-abcd) · [ADD](#op-add) · [ADDA](#op-adda) · [ADDI](#op-addi) · [ADDQ](#op-addq) · [ADDX](#op-addx) · [AND](#op-and) · [ANDI](#op-andi) · [ANDI to CCR](#op-andi) · [ASL](#op-asl) · [ASR](#op-asr)
 
-**B** — [BCC](#conditional-branches) · [BCHG](#bchgbclrbset---changeclearset-bit) · [BCLR](#bchgbclrbset---changeclearset-bit) · [BCS](#conditional-branches) · [BEQ](#conditional-branches) · [BGE](#conditional-branches) · [BGT](#conditional-branches) · [BHI](#conditional-branches) · [BLE](#conditional-branches) · [BLS](#conditional-branches) · [BLT](#conditional-branches) · [BMI](#conditional-branches) · [BNE](#conditional-branches) · [BPL](#conditional-branches) · [BRA](#bra---branch-always) · [BSET](#bchgbclrbset---changeclearset-bit) · [BSR](#bsr---branch-to-subroutine) · [BTST](#btst---test-bit) · [BVC](#conditional-branches) · [BVS](#conditional-branches)
+**B** — [BCC](#op-bcc) · [BCHG](#op-bchg) · [BCLR](#op-bclr) · [BCS](#op-bcc) · [BEQ](#op-bcc) · [BGE](#op-bcc) · [BGT](#op-bcc) · [BHI](#op-bcc) · [BLE](#op-bcc) · [BLS](#op-bcc) · [BLT](#op-bcc) · [BMI](#op-bcc) · [BNE](#op-bcc) · [BPL](#op-bcc) · [BRA](#op-bra) · [BSET](#op-bset) · [BSR](#op-bsr) · [BTST](#op-btst) · [BVC](#op-bcc) · [BVS](#op-bcc)
 
-**C** — [CHK](#chk---check-register-against-bounds) · [CLR](#clr---clear) · [CMP](#cmp---compare) · [CMPA](#cmpa---compare-address) · [CMPI](#cmpi---compare-immediate) · [CMPM](#cmpm---compare-memory)
+**C** — [CHK](#op-chk) · [CLR](#op-clr) · [CMP](#op-cmp) · [CMPA](#op-cmpa) · [CMPI](#op-cmpi) · [CMPM](#op-cmpm)
 
-**D** — [DBCC](#dbcc---decrement-and-branch-conditionally) · [DBCS](#dbcc---decrement-and-branch-conditionally) · [DBEQ](#dbcc---decrement-and-branch-conditionally) · [DBGE](#dbcc---decrement-and-branch-conditionally) · [DBGT](#dbcc---decrement-and-branch-conditionally) · [DBHI](#dbcc---decrement-and-branch-conditionally) · [DBLE](#dbcc---decrement-and-branch-conditionally) · [DBLS](#dbcc---decrement-and-branch-conditionally) · [DBLT](#dbcc---decrement-and-branch-conditionally) · [DBMI](#dbcc---decrement-and-branch-conditionally) · [DBNE](#dbcc---decrement-and-branch-conditionally) · [DBPL](#dbcc---decrement-and-branch-conditionally) · [DBRA](#dbcc---decrement-and-branch-conditionally) · [DBT](#dbcc---decrement-and-branch-conditionally) · [DBVC](#dbcc---decrement-and-branch-conditionally) · [DBVS](#dbcc---decrement-and-branch-conditionally) · [DIVS](#div---divide) · [DIVU](#div---divide)
+**D** — [DBCC](#op-dbcc) · [DBCS](#op-dbcc) · [DBEQ](#op-dbcc) · [DBGE](#op-dbcc) · [DBGT](#op-dbcc) · [DBHI](#op-dbcc) · [DBLE](#op-dbcc) · [DBLS](#op-dbcc) · [DBLT](#op-dbcc) · [DBMI](#op-dbcc) · [DBNE](#op-dbcc) · [DBPL](#op-dbcc) · [DBRA](#op-dbcc) · [DBT](#op-dbcc) · [DBVC](#op-dbcc) · [DBVS](#op-dbcc) · [DIVS](#op-divs) · [DIVU](#op-divu)
 
-**E** — [EORI](#eori---exclusive-or-immediate) · [EORI to CCR](#andiorieori-to-ccr---combine-an-immediate-into-the-condition-codes) · [EXG](#exg---exchange-registers) · [EXT](#ext---sign-extend)
+**E** — [EORI](#op-eori) · [EORI to CCR](#op-eori) · [EXG](#op-exg) · [EXT](#op-ext)
 
-**I** — [ILLEGAL](#illegal---deliberately-raise-an-illegal-instruction)
+**I** — [ILLEGAL](#op-illegal)
 
-**J** — [JMP](#jmp---jump) · [JSR](#jsr---jump-to-subroutine)
+**J** — [JMP](#op-jmp) · [JSR](#op-jsr)
 
-**L** — [LEA](#lea---load-effective-address) · [LINK](#link---link-and-allocate) · [LSL](#lsllsr---logical-shift) · [LSR](#lsllsr---logical-shift)
+**L** — [LEA](#op-lea) · [LINK](#op-link) · [LSL](#op-lsl) · [LSR](#op-lsr)
 
-**M** — [MOVE](#move---move-data) · [MOVEA](#movea---move-address) · [MOVEM](#movem---move-multiple-registers) · [MOVEP](#movep---move-peripheral-data) · [MOVEQ](#moveq---move-quick) · [MOVE SR](#move-sr---read-the-status-register) · [MOVE to CCR](#move-to-ccr---load-the-condition-codes) · [MULS](#mul---multiply) · [MULU](#mul---multiply)
+**M** — [MOVE](#op-move) · [MOVEA](#op-movea) · [MOVEM](#op-movem) · [MOVEP](#op-movep) · [MOVEQ](#op-moveq) · [MOVE SR](#op-move) · [MOVE to CCR](#op-move) · [MULS](#op-muls) · [MULU](#op-mulu)
 
-**N** — [NBCD](#nbcd---negate-decimal-with-extend) · [NEG](#neg---negate) · [NEGX](#negx---negate-extended) · [NOP](#nop---no-operation) · [NOT](#not---bitwise-not)
+**N** — [NBCD](#op-nbcd) · [NEG](#op-neg) · [NEGX](#op-negx) · [NOP](#op-nop) · [NOT](#op-not)
 
-**O** — [OR](#or---bitwise-or) · [ORI](#ori---or-immediate) · [ORI to CCR](#andiorieori-to-ccr---combine-an-immediate-into-the-condition-codes)
+**O** — [OR](#op-or) · [ORI](#op-ori) · [ORI to CCR](#op-ori)
 
-**P** — [PEA](#pea---push-effective-address)
+**P** — [PEA](#op-pea)
 
-**R** — [ROL](#rolror---rotate) · [ROR](#rolror---rotate) · [ROXL](#roxlroxr---rotate-through-extend) · [ROXR](#roxlroxr---rotate-through-extend) · [RTR](#rtr---return-and-restore-condition-codes) · [RTS](#rts---return-from-subroutine)
+**R** — [ROL](#op-rol) · [ROR](#op-ror) · [ROXL](#op-roxl) · [ROXR](#op-roxr) · [RTR](#op-rtr) · [RTS](#op-rts)
 
-**S** — [SBCD](#sbcd---subtract-decimal-with-extend) · [SCC](#scc---set-conditionally) · [SEQ](#scc---set-conditionally) · [SF](#scc---set-conditionally) · [SGE](#scc---set-conditionally) · [SGT](#scc---set-conditionally) · [SHI](#scc---set-conditionally) · [SLE](#scc---set-conditionally) · [SLS](#scc---set-conditionally) · [SLT](#scc---set-conditionally) · [SMI](#scc---set-conditionally) · [SNE](#scc---set-conditionally) · [SPL](#scc---set-conditionally) · [ST](#scc---set-conditionally) · [SUB](#sub---subtract) · [SUBA](#suba---subtract-address) · [SUBI](#subi---subtract-immediate) · [SUBQ](#addqsubq---addsubtract-quick) · [SUBX](#subx---subtract-extended) · [SVC](#scc---set-conditionally) · [SVS](#scc---set-conditionally) · [SWAP](#swap---swap-register-halves)
+**S** — [SBCD](#op-sbcd) · [SCC](#op-scc) · [SEQ](#op-scc) · [SF](#op-scc) · [SGE](#op-scc) · [SGT](#op-scc) · [SHI](#op-scc) · [SLE](#op-scc) · [SLS](#op-scc) · [SLT](#op-scc) · [SMI](#op-scc) · [SNE](#op-scc) · [SPL](#op-scc) · [ST](#op-scc) · [SUB](#op-sub) · [SUBA](#op-suba) · [SUBI](#op-subi) · [SUBQ](#op-addq) · [SUBX](#op-subx) · [SVC](#op-scc) · [SVS](#op-scc) · [SWAP](#op-swap)
 
-**T** — [TAS](#tas---test-and-set-an-operand) · [TRAP](#trap---software-trap) · [TRAPV](#trapv---trap-on-overflow) · [TST](#tst---test)
+**T** — [TAS](#op-tas) · [TRAP](#op-trap) · [TRAPV](#op-trapv) · [TST](#op-tst)
 
-**U** — [UNLK](#unlk---unlink)
+**U** — [UNLK](#op-unlk)
 
-**X** — [XOR](#xor---bitwise-xor)
+**X** — [XOR](#op-xor)
 
 ## TRAP Handlers
 

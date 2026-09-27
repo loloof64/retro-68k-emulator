@@ -219,6 +219,15 @@ function markdownToHtml(markdown, filenameToId = {}) {
 
   html = html.replace(/@@CODE(\d+)@@/g, (_, i) => codeSnippets[Number(i)])
 
+  // Add id="" to first-column table cells containing code-wrapped mnemonics,
+  // so the alphabetical index can link directly to each opcode row.
+  // Match: <td><code>MNEMONIC</code>...  -> <td id="op-mnemonic"><code>MNEMONIC</code>...
+  // (includes mixed case like DBcc or Scc)
+  html = html.replace(/<td><code>([A-Za-z_][A-Za-z0-9_]*)<\/code>/g, (match, mnem) => {
+    const mn = mnem.toLowerCase()
+    return `<td id="op-${mn}"><code>${mnem}</code>`
+  })
+
   return html
 }
 
